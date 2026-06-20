@@ -1,28 +1,26 @@
 -- lib/macros.lua
--- FFXI macro memory read/write and backup operations
---
--- TODO: Locate the macro memory base address via Windower's memory module.
--- Macro data lives in a fixed region of the FFXI process; offsets change
--- with client patches. Reference: Windower docs / Ashita macro plugin source.
+-- FFXI macro DAT file read/write and backup operations.
+-- The plugin delegates heavy lifting (DAT parsing, YAML conversion) to the
+-- CLI binary. These stubs represent the in-plugin surface; full implementation
+-- requires invoking the CLI or bundling its DAT parsing logic.
 
 local yaml = require('lib/yaml')
 
 local macros = {}
 
--- Memory base — must be determined per-client-version
--- local MACRO_BASE = 0x????????
-
 function macros.read()
-    -- TODO: Walk FFXI memory at MACRO_BASE, build sparse table:
-    --   { books = { [idx] = { name=..., sets = { [idx] = { ctrl={...}, alt={...} } } } } }
-    -- Each macro slot: name (8 chars), 6 lines (255 chars each), ctrl/alt flag
+    -- TODO: Delegate to CLI: `macromog export --char <id> --output <tmp>`
+    -- then read the resulting YAML. Alternatively, parse mcr*.dat files
+    -- directly (see POLUtils / xi-tinkerer for DAT format reference).
+    -- Returns sparse table: { books = { [idx] = { name=..., sets={...} } } }
     windower.add_to_chat(207, '[Macromog] macros.read() not yet implemented.')
     return nil
 end
 
 function macros.write(data)
-    -- TODO: Serialize `data` back into FFXI process memory at MACRO_BASE.
-    -- Must zero out cleared slots so stale entries don't survive.
+    -- TODO: Delegate to CLI: `macromog import <file> --char <id>`.
+    -- Write `data` to a temp YAML file, then invoke the CLI to apply it.
+    -- Must zero out cleared slots so stale entries do not survive.
     windower.add_to_chat(207, '[Macromog] macros.write() not yet implemented.')
 end
 
@@ -33,6 +31,9 @@ function macros.backup()
         return false
     end
 
+    -- TODO: Delegate to CLI: `macromog backup --char <id>`.
+    -- The CLI copies mcr*.dat files directly to a timestamped directory.
+    -- Current fallback: round-trip through YAML (removed when CLI is available).
     local data = macros.read()
     if not data then
         windower.add_to_chat(207, '[Macromog] Cannot backup: failed to read macros.')
