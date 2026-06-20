@@ -22,16 +22,23 @@ end
 
 local handlers = {}
 
-function handlers.export()
+function handlers.export(filename)
     local char = windower.ffxi.get_player().name
-    local filename = char .. '_macros.yml'
+    if not filename then
+        local timestamp = os.date('%Y%m%d_%H%M%S')
+        filename = char .. '_macros_' .. timestamp .. '.yml'
+    end
     local path = windower.addon_path .. 'data/' .. filename
 
     local data = macros.read()
     if not data then
-        log('Failed to read macros from memory, kupo!')
+        log('Failed to read macros from DAT files, kupo!')
         return
     end
+
+    data.version = 1
+    data.character = char
+    data.exported_at = os.date('!%Y-%m-%dT%H:%M:%SZ')
 
     local ok, err = validate.macros(data)
     if not ok then
@@ -125,7 +132,7 @@ windower.register_event('addon command', function(cmd, ...)
     cmd = (cmd or ''):lower()
 
     if cmd == 'export' then
-        handlers.export()
+        handlers.export(args[1])
     elseif cmd == 'import' then
         handlers.import(args[1])
     elseif cmd == 'validate' then

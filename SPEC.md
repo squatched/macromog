@@ -32,8 +32,10 @@ The YAML file is the shared data format for both the plugin and CLI. It is **spa
 
 ### File Naming
 
-- Exported files: `<character_name>_macros.yml` (or user-specified via flag/argument)
-- Example: `Hendrimod_macros.yml`
+- Default export filename: `<character_name>_macros_<YYYYMMDD_HHMMSS>.yml`
+- Example: `Hendrimod_macros_20260620_033000.yml`
+- A timestamp suffix is always added to default filenames to prevent overwriting previous exports.
+- An explicit filename argument skips the timestamp: `//macromog export myfile.yml` writes `myfile.yml`.
 
 ### Structure
 

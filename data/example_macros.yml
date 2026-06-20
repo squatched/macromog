@@ -1,47 +1,51 @@
 # Macromog Example Macros
 # Sparse format - only defined books, sets, and macros are present
-# Book indices are 0-based (0-39) in exported files
+# All indices are 1-based: books 1–40, sets 1–10, keys 1–9 then 0
+
+version: 1
+character: "Hendrimod"
+exported_at: "2026-06-20T03:30:00Z"
 
 books:
-  0:
+  1:
     name: "WHM75"
     sets:
-      0:
-        ctrl:
-          0:
-            name: "Cure"
-            contents:
-              - "/ma 'Cure IV' <me>"
-              - "/wait 1"
-          1:
-            name: "Esuna"
-            contents:
-              - "/ma Esuna <me>"
-        alt:
-          0:
-            name: "Protect"
-            contents:
-              - "/ma Protectra V <me>"
       1:
         ctrl:
-          0:
+          1:
+            name: "Cure"
+            contents:
+              - /ma "Cure IV" <me>
+              - /wait 1
+          2:
+            name: "Esuna"
+            contents:
+              - /ma "Esuna" <me>
+        alt:
+          1:
+            name: "Protect"
+            contents:
+              - /ma "Protectra V" <me>
+      2:
+        ctrl:
+          1:
             name: "Idle"
             contents:
-              - "/equipset 1"
-              - "/echo Idle set on, kupo!"
-  5:
+              - /equipset 1
+              - /echo Idle set on, kupo!
+  6:
     name: "RDM75NIN"
     sets:
-      0:
+      1:
         ctrl:
-          0:
+          1:
             name: "WS"
             contents:
-              - "/ws 'Savage Blade' <t>"
-          1:
+              - /ws "Savage Blade" <t>
+          2:
             name: "Convert"
             contents:
-              - "/ja Convert <me>"
-              - "/wait 2"
-              - "/ma 'Cure IV' <me>"
+              - /ja "Convert" <me>
+              - /wait 2
+              - /ma "Cure IV" <me>
 # ... add more books/sets as needed
