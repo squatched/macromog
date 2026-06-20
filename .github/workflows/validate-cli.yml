@@ -1,0 +1,68 @@
+name: Validate CLI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  cli-lint:
+    name: validate-cli-lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: validate-cli-lint
+        run: make validate-cli-lint
+
+  cli-format:
+    name: validate-cli-format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: validate-cli-format
+        run: make validate-cli-format
+
+  cli-test:
+    name: validate-cli-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: validate-cli-test
+        run: make validate-cli-test
+
+  cli-coverage:
+    name: validate-cli-coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: validate-cli-coverage
+        run: make validate-cli-coverage
+
+      - name: Upload coverage-cli.out
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: coverage-cli-out
+          path: coverage-cli.out
+          if-no-files-found: warn

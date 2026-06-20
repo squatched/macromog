@@ -3,50 +3,111 @@ BUSTED           := busted
 STYLUA           := stylua
 LUACOV           := luacov
 LUACOV_COBERTURA := luacov-cobertura
+GO               := go
 
-LUA_SRC      := macromog.lua lib/
-TEST_DIR     := tests/
-COVERAGE_MIN := 80
+LUA_SRC          := macromog.lua lib/
+TEST_DIR         := tests/
+PLUGIN_COV_MIN   := 80
+# CLI_COV_MIN is 0 for the stub; raise it as implementation fills in
+CLI_COV_MIN      := 0
+GO_SRC           := ./...
+CLI_DIRS         := ./cmd
 
-.PHONY: all validate validate-lint validate-format validate-test validate-coverage \
-        fix fix-format clean
+.PHONY: all \
+        validate validate-plugin validate-cli \
+        validate-plugin-lint validate-plugin-format \
+        validate-plugin-test validate-plugin-coverage \
+        validate-cli-lint validate-cli-format validate-cli-test validate-cli-coverage \
+        fix fix-plugin-format fix-cli-format \
+        clean
 
 all: validate
 
-## Run all validation checks (lint + format + coverage)
-validate: validate-lint validate-format validate-coverage
+## Run all validation checks across the plugin (Lua) and CLI (Go)
+validate: validate-plugin validate-cli
+
+# ── Plugin (Lua / Windower addon) ────────────────────────────────────────────
+
+## Run all plugin validation checks (lint + format + coverage)
+validate-plugin: validate-plugin-lint validate-plugin-format validate-plugin-coverage
 
 ## Static analysis with luacheck
-validate-lint:
+validate-plugin-lint:
 	$(LUACHECK) $(LUA_SRC)
 
 ## Formatting check — fails if any file is not formatted
-validate-format:
+validate-plugin-format:
 	$(STYLUA) --check $(LUA_SRC)
 
 ## Run test suite without coverage instrumentation (fast, local iteration)
-validate-test:
+validate-plugin-test:
 	$(BUSTED) $(TEST_DIR)
 
-## Run tests with coverage and enforce the $(COVERAGE_MIN)% threshold
-validate-coverage:
+## Run tests with coverage and enforce the $(PLUGIN_COV_MIN)% threshold
+validate-plugin-coverage:
 	$(BUSTED) --coverage $(TEST_DIR)
 	$(LUACOV)
 	$(LUACOV_COBERTURA) -o coverage.xml
 	@awk '/^Total/{gsub(/%/, "", $$NF); cov = $$NF + 0} \
 	  END { \
-	    printf "Coverage: %.2f%%\n", cov; \
-	    if (cov < $(COVERAGE_MIN)) { \
-	      printf "FAIL: %.2f%% is below the %d%% threshold\n", cov, $(COVERAGE_MIN); exit 1 \
+	    printf "Plugin Coverage: %.2f%%\n", cov; \
+	    if (cov < $(PLUGIN_COV_MIN)) { \
+	      printf "FAIL: %.2f%% is below the %d%% threshold\n", cov, $(PLUGIN_COV_MIN); exit 1 \
 	    } else { \
-	      printf "PASS: meets %d%% threshold\n", $(COVERAGE_MIN) \
+	      printf "PASS: meets %d%% threshold\n", $(PLUGIN_COV_MIN) \
 	    } \
 	  }' luacov.report.out
 
 ## Auto-format all Lua source files in place
-fix-format:
+fix-plugin-format:
 	$(STYLUA) $(LUA_SRC)
+
+# ── CLI (Go) ─────────────────────────────────────────────────────────────────
+
+## Run all CLI validation checks (lint + format + test + coverage)
+validate-cli: validate-cli-lint validate-cli-format validate-cli-test validate-cli-coverage
+
+## Static analysis with go vet
+validate-cli-lint:
+	$(GO) vet $(GO_SRC)
+
+## Formatting check — fails if any file is not gofmt-clean
+validate-cli-format:
+	@out=$$(gofmt -l $(CLI_DIRS)); \
+	if [ -n "$$out" ]; then \
+		echo "unformatted files (run 'make fix-cli-format'):"; \
+		echo "$$out"; \
+		exit 1; \
+	fi
+
+## Run Go test suite without coverage instrumentation (fast, local iteration)
+validate-cli-test:
+	$(GO) test $(GO_SRC)
+
+## Run Go tests with coverage and enforce the $(CLI_COV_MIN)% threshold
+validate-cli-coverage:
+	$(GO) test -coverprofile=coverage-cli.out $(GO_SRC)
+	@go tool cover -func=coverage-cli.out | awk '/^total:/{gsub(/%/, "", $$NF); cov = $$NF + 0} \
+	  END { \
+	    printf "CLI Coverage: %.2f%%\n", cov; \
+	    if (cov < $(CLI_COV_MIN)) { \
+	      printf "FAIL: %.2f%% is below the %d%% threshold\n", cov, $(CLI_COV_MIN); exit 1 \
+	    } else { \
+	      printf "PASS: meets %d%% threshold\n", $(CLI_COV_MIN) \
+	    } \
+	  }'
+
+## Auto-format all Go source files in place
+fix-cli-format:
+	gofmt -w $(CLI_DIRS)
+
+# ── Umbrella fix targets ──────────────────────────────────────────────────────
+
+## Auto-fix all issues that can be fixed automatically
+fix: fix-plugin-format fix-cli-format
+
+# ── Housekeeping ─────────────────────────────────────────────────────────────
 
 ## Remove generated coverage artifacts
 clean:
-	rm -f luacov.stats.out luacov.report.out coverage.xml
+	rm -f luacov.stats.out luacov.report.out coverage.xml coverage-cli.out

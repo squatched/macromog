@@ -24,8 +24,8 @@ jobs:
           sudo luarocks install luacov
           sudo luarocks install luacov-cobertura
 
-      - name: validate-coverage
-        run: make validate-coverage
+      - name: validate-plugin-coverage
+        run: make validate-plugin-coverage
 
       - name: Upload coverage.xml
         if: always()
@@ -70,11 +70,11 @@ jobs:
             const pctDisplay = coveragePct !== null ? `${coveragePct.toFixed(2)}%` : 'unknown'
 
             const body = [
-              `## ${status} Coverage Report — ${pctDisplay}`,
+              `## ${status} Plugin Coverage — ${pctDisplay}`,
               '',
               passed
-                ? `Coverage meets the ${threshold}% threshold.`
-                : `Coverage is below the ${threshold}% threshold. Download [\`coverage.xml\`](${runUrl}) to identify gaps.`,
+                ? `Plugin Coverage meets the ${threshold}% threshold.`
+                : `Plugin Coverage is below the ${threshold}% threshold. Download [\`coverage.xml\`](${runUrl}) to identify gaps.`,
               '',
               fileTable,
               '',
@@ -86,7 +86,7 @@ jobs:
               repo: context.repo.repo,
               issue_number: context.issue.number,
             })
-            const existing = comments.find(c => c.body.includes('Coverage Report'))
+            const existing = comments.find(c => c.body.includes('Plugin Coverage'))
 
             if (existing) {
               await github.rest.issues.updateComment({
