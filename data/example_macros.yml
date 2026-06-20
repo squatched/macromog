@@ -15,24 +15,24 @@ books:
           1:
             name: "Cure"
             contents:
-              - "/ma 'Cure IV' <me>"
-              - "/wait 1"
+              - /ma "Cure IV" <me>
+              - /wait 1
           2:
             name: "Esuna"
             contents:
-              - "/ma Esuna <me>"
+              - /ma "Esuna" <me>
         alt:
           1:
             name: "Protect"
             contents:
-              - "/ma Protectra V <me>"
+              - /ma "Protectra V" <me>
       2:
         ctrl:
           1:
             name: "Idle"
             contents:
-              - "/equipset 1"
-              - "/echo Idle set on, kupo!"
+              - /equipset 1
+              - /echo Idle set on, kupo!
   6:
     name: "RDM75NIN"
     sets:
@@ -41,11 +41,11 @@ books:
           1:
             name: "WS"
             contents:
-              - "/ws 'Savage Blade' <t>"
+              - /ws "Savage Blade" <t>
           2:
             name: "Convert"
             contents:
-              - "/ja Convert <me>"
-              - "/wait 2"
-              - "/ma 'Cure IV' <me>"
+              - /ja "Convert" <me>
+              - /wait 2
+              - /ma "Cure IV" <me>
 # ... add more books/sets as needed
