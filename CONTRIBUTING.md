@@ -86,7 +86,12 @@ luarocks install luacov-cobertura
 
 StyLua is a standalone binary — grab the latest release for your platform
 from [github.com/JohnnyMorganz/StyLua/releases](https://github.com/JohnnyMorganz/StyLua/releases)
-and put it on your `$PATH`.
+and put it on your `$PATH`. Or check your package manager.
+
+```sh
+# StyLua (Arch)
+sudo pacman -S stylua
+```
 
 ## CI / branch protection
 
