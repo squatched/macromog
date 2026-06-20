@@ -40,8 +40,8 @@ function macros.backup()
     end
 
     local timestamp = os.date('%Y%m%d_%H%M%S')
-    local filename  = player.name .. '_macros_backup_' .. timestamp .. '.yml'
-    local path      = windower.addon_path .. 'data/' .. filename
+    local filename = player.name .. '_macros_backup_' .. timestamp .. '.yml'
+    local path = windower.addon_path .. 'data/' .. filename
 
     local f = io.open(path, 'w')
     if not f then

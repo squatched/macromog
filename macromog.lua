@@ -1,16 +1,16 @@
 -- Macromog - FFXI macro manager via YAML files
 -- Windower 4 addon
 
-_addon.name     = 'Macromog'
-_addon.author   = 'Caleb McCombs'
-_addon.version  = '0.1.0'
-_addon.commands = {'macromog', 'mmog'}
+_addon.name = 'Macromog'
+_addon.author = 'Caleb McCombs'
+_addon.version = '0.1.0'
+_addon.commands = { 'macromog', 'mmog' }
 
-local macros   = require('lib/macros')
-local yaml     = require('lib/yaml')
+local macros = require('lib/macros')
+local yaml = require('lib/yaml')
 local validate = require('lib/validate')
 
-local CHAT_COLOR = 207  -- moogle purple
+local CHAT_COLOR = 207 -- moogle purple
 
 local function log(msg)
     windower.add_to_chat(CHAT_COLOR, '[Macromog] ' .. tostring(msg))
@@ -121,7 +121,7 @@ function handlers.backup()
 end
 
 windower.register_event('addon command', function(cmd, ...)
-    local args = {...}
+    local args = { ... }
     cmd = (cmd or ''):lower()
 
     if cmd == 'export' then
