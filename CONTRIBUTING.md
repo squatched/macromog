@@ -93,6 +93,26 @@ and put it on your `$PATH`. Or check your package manager.
 sudo pacman -S stylua
 ```
 
+## Releases
+
+Releases are fully automated — never push tags or edit `CHANGELOG.md` by hand.
+
+When releasable commits land on `main`, the Release Please bot opens (or updates) a
+**"Release vX.Y.Z" PR** that pre-writes the changelog entry and bumps `VERSION`. A
+maintainer merges it; that merge creates the tag and publishes the GitHub Release with
+the addon zip attached automatically.
+
+**The semver bump comes from your commit type:**
+
+| Commit type | Version bump |
+|---|---|
+| `fix:`, `perf:` | patch — 0.0.**x** |
+| `feat:` | minor — 0.**x**.0 |
+| `feat!:` or `BREAKING CHANGE:` footer | major — **x**.0.0 |
+| `chore:`, `docs:`, `style:`, `refactor:`, `test:` | no release |
+
+Your only job is accurate commit messages — the rest is handled for you.
+
 ## CI / branch protection
 
 Every PR must pass all three CI jobs before it can merge:
