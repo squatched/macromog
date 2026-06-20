@@ -9,6 +9,7 @@ Macromog is a Windower 4 Lua addon that lets users manage FFXI macros via clean 
 1. **Export**
    - Reads all current in-game macros (including custom book names) from memory or .dat files
    - Outputs to a sparse `<character_name>_macros.yml`
+   - Book indices in exported files are always **0-based (0–39)** — this is the canonical on-disk format and unambiguous for round-tripping
 
 2. **Import**
    - Reads and validates a YAML file
@@ -20,14 +21,18 @@ Macromog is a Windower 4 Lua addon that lets users manage FFXI macros via clean 
    - Sparse format support (only defined entries are stored)
 
 ## YAML Structure (Example)
+
+Exported files always use 0-based book indices. Hand-written import files may
+use 1-based indices (1–40) — the addon detects and normalizes them on load.
+
 ```yaml
 books:
-  0:                    # Book index (0-39)
+  0:                    # Book index — 0-based in exported files (0-39)
     name: "rdm75nin"    # Custom book name (editable in-game)
     sets:
       0:                # Set index (0-9)
         ctrl:
-          0:
+          1:
             name: "Cure"   # Macro button title (max 8 chars)
             contents:
               - "/ma 'Cure IV' <me>"
@@ -40,7 +45,8 @@ books:
 ## Constraints (Validation Rules)
 
 ### Macro Books
-- **Count**: Up to **40 books** (indices 0–39 or 1–40 — document chosen convention)
+- **Count**: Up to **40 books**
+- **Index convention**: 1-based by default (1–40 in YAML). If any book uses index 0, the entire file is treated as 0-based (0–39). This lets experienced users write 0-based YAML while keeping a friendly default for everyone else.
 - **Name**: User-editable in-game
   - **Recommended max**: **32 characters** (conservative; common usage like "rdm40whm" fits easily)
   - Allowed: Alphanumeric + basic punctuation/underscores/spaces

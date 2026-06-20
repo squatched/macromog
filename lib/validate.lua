@@ -12,6 +12,44 @@ local LIMITS = {
     line_len = 255, -- chars per line (verify against live client)
 }
 
+-- Returns "zero" if any book key is 0, otherwise "one".
+local function detect_index_mode(books)
+    for k in pairs(books) do
+        if k == 0 then
+            return 'zero'
+        end
+    end
+    return 'one'
+end
+
+-- Normalizes a macro data table so book indices are always 0-based.
+-- If any book key is 0, treats the whole set as 0-based (no change).
+-- Otherwise assumes 1-based (indices 1-40) and shifts all book keys down by 1.
+-- Returns: normalized_data, mode ("zero" | "one")
+function validate.normalize(data)
+    if type(data) ~= 'table' or type(data.books) ~= 'table' then
+        return data, 'zero'
+    end
+    local mode = detect_index_mode(data.books)
+    if mode == 'zero' then
+        return data, 'zero'
+    end
+    local shifted = {}
+    for k, v in pairs(data.books) do
+        if type(k) == 'number' then
+            shifted[k - 1] = v
+        else
+            shifted[k] = v
+        end
+    end
+    local out = {}
+    for k, v in pairs(data) do
+        out[k] = v
+    end
+    out.books = shifted
+    return out, 'one'
+end
+
 -- Returns true, nil on success; false, error_string on failure.
 function validate.macros(data)
     if type(data) ~= 'table' then
@@ -20,6 +58,8 @@ function validate.macros(data)
     if type(data.books) ~= 'table' then
         return false, 'missing top-level "books" key'
     end
+
+    data = (validate.normalize(data))
 
     local book_count = 0
     for book_idx, book in pairs(data.books) do

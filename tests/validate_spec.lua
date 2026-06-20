@@ -2,6 +2,51 @@ package.path = './?.lua;./?/init.lua;' .. package.path
 
 local validate = require('lib/validate')
 
+describe('validate.normalize', function()
+    it('returns data unchanged in zero mode when key 0 is present', function()
+        local data = { books = { [0] = { sets = {} }, [5] = { sets = {} } } }
+        local result, mode = validate.normalize(data)
+        assert.equal('zero', mode)
+        assert.not_nil(result.books[0])
+        assert.not_nil(result.books[5])
+        assert.is_nil(result.books[1])
+    end)
+
+    it('shifts 1-based indices to 0-based when no key 0 is present', function()
+        local data = { books = { [1] = { sets = {} }, [3] = { sets = {} } } }
+        local result, mode = validate.normalize(data)
+        assert.equal('one', mode)
+        assert.not_nil(result.books[0])
+        assert.not_nil(result.books[2])
+        assert.is_nil(result.books[1])
+        assert.is_nil(result.books[3])
+    end)
+
+    it('preserves non-books keys when shifting', function()
+        local data = { extra = 'value', books = { [1] = { sets = {} } } }
+        local result, _ = validate.normalize(data)
+        assert.equal('value', result.extra)
+    end)
+
+    it('returns zero mode for non-table input', function()
+        local result, mode = validate.normalize('bad')
+        assert.equal('zero', mode)
+        assert.equal('bad', result)
+    end)
+
+    it('returns zero mode when books is not a table', function()
+        local result, mode = validate.normalize({ books = 'nope' })
+        assert.equal('zero', mode)
+    end)
+
+    it('returns one mode for empty books table', function()
+        local data = { books = {} }
+        local result, mode = validate.normalize(data)
+        assert.equal('one', mode)
+        assert.same({}, result.books)
+    end)
+end)
+
 describe('validate.macros', function()
     describe('top-level structure', function()
         it('rejects nil', function()
@@ -70,8 +115,10 @@ describe('validate.macros', function()
             assert.matches('invalid book index', err)
         end)
 
-        it('rejects book index 40 (out of range)', function()
-            local ok, err = validate.macros(book_data(40))
+        it('rejects 0-based book index 40 (out of range)', function()
+            -- index 0 present → 0-based mode; 40 is then out of range
+            local data = { books = { [0] = { sets = {} }, [40] = { sets = {} } } }
+            local ok, err = validate.macros(data)
             assert.is_false(ok)
             assert.matches('invalid book index', err)
         end)
@@ -126,6 +173,40 @@ describe('validate.macros', function()
             local ok, err = validate.macros(data)
             assert.is_true(ok)
             assert.is_nil(err)
+        end)
+
+        it('accepts 1-based book at index 1 (normalized to 0)', function()
+            local ok, err = validate.macros({ books = { [1] = { sets = {} } } })
+            assert.is_true(ok)
+            assert.is_nil(err)
+        end)
+
+        it('accepts 1-based book at max index 40 (normalized to 39)', function()
+            local ok, err = validate.macros({ books = { [40] = { sets = {} } } })
+            assert.is_true(ok)
+            assert.is_nil(err)
+        end)
+
+        it('rejects 1-based index 41 as out of range', function()
+            local ok, err = validate.macros({ books = { [41] = { sets = {} } } })
+            assert.is_false(ok)
+            assert.matches('invalid book index', err)
+        end)
+
+        it('accepts exactly 40 books with 1-based indices 1-40', function()
+            local data = { books = {} }
+            for i = 1, 40 do
+                data.books[i] = { sets = {} }
+            end
+            local ok, err = validate.macros(data)
+            assert.is_true(ok)
+            assert.is_nil(err)
+        end)
+
+        it('uses 0-based mode when index 0 is present — index 40 then out of range', function()
+            local ok, err = validate.macros({ books = { [0] = { sets = {} }, [40] = { sets = {} } } })
+            assert.is_false(ok)
+            assert.matches('invalid book index', err)
         end)
     end)
 
