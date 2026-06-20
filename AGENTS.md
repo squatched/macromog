@@ -129,6 +129,57 @@ docs: add INSTRUCTIONS.md with quick-start guide
 
 ---
 
+## Validation & CI Conventions
+
+### Terminology
+
+| Term | Meaning |
+|------|---------|
+| **Plugin Coverage** | Test coverage of the Lua/Windower addon (`macromog.lua`, `lib/`) |
+| **CLI Coverage** | Test coverage of the Go binary (`cmd/`) |
+
+These are tracked and reported separately. Never combine them into a single percentage — a high score in one must not mask a low score in the other.
+
+### Target naming
+
+All validation targets follow a two-level naming scheme:
+
+```
+validate-<component>-<check>
+fix-<component>-<check>
+```
+
+| Segment | Values | Notes |
+|---------|--------|-------|
+| `<component>` | `plugin`, `cli` | `plugin` = Lua/Windower addon; `cli` = Go binary |
+| `<check>` | `lint`, `format`, `test`, `coverage` | Not every check exists for every component |
+
+Component umbrellas (`validate-plugin`, `validate-cli`) run all checks for that component.
+The top-level `validate` target runs all component umbrellas.
+
+### The fix-* rule
+
+Any `validate-<component>-<check>` target that catches an auto-fixable issue **must** have a
+corresponding `fix-<component>-<check>` target that repairs it in place. Current pairs:
+
+| Validate target | Fix target | Tool |
+|----------------|------------|------|
+| `validate-plugin-format` | `fix-plugin-format` | `stylua` |
+| `validate-cli-format` | `fix-cli-format` | `gofmt` |
+
+### Local / CI parity
+
+GitHub Actions workflows call `make` targets directly — no inline commands. This guarantees
+that the exact same check runs locally (`make validate-plugin-lint`) and in CI. Never put tool
+invocations directly in workflow YAML; always route through a Makefile target.
+
+Workflow files are named to mirror the Makefile structure:
+- `.github/workflows/validate-plugin.yml` — Plugin Coverage lint + format
+- `.github/workflows/test.yml` — Plugin Coverage (with PR comment)
+- `.github/workflows/validate-cli.yml` — CLI Coverage lint + format + test + coverage
+
+---
+
 ## Starting Fresh Work
 
 Before writing a single line of code:
@@ -154,8 +205,8 @@ to a branch:
 make validate
 ```
 
-This runs `validate-lint`, `validate-format`, and `validate-coverage` in
-sequence — exactly what CI enforces. If it passes locally, CI will pass.
+This runs `validate-plugin` and `validate-cli` in sequence — exactly what CI
+enforces. If it passes locally, CI will pass.
 
 **You must actually run this command.** Do not simulate the result, describe
 what it would do, or carry forward an earlier passing result. Run it fresh and
