@@ -115,15 +115,16 @@ Append `!` after the type for a **breaking change** (major bump): `feat!:`, `fix
 ### Examples
 
 ```
-feat(yaml): implement pure-Lua YAML parser for macro structure
-fix(validate): correct book index upper bound check
+feat(yaml): add pure-Lua YAML parser
+fix(validate): correct book index bounds
 chore(ci): add release-please workflow
-feat!: change YAML schema — book indices now 1-based
+feat!: use 1-based book indices
 docs: add INSTRUCTIONS.md with quick-start guide
 ```
 
 ### Rules
-- Summary line: imperative mood, lowercase, no trailing period, ≤72 chars
+- Subject line: imperative mood, lowercase, no trailing period, **≤50 chars**
+- Body/footer lines: **≤72 chars** each
 - Body: explain *why*, not *what* (the diff shows what)
 - Breaking changes: add `BREAKING CHANGE: <description>` in the footer (in addition to `!`)
 
