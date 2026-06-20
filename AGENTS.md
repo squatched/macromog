@@ -85,6 +85,10 @@ Before writing a single line of code:
    assume it passes, or describe what it would do — run it and show the result.
    If anything is already failing, fix it before touching anything else. This
    ensures you can attribute any new failure to your own changes.
+3. **Create a branch** — never work directly on `main`. Create a branch named
+   after the commit type and a short slug, e.g. `feat/yaml-parser`,
+   `fix/book-index-bounds`, `docs/quick-start`. Push it to origin before
+   making any commits.
 
 ## Before Pushing / Calling Work Complete
 
@@ -113,3 +117,18 @@ When working in this repo, agents must follow this workflow for every commit:
    - A brief summary of what changed and why
    - The proposed commit message (following Conventional Commits above)
 4. **Wait for explicit approval** — only commit after the user approves the message. Do not proceed to the next task until the commit is made and acknowledged.
+
+## PR Workflow
+
+All work lands on `main` via pull request — never direct-push.
+
+1. **Branch first** — follow the "Starting Fresh Work" steps above to create
+   and push a branch before touching any files.
+2. **Commit on the branch** — follow the Commit Workflow above for each logical
+   unit of work.
+3. **Validate before opening** — run `make validate` and confirm it passes.
+4. **Open the PR** — use `gh pr create` targeting `main`. Include:
+   - A clear title (imperative mood, ≤70 chars)
+   - A body with a short summary of *why* the change is needed and a test plan
+5. **Present for approval** — share the PR URL and wait for the user to review
+   and approve before merging. Do not merge without explicit sign-off.
