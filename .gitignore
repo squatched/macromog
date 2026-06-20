@@ -1,41 +1,42 @@
-# Compiled Lua sources
+# Macromog .gitignore
+
+# Windower / FFXI specific
+data/settings.xml
+data/*.log
+*.dat
+*.dmp
+
+# Common temp / backup files
+*.bak
+*.tmp
+*~
+*.swp
+*.swo
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Lua / editor files
+*.lua~
 luac.out
 
-# luarocks build files
-*.src.rock
+# Dependencies (if any are downloaded)
+libs/*/
+!libs/README.md
+
+# Personal / local config
+*.user
+*.local
+
+# Logs and caches
+*.log
+.cache/
+
+# Build / packaged outputs (if you ever zip releases)
 *.zip
 *.tar.gz
 
-# Object files
-*.o
-*.os
-*.ko
-*.obj
-*.elf
-
-# Precompiled Headers
-*.gch
-*.pch
-
-# Libraries
-*.lib
-*.a
-*.la
-*.lo
-*.def
-*.exp
-
-# Shared objects (inc. Windows DLLs)
-*.dll
-*.so
-*.so.*
-*.dylib
-
-# Executables
-*.exe
-*.out
-*.app
-*.i*86
-*.x86_64
-*.hex
-
+# Personal YAML backups (optional - you may want to commit some examples)
+# backups/
+# data/*.yml
