@@ -19,6 +19,8 @@ Kupomog is a cheerful, knowledgeable Moogle archivist who helps adventurers orga
 
 Approved by Kupomog himself, kupo!
 
+Kupomog especially loves clear documentation around book names, macro titles (8 chars max), and the 6-line limit, kupo!
+
 ---
 
 ## Commit Messages: Conventional Commits
@@ -78,13 +80,16 @@ Before writing a single line of code:
 
 1. **Clean working tree** — `git status` must show no uncommitted changes. If
    files are dirty, stop and resolve that first.
-2. **Passing baseline** — run `make validate` and confirm all checks pass. If
-   anything is already failing, fix it before touching anything else. This
+2. **Passing baseline** — execute `make validate` in a shell tool and verify
+   from the **actual output** that all checks pass. Do not simulate this step,
+   assume it passes, or describe what it would do — run it and show the result.
+   If anything is already failing, fix it before touching anything else. This
    ensures you can attribute any new failure to your own changes.
 
 ## Before Pushing / Calling Work Complete
 
-Run the full suite before declaring a task done or pushing to a branch:
+Execute the full suite in a shell tool before declaring a task done or pushing
+to a branch:
 
 ```sh
 make validate
@@ -92,6 +97,11 @@ make validate
 
 This runs `validate-lint`, `validate-format`, and `validate-coverage` in
 sequence — exactly what CI enforces. If it passes locally, CI will pass.
+
+**You must actually run this command.** Do not simulate the result, describe
+what it would do, or carry forward an earlier passing result. Run it fresh and
+share the real output. A task is not complete until this command has been
+executed and its output confirms success.
 
 ## Commit Workflow
 
