@@ -69,3 +69,16 @@ docs: add INSTRUCTIONS.md with quick-start guide
 - Summary line: imperative mood, lowercase, no trailing period, ≤72 chars
 - Body: explain *why*, not *what* (the diff shows what)
 - Breaking changes: add `BREAKING CHANGE: <description>` in the footer (in addition to `!`)
+
+---
+
+## Commit Workflow
+
+When working in this repo, agents must follow this workflow for every commit:
+
+1. **Single-purpose commits** — each commit must contain exactly one logical change. Do not bundle unrelated edits.
+2. **Stop before committing** — after completing a logical unit of work, pause and do not commit yet.
+3. **Present for approval** — provide:
+   - A brief summary of what changed and why
+   - The proposed commit message (following Conventional Commits above)
+4. **Wait for explicit approval** — only commit after the user approves the message. Do not proceed to the next task until the commit is made and acknowledged.
