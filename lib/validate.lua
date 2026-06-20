@@ -6,49 +6,12 @@ local validate = {}
 local LIMITS = {
     books = 40,
     sets = 10, -- per book
-    macros = 20, -- per set per modifier
+    macros_per_mod = 10, -- per modifier (ctrl or alt) per set
     lines = 6, -- per macro
-    name_len = 8, -- chars, macro and book names
-    line_len = 255, -- chars per line (verify against live client)
+    book_name_len = 15, -- alphanumeric only
+    macro_name_len = 8, -- any printable chars
+    line_len = 60,
 }
-
--- Returns "zero" if any book key is 0, otherwise "one".
-local function detect_index_mode(books)
-    for k in pairs(books) do
-        if k == 0 then
-            return 'zero'
-        end
-    end
-    return 'one'
-end
-
--- Normalizes a macro data table so book indices are always 0-based.
--- If any book key is 0, treats the whole set as 0-based (no change).
--- Otherwise assumes 1-based (indices 1-40) and shifts all book keys down by 1.
--- Returns: normalized_data, mode ("zero" | "one")
-function validate.normalize(data)
-    if type(data) ~= 'table' or type(data.books) ~= 'table' then
-        return data, 'zero'
-    end
-    local mode = detect_index_mode(data.books)
-    if mode == 'zero' then
-        return data, 'zero'
-    end
-    local shifted = {}
-    for k, v in pairs(data.books) do
-        if type(k) == 'number' then
-            shifted[k - 1] = v
-        else
-            shifted[k] = v
-        end
-    end
-    local out = {}
-    for k, v in pairs(data) do
-        out[k] = v
-    end
-    out.books = shifted
-    return out, 'one'
-end
 
 -- Returns true, nil on success; false, error_string on failure.
 function validate.macros(data)
@@ -58,20 +21,26 @@ function validate.macros(data)
     if type(data.books) ~= 'table' then
         return false, 'missing top-level "books" key'
     end
-
-    data = (validate.normalize(data))
+    if data.version ~= nil and data.version ~= 1 then
+        return false, ('unsupported version: %s'):format(tostring(data.version))
+    end
 
     local book_count = 0
     for book_idx, book in pairs(data.books) do
+        if type(book_idx) ~= 'number' or book_idx < 1 or book_idx > LIMITS.books then
+            return false, ('invalid book index: %s'):format(tostring(book_idx))
+        end
         book_count = book_count + 1
         if book_count > LIMITS.books then
             return false, ('too many books: %d (max %d)'):format(book_count, LIMITS.books)
         end
-        if type(book_idx) ~= 'number' or book_idx < 0 or book_idx > LIMITS.books - 1 then
-            return false, ('invalid book index: %s'):format(tostring(book_idx))
-        end
-        if book.name ~= nil and #book.name > LIMITS.name_len then
-            return false, ('book %d name too long (%d > %d)'):format(book_idx, #book.name, LIMITS.name_len)
+        if book.name ~= nil then
+            if #book.name > LIMITS.book_name_len then
+                return false, ('book %d name too long (%d > %d)'):format(book_idx, #book.name, LIMITS.book_name_len)
+            end
+            if not book.name:match('^[A-Za-z0-9]*$') then
+                return false, ('book %d name must be alphanumeric only'):format(book_idx)
+            end
         end
         if type(book.sets) ~= 'table' then
             return false, ('book %d missing "sets"'):format(book_idx)
@@ -79,6 +48,9 @@ function validate.macros(data)
 
         local set_count = 0
         for set_idx, set in pairs(book.sets) do
+            if type(set_idx) ~= 'number' or set_idx < 1 or set_idx > LIMITS.sets then
+                return false, ('book %d: invalid set index: %s'):format(book_idx, tostring(set_idx))
+            end
             set_count = set_count + 1
             if set_count > LIMITS.sets then
                 return false, ('book %d: too many sets (max %d)'):format(book_idx, LIMITS.sets)
@@ -92,48 +64,53 @@ function validate.macros(data)
                 local macro_count = 0
                 for macro_idx, macro in pairs(slot_macros) do
                     macro_count = macro_count + 1
-                    if macro_count > LIMITS.macros then
+                    if macro_count > LIMITS.macros_per_mod then
                         return false,
                             ('book %d set %d %s: too many macros (max %d)'):format(
                                 book_idx,
                                 set_idx,
                                 mod_key,
-                                LIMITS.macros
+                                LIMITS.macros_per_mod
                             )
                     end
-                    if macro.name ~= nil and #macro.name > LIMITS.name_len then
+                    if macro.name ~= nil and #macro.name > LIMITS.macro_name_len then
                         return false,
-                            ('book %d set %d %s macro %d: name too long'):format(book_idx, set_idx, mod_key, macro_idx)
+                            ('book %d set %d %s macro %s: name too long'):format(
+                                book_idx,
+                                set_idx,
+                                mod_key,
+                                tostring(macro_idx)
+                            )
                     end
                     if type(macro.contents) == 'table' then
                         if #macro.contents > LIMITS.lines then
                             return false,
-                                ('book %d set %d %s macro %d: too many lines (max %d)'):format(
+                                ('book %d set %d %s macro %s: too many lines (max %d)'):format(
                                     book_idx,
                                     set_idx,
                                     mod_key,
-                                    macro_idx,
+                                    tostring(macro_idx),
                                     LIMITS.lines
                                 )
                         end
                         for line_idx, line in ipairs(macro.contents) do
                             if type(line) ~= 'string' then
                                 return false,
-                                    ('book %d set %d %s macro %d line %d: not a string'):format(
+                                    ('book %d set %d %s macro %s line %d: not a string'):format(
                                         book_idx,
                                         set_idx,
                                         mod_key,
-                                        macro_idx,
+                                        tostring(macro_idx),
                                         line_idx
                                     )
                             end
                             if #line > LIMITS.line_len then
                                 return false,
-                                    ('book %d set %d %s macro %d line %d: too long'):format(
+                                    ('book %d set %d %s macro %s line %d: too long'):format(
                                         book_idx,
                                         set_idx,
                                         mod_key,
-                                        macro_idx,
+                                        tostring(macro_idx),
                                         line_idx
                                     )
                             end

@@ -2,51 +2,6 @@ package.path = './?.lua;./?/init.lua;' .. package.path
 
 local validate = require('lib/validate')
 
-describe('validate.normalize', function()
-    it('returns data unchanged in zero mode when key 0 is present', function()
-        local data = { books = { [0] = { sets = {} }, [5] = { sets = {} } } }
-        local result, mode = validate.normalize(data)
-        assert.equal('zero', mode)
-        assert.not_nil(result.books[0])
-        assert.not_nil(result.books[5])
-        assert.is_nil(result.books[1])
-    end)
-
-    it('shifts 1-based indices to 0-based when no key 0 is present', function()
-        local data = { books = { [1] = { sets = {} }, [3] = { sets = {} } } }
-        local result, mode = validate.normalize(data)
-        assert.equal('one', mode)
-        assert.not_nil(result.books[0])
-        assert.not_nil(result.books[2])
-        assert.is_nil(result.books[1])
-        assert.is_nil(result.books[3])
-    end)
-
-    it('preserves non-books keys when shifting', function()
-        local data = { extra = 'value', books = { [1] = { sets = {} } } }
-        local result, _ = validate.normalize(data)
-        assert.equal('value', result.extra)
-    end)
-
-    it('returns zero mode for non-table input', function()
-        local result, mode = validate.normalize('bad')
-        assert.equal('zero', mode)
-        assert.equal('bad', result)
-    end)
-
-    it('returns zero mode when books is not a table', function()
-        local result, mode = validate.normalize({ books = 'nope' })
-        assert.equal('zero', mode)
-    end)
-
-    it('returns one mode for empty books table', function()
-        local data = { books = {} }
-        local result, mode = validate.normalize(data)
-        assert.equal('one', mode)
-        assert.same({}, result.books)
-    end)
-end)
-
 describe('validate.macros', function()
     describe('top-level structure', function()
         it('rejects nil', function()
@@ -84,6 +39,18 @@ describe('validate.macros', function()
             assert.is_true(ok)
             assert.is_nil(err)
         end)
+
+        it('accepts version 1', function()
+            local ok, err = validate.macros({ version = 1, books = {} })
+            assert.is_true(ok)
+            assert.is_nil(err)
+        end)
+
+        it('rejects unsupported version', function()
+            local ok, err = validate.macros({ version = 2, books = {} })
+            assert.is_false(ok)
+            assert.matches('version', err)
+        end)
     end)
 
     describe('book constraints', function()
@@ -96,17 +63,22 @@ describe('validate.macros', function()
             return { books = { [idx] = book } }
         end
 
-        it('accepts a valid book at index 0', function()
-            local ok, err = book_data(0)
-            ok, err = validate.macros(book_data(0))
+        it('accepts a valid book at index 1', function()
+            local ok, err = validate.macros(book_data(1))
             assert.is_true(ok)
             assert.is_nil(err)
         end)
 
-        it('accepts a valid book at max index 39', function()
-            local ok, err = validate.macros(book_data(39))
+        it('accepts a valid book at max index 40', function()
+            local ok, err = validate.macros(book_data(40))
             assert.is_true(ok)
             assert.is_nil(err)
+        end)
+
+        it('rejects book index 0', function()
+            local ok, err = validate.macros(book_data(0))
+            assert.is_false(ok)
+            assert.matches('invalid book index', err)
         end)
 
         it('rejects negative book index', function()
@@ -115,10 +87,8 @@ describe('validate.macros', function()
             assert.matches('invalid book index', err)
         end)
 
-        it('rejects 0-based book index 40 (out of range)', function()
-            -- index 0 present → 0-based mode; 40 is then out of range
-            local data = { books = { [0] = { sets = {} }, [40] = { sets = {} } } }
-            local ok, err = validate.macros(data)
+        it('rejects book index 41 (out of range)', function()
+            local ok, err = validate.macros(book_data(41))
             assert.is_false(ok)
             assert.matches('invalid book index', err)
         end)
@@ -129,35 +99,51 @@ describe('validate.macros', function()
             assert.matches('invalid book index', err)
         end)
 
-        it('rejects book name longer than 8 chars', function()
-            local ok, err = validate.macros(book_data(0, { name = 'TooLongNm' }))
+        it('accepts book name exactly 15 chars', function()
+            local ok, err = validate.macros(book_data(1, { name = 'ABCDE12345ABCDE' }))
+            assert.is_true(ok)
+            assert.is_nil(err)
+        end)
+
+        it('rejects book name longer than 15 chars', function()
+            local ok, err = validate.macros(book_data(1, { name = 'ABCDE12345ABCDEF' }))
             assert.is_false(ok)
             assert.matches('name too long', err)
         end)
 
-        it('accepts book name exactly 8 chars', function()
-            local ok, err = validate.macros(book_data(0, { name = 'Exactly8' }))
+        it('rejects book name with spaces', function()
+            local ok, err = validate.macros(book_data(1, { name = 'My Book' }))
+            assert.is_false(ok)
+            assert.matches('alphanumeric', err)
+        end)
+
+        it('rejects book name with symbols', function()
+            local ok, err = validate.macros(book_data(1, { name = 'rdm75-nin' }))
+            assert.is_false(ok)
+            assert.matches('alphanumeric', err)
+        end)
+
+        it('accepts book name with mixed case alphanumeric', function()
+            local ok, err = validate.macros(book_data(1, { name = 'WHM75NIN' }))
             assert.is_true(ok)
             assert.is_nil(err)
         end)
 
         it('accepts book with nil name', function()
-            local ok, err = validate.macros({ books = { [0] = { sets = {} } } })
+            local ok, err = validate.macros({ books = { [1] = { sets = {} } } })
             assert.is_true(ok)
             assert.is_nil(err)
         end)
 
         it('rejects book missing sets key', function()
-            local ok, err = validate.macros(book_data(0, { drop_sets = true }))
+            local ok, err = validate.macros(book_data(1, { drop_sets = true }))
             assert.is_false(ok)
             assert.matches('sets', err)
         end)
 
-        it('rejects a 41st book — index 40 is out of range', function()
-            -- LIMITS.books = 40, valid indices are 0-39; there is no valid index
-            -- for a 41st book, so the index check always fires before the count check.
+        it('rejects a 41st book — index 41 is out of range', function()
             local data = { books = {} }
-            for i = 0, 40 do
+            for i = 1, 41 do
                 data.books[i] = { sets = {} }
             end
             local ok, err = validate.macros(data)
@@ -167,34 +153,6 @@ describe('validate.macros', function()
 
         it('accepts exactly 40 books', function()
             local data = { books = {} }
-            for i = 0, 39 do
-                data.books[i] = { sets = {} }
-            end
-            local ok, err = validate.macros(data)
-            assert.is_true(ok)
-            assert.is_nil(err)
-        end)
-
-        it('accepts 1-based book at index 1 (normalized to 0)', function()
-            local ok, err = validate.macros({ books = { [1] = { sets = {} } } })
-            assert.is_true(ok)
-            assert.is_nil(err)
-        end)
-
-        it('accepts 1-based book at max index 40 (normalized to 39)', function()
-            local ok, err = validate.macros({ books = { [40] = { sets = {} } } })
-            assert.is_true(ok)
-            assert.is_nil(err)
-        end)
-
-        it('rejects 1-based index 41 as out of range', function()
-            local ok, err = validate.macros({ books = { [41] = { sets = {} } } })
-            assert.is_false(ok)
-            assert.matches('invalid book index', err)
-        end)
-
-        it('accepts exactly 40 books with 1-based indices 1-40', function()
-            local data = { books = {} }
             for i = 1, 40 do
                 data.books[i] = { sets = {} }
             end
@@ -202,19 +160,13 @@ describe('validate.macros', function()
             assert.is_true(ok)
             assert.is_nil(err)
         end)
-
-        it('uses 0-based mode when index 0 is present — index 40 then out of range', function()
-            local ok, err = validate.macros({ books = { [0] = { sets = {} }, [40] = { sets = {} } } })
-            assert.is_false(ok)
-            assert.matches('invalid book index', err)
-        end)
     end)
 
     describe('set constraints', function()
         local function set_data(set_idx, set_content)
             return {
                 books = {
-                    [0] = {
+                    [1] = {
                         sets = { [set_idx] = set_content or { ctrl = {}, alt = {} } },
                     },
                 },
@@ -222,43 +174,61 @@ describe('validate.macros', function()
         end
 
         it('accepts valid ctrl and alt keys', function()
-            local ok, err = validate.macros(set_data(0))
+            local ok, err = validate.macros(set_data(1))
             assert.is_true(ok)
             assert.is_nil(err)
         end)
 
+        it('accepts set at max index 10', function()
+            local ok, err = validate.macros(set_data(10))
+            assert.is_true(ok)
+            assert.is_nil(err)
+        end)
+
+        it('rejects set index 0', function()
+            local ok, err = validate.macros(set_data(0))
+            assert.is_false(ok)
+            assert.matches('invalid set index', err)
+        end)
+
+        it('rejects set index 11 (out of range)', function()
+            local ok, err = validate.macros(set_data(11))
+            assert.is_false(ok)
+            assert.matches('invalid set index', err)
+        end)
+
         it('accepts set with only ctrl', function()
-            local ok, err = validate.macros(set_data(0, { ctrl = {} }))
+            local ok, err = validate.macros(set_data(1, { ctrl = {} }))
             assert.is_true(ok)
             assert.is_nil(err)
         end)
 
         it('accepts set with only alt', function()
-            local ok, err = validate.macros(set_data(0, { alt = {} }))
+            local ok, err = validate.macros(set_data(1, { alt = {} }))
             assert.is_true(ok)
             assert.is_nil(err)
         end)
 
         it('rejects unknown modifier key', function()
-            local ok, err = validate.macros(set_data(0, { shift = {} }))
+            local ok, err = validate.macros(set_data(1, { shift = {} }))
             assert.is_false(ok)
             assert.matches('unknown modifier', err)
         end)
 
         it('rejects too many sets (11 per book)', function()
-            local data = { books = { [0] = { sets = {} } } }
-            for i = 0, 10 do
-                data.books[0].sets[i] = { ctrl = {} }
+            local data = { books = { [1] = { sets = {} } } }
+            for i = 1, 11 do
+                data.books[1].sets[i] = { ctrl = {} }
             end
             local ok, err = validate.macros(data)
             assert.is_false(ok)
-            assert.matches('too many sets', err)
+            assert.matches('invalid set index', err)
         end)
 
         it('accepts exactly 10 sets', function()
-            local data = { books = { [0] = { sets = {} } } }
-            for i = 0, 9 do
-                data.books[0].sets[i] = { ctrl = {} }
+            local data = { books = { [1] = { sets = {} } } }
+            for i = 1, 10 do
+                data.books[1].sets[i] = { ctrl = {} }
             end
             local ok, err = validate.macros(data)
             assert.is_true(ok)
@@ -273,7 +243,7 @@ describe('validate.macros', function()
             for i, m in ipairs(macros_list) do
                 slot[i] = m
             end
-            return { books = { [0] = { sets = { [0] = { [modifier] = slot } } } } }
+            return { books = { [1] = { sets = { [1] = { [modifier] = slot } } } } }
         end
 
         it('accepts a valid macro', function()
@@ -306,9 +276,9 @@ describe('validate.macros', function()
             assert.is_nil(err)
         end)
 
-        it('rejects too many macros (21)', function()
+        it('rejects too many macros per modifier (11)', function()
             local list = {}
-            for i = 1, 21 do
+            for i = 1, 11 do
                 list[i] = { name = 'M' .. i, contents = {} }
             end
             local ok, err = validate.macros(macro_data(list))
@@ -316,9 +286,9 @@ describe('validate.macros', function()
             assert.matches('too many macros', err)
         end)
 
-        it('accepts exactly 20 macros', function()
+        it('accepts exactly 10 macros per modifier', function()
             local list = {}
-            for i = 1, 20 do
+            for i = 1, 10 do
                 list[i] = { name = 'Macro' .. i, contents = {} }
             end
             local ok, err = validate.macros(macro_data(list))
@@ -331,9 +301,9 @@ describe('validate.macros', function()
         local function line_data(lines)
             return {
                 books = {
-                    [0] = {
+                    [1] = {
                         sets = {
-                            [0] = {
+                            [1] = {
                                 ctrl = { [1] = { name = 'Test', contents = lines } },
                             },
                         },
@@ -343,7 +313,8 @@ describe('validate.macros', function()
         end
 
         it('accepts up to 6 lines', function()
-            local ok, err = validate.macros(line_data({ '/ja "Provoke" <t>', '/wait 1', '/p Done!', '/echo 4', '/echo 5', '/echo 6' }))
+            local ok, err =
+                validate.macros(line_data({ '/ja "Provoke" <t>', '/wait 1', '/p Done!', '/echo 4', '/echo 5', '/echo 6' }))
             assert.is_true(ok)
             assert.is_nil(err)
         end)
@@ -360,20 +331,20 @@ describe('validate.macros', function()
             assert.matches('not a string', err)
         end)
 
-        it('rejects a line exceeding 255 chars', function()
-            local ok, err = validate.macros(line_data({ string.rep('a', 256) }))
+        it('rejects a line exceeding 60 chars', function()
+            local ok, err = validate.macros(line_data({ string.rep('a', 61) }))
             assert.is_false(ok)
             assert.matches('too long', err)
         end)
 
-        it('accepts a line exactly 255 chars', function()
-            local ok, err = validate.macros(line_data({ string.rep('a', 255) }))
+        it('accepts a line exactly 60 chars', function()
+            local ok, err = validate.macros(line_data({ string.rep('a', 60) }))
             assert.is_true(ok)
             assert.is_nil(err)
         end)
 
         it('accepts macro with nil contents', function()
-            local data = { books = { [0] = { sets = { [0] = { ctrl = { [1] = { name = 'T' } } } } } } }
+            local data = { books = { [1] = { sets = { [1] = { ctrl = { [1] = { name = 'T' } } } } } } }
             local ok, err = validate.macros(data)
             assert.is_true(ok)
             assert.is_nil(err)
@@ -383,25 +354,27 @@ describe('validate.macros', function()
     describe('full valid structure', function()
         it('accepts a fully populated valid macro table', function()
             local data = {
+                version = 1,
+                character = 'Hendrimod',
                 books = {
-                    [0] = {
-                        name = 'Combat',
+                    [1] = {
+                        name = 'WHM75NIN',
                         sets = {
-                            [0] = {
+                            [1] = {
                                 ctrl = {
-                                    [1] = { name = 'Provoke', contents = { '/ja "Provoke" <t>', '/wait 1', '/p Provoking!' } },
-                                    [2] = { name = 'Pull', contents = { '/ra <t>' } },
+                                    [1] = { name = 'Cure', contents = { '/ma "Cure IV" <me>', '/wait 1' } },
+                                    [2] = { name = 'Esuna', contents = { '/ma Esuna <me>' } },
                                 },
                                 alt = {
-                                    [1] = { name = 'Dia', contents = { '/ma "Dia" <t>' } },
+                                    [1] = { name = 'Protect', contents = { '/ma "Protect III" <me>' } },
                                 },
                             },
                         },
                     },
-                    [1] = {
-                        name = 'Support',
+                    [6] = {
+                        name = 'RDM75NIN',
                         sets = {
-                            [0] = { ctrl = {}, alt = {} },
+                            [1] = { ctrl = {}, alt = {} },
                         },
                     },
                 },
