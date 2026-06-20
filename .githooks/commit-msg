@@ -1,0 +1,67 @@
+#!/usr/bin/env sh
+# .githooks/commit-msg
+# Enforces Conventional Commits format and the 50/72 line-length rule.
+#
+# Install (run once after cloning):
+#   ln -sf ../../.githooks/commit-msg .git/hooks/commit-msg
+
+MSG_FILE="$1"
+FAIL=0
+
+# Strip comment lines git may inject (e.g. commit -v, verbose templates)
+MSG=$(grep -v '^#' "$MSG_FILE")
+
+SUBJECT=$(printf '%s\n' "$MSG" | awk 'NR==1')
+REST=$(printf '%s\n' "$MSG" | awk 'NR>1')
+
+# Let git-generated revert/merge subjects through without CC validation
+case "$SUBJECT" in
+    Revert\ \"*\"|Merge\ *) exit 0 ;;
+esac
+
+# --- 1. Conventional Commits subject format ---
+# <type>[(<scope>)][!]: <description>
+CC_RE='^(feat|fix|perf|refactor|chore|docs|test|style|revert)(\([^)[:space:]]+\))?!?: .+'
+if ! printf '%s' "$SUBJECT" | grep -qE "$CC_RE"; then
+    printf '\nCOMMIT REJECTED: Subject does not follow Conventional Commits.\n' >&2
+    printf '  Required: <type>[(<scope>)][!]: <description>\n' >&2
+    printf '  Types:    feat  fix  perf  refactor  chore  docs  test  style  revert\n' >&2
+    printf '  Examples: feat(yaml): add pure-Lua YAML parser\n' >&2
+    printf '            fix!: change book indices to 1-based\n' >&2
+    printf '            chore(ci): add release-please workflow\n' >&2
+    printf '  Got: %s\n' "$SUBJECT" >&2
+    FAIL=1
+fi
+
+# --- 2. Subject line <= 50 chars ---
+SUBJ_LEN=$(printf '%s' "$SUBJECT" | awk '{print length}')
+if [ "$SUBJ_LEN" -gt 50 ]; then
+    printf '\nCOMMIT REJECTED: Subject line too long (%d chars, max 50).\n' "$SUBJ_LEN" >&2
+    printf '  %s\n' "$SUBJECT" >&2
+    FAIL=1
+fi
+
+# --- 3. Blank line between subject and body (when body is present) ---
+if [ -n "$REST" ]; then
+    SECOND=$(printf '%s\n' "$REST" | awk 'NR==1')
+    if [ -n "$SECOND" ]; then
+        printf '\nCOMMIT REJECTED: Line 2 must be blank (separates subject from body).\n' >&2
+        FAIL=1
+    fi
+
+    # --- 4. Body/footer lines <= 72 chars ---
+    # REST NR=1 is the blank separator; body starts at NR=2 (line 3 of full msg)
+    BAD_LINES=$(printf '%s\n' "$REST" | awk 'NR>1 && length>72 { printf "  line %d (%d chars): %s\n", NR+1, length, $0 }')
+    if [ -n "$BAD_LINES" ]; then
+        printf '\nCOMMIT REJECTED: Body/footer lines must be <= 72 chars:\n' >&2
+        printf '%s\n' "$BAD_LINES" >&2
+        FAIL=1
+    fi
+fi
+
+[ "$FAIL" -ne 0 ] && {
+    printf '\nSee AGENTS.md for commit message guidelines.\n' >&2
+    exit 1
+}
+
+exit 0

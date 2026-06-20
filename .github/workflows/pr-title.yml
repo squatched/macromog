@@ -1,0 +1,39 @@
+name: PR Title
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: amannn/action-semantic-pull-request@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            feat
+            fix
+            perf
+            refactor
+            chore
+            docs
+            test
+            style
+            revert
+          scopes: |
+            core
+            yaml
+            macros
+            validate
+            ci
+            docs
+          # Scope is optional — contributors may omit it
+          requireScope: false
+          # Subject line length is enforced by the CC action's own checks;
+          # full 50/72 body enforcement is a client-side concern (commit-msg hook)
+          subjectPattern: ^.{1,50}$
+          subjectPatternError: |
+            The PR title subject must be 50 characters or fewer (got "{subject}").
+            See AGENTS.md for commit message guidelines.
