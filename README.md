@@ -6,14 +6,13 @@ Macromog allows you to manage your entire collection of FFXI macros using simple
 
 Perfect for players with 40 macro books full of job-specific setups, gear swaps, and complex commands.
 
-## Features (Planned / In Progress)
+## Features
 
-- Export current in-game macros to a per-character YAML file
+- Export your current in-game macros (including custom book names) to a structured `<character>_macros.yml`
 - Import from YAML with full validation and automatic backup
-- Sparse storage — only defined books, sets, and macros are saved
-- Strict validation against FFXI limits (40 books, 10 sets/book, 20 macros/set, 8-char names, 6 lines, etc.)
-- Support for all FFXI client locales
-- Easy to read/edit YAML structure
+- Sparse format — only defined books, sets, and macros are stored
+- Strict validation against FFXI limits (40 books, 10 sets/book, 20 macros/set, 8-char macro titles, 6 lines max, etc.)
+- Supports all FFXI client locales
 
 **Brought to you by Kupomog**, the helpful Moogle archivist!
 
@@ -25,8 +24,8 @@ Perfect for players with 40 macro books full of job-specific setups, gear swaps,
 
 - `macromog.lua` - Main addon
 - `SPEC.md` - Detailed behavior specification
-- `AGENTS.md` - Documentation tone guide
-- `data/` - Your YAML files live here
+- `AGENTS.md` - Development guide
+- `data/` - YAML files live here
 
 ## Contributing
 

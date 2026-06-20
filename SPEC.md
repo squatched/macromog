@@ -1,40 +1,38 @@
 # Macromog - Behavior Specification
 
 ## Overview
-Macromog is a Windower 4 Lua addon that lets users manage FFXI macros via YAML files.
+Macromog is a Windower 4 Lua addon that lets users manage FFXI macros via clean YAML files.
+
+**Brought to you by Kupomog**, your friendly Moogle macro archivist, kupo!
 
 ## Core Capabilities
 1. **Export**
-   - Reads all current in-game macros from memory
-   - Outputs to `<character_name>_macros.yml` (sparse format)
-   - Only includes defined/non-empty entries
+   - Reads all current in-game macros (including custom book names) from memory or .dat files
+   - Outputs to a sparse `<character_name>_macros.yml`
 
 2. **Import**
    - Reads and validates a YAML file
-   - Offers/automatically creates a timestamped backup of current macros
-   - Writes validated macros back into game memory
-   - Refreshes UI where possible
+   - Automatically creates a timestamped backup of current macros before applying changes
+   - Writes validated data back into the game
 
 3. **Validation**
-   - Enforces FFXI constraints
-   - Custom schema checks
+   - Full schema validation against FFXI constraints
+   - Sparse format support (only defined entries are stored)
 
 ## YAML Structure (Example)
 ```yaml
 books:
-  0:
-    name: "WHM Support"
+  0:                    # Book index (0-39)
+    name: "rdm75nin"    # Custom book name (editable in-game)
     sets:
-      0:
+      0:                # Set index (0-9)
         ctrl:
           0:
-            name: "Cure"
+            name: "Cure"   # Macro button title (max 8 chars)
             contents:
               - "/ma 'Cure IV' <me>"
               - "/wait 1"
-        alt:
-          0:
-            name: "Esuna"
-            contents: ["..."]
-      # ... more sets as needed
-  # Only populated books are present
+        alt: { ... }
+      # ... additional sets as needed
+  # Only populated books/sets/macros are included
+  
