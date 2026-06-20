@@ -29,6 +29,21 @@ coverage-cli.out
 
 # Go build outputs
 macromog
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Go test binaries (built with go test -c)
+*.test
+
+# Go workspace files (local developer overrides, not committed)
+go.work
+go.work.sum
+
+# Dependency vendoring (not used — modules handle deps)
+# vendor/
 
 # Dependencies (if any are downloaded)
 libs/*/
