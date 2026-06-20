@@ -12,7 +12,96 @@ cd macromog
 ln -sf ../../.githooks/commit-msg .git/hooks/commit-msg
 ```
 
-That's it. No build step, no dependencies to install.
+Then install the validation tools (see [Validation tools](#validation-tools) below).
+
+## Before you start
+
+Before beginning any work, make sure you're starting from a clean baseline:
+
+```sh
+git status          # working tree must be clean
+make validate       # all checks must pass before you touch anything
+```
+
+If `make validate` fails on a clean checkout, fix that first before making
+your own changes — otherwise you can't tell whether a failure is yours or
+pre-existing.
+
+## Before pushing / calling work complete
+
+Run the full suite before pushing or declaring a PR ready:
+
+```sh
+make validate
+```
+
+This runs `validate-lint`, `validate-format`, and `validate-coverage` in
+sequence. CI enforces exactly these same targets — if `make validate` passes
+locally, CI will pass.
+
+## Validation targets
+
+| Target | What it does |
+|--------|-------------|
+| `make validate` | Runs all checks below in sequence |
+| `make validate-lint` | Static analysis via luacheck |
+| `make validate-format` | Format check via StyLua (fails if files need formatting) |
+| `make validate-test` | Run test suite without coverage overhead (fast, local iteration) |
+| `make validate-coverage` | Run tests with luacov; fails if coverage drops below 80% |
+
+## Fix targets
+
+Fix targets are focused — apply the one you need, not all at once:
+
+| Target | What it fixes |
+|--------|--------------|
+| `make fix-format` | Auto-formats all Lua source files with StyLua |
+
+There is no blanket `fix` target. Lint errors require manual inspection;
+coverage gaps require new tests.
+
+## Validation tools
+
+Install these once before running any `make validate-*` target:
+
+```sh
+# luarocks (Arch)
+sudo pacman -S luarocks
+
+# luarocks (Debian/Ubuntu)
+sudo apt install luarocks
+
+# luarocks (macOS)
+brew install luarocks
+```
+
+Then install the Lua packages:
+
+```sh
+luarocks install luacheck
+luarocks install busted
+luarocks install luacov
+luarocks install luacov-cobertura
+```
+
+StyLua is a standalone binary — grab the latest release for your platform
+from [github.com/JohnnyMorganz/StyLua/releases](https://github.com/JohnnyMorganz/StyLua/releases)
+and put it on your `$PATH`.
+
+## CI / branch protection
+
+Every PR must pass all three CI jobs before it can merge:
+
+| Status check | Workflow | What it runs |
+|---|---|---|
+| `Lint / luacheck` | `lint.yml` | `make validate-lint` |
+| `Lint / stylua` | `lint.yml` | `make validate-format` |
+| `Test / coverage` | `test.yml` | `make validate-coverage` |
+
+Coverage below 80% fails the `Test / coverage` job and blocks the merge.
+A comment on the PR will show the per-file breakdown and link to the
+uploaded `coverage.xml` artifact so you can see exactly which lines are
+missing.
 
 ## Commit messages
 
@@ -36,13 +125,3 @@ types, scopes, examples, and the 50/72 line-length rule — are in
 - PRs are squash-merged; the **PR title becomes the commit message**, so it
   must also follow Conventional Commits (enforced automatically by CI).
 - One logical change per PR where practical.
-
-## Linting
-
-```sh
-# Requires luarocks: sudo apt install luarocks / brew install luarocks
-luarocks install luacheck
-luacheck macromog.lua lib/
-```
-
-CI runs this on every push and PR.

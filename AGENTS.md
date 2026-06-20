@@ -72,6 +72,27 @@ docs: add INSTRUCTIONS.md with quick-start guide
 
 ---
 
+## Starting Fresh Work
+
+Before writing a single line of code:
+
+1. **Clean working tree** — `git status` must show no uncommitted changes. If
+   files are dirty, stop and resolve that first.
+2. **Passing baseline** — run `make validate` and confirm all checks pass. If
+   anything is already failing, fix it before touching anything else. This
+   ensures you can attribute any new failure to your own changes.
+
+## Before Pushing / Calling Work Complete
+
+Run the full suite before declaring a task done or pushing to a branch:
+
+```sh
+make validate
+```
+
+This runs `validate-lint`, `validate-format`, and `validate-coverage` in
+sequence — exactly what CI enforces. If it passes locally, CI will pass.
+
 ## Commit Workflow
 
 When working in this repo, agents must follow this workflow for every commit:
