@@ -1,0 +1,11 @@
+return {
+    runreport = false,
+    statsfile = "luacov.stats.out",
+    reportfile = "luacov.report.out",
+    include = {
+        "macromog",
+        "lib/macros",
+        "lib/validate",
+        "lib/yaml",
+    },
+}

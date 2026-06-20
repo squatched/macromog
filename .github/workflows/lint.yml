@@ -8,6 +8,7 @@ on:
 
 jobs:
   luacheck:
+    name: luacheck
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -17,5 +18,21 @@ jobs:
           sudo apt-get install -y luarocks
           sudo luarocks install luacheck
 
-      - name: Run luacheck
-        run: luacheck macromog.lua lib/
+      - name: validate-lint
+        run: make validate-lint
+
+  stylua:
+    name: stylua
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install StyLua
+        run: |
+          curl -fsSL https://github.com/JohnnyMorganz/StyLua/releases/latest/download/stylua-linux-x86_64.zip \
+            -o stylua.zip
+          unzip -q stylua.zip
+          sudo mv stylua /usr/local/bin/stylua
+
+      - name: validate-format
+        run: make validate-format
