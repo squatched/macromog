@@ -1,0 +1,41 @@
+name: Release Please
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+      version: ${{ steps.release.outputs.version }}
+    steps:
+      - uses: googleapis/release-please-action@v4
+        id: release
+        with:
+          release-type: simple
+
+  package:
+    needs: release-please
+    if: ${{ needs.release-please.outputs.release_created }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Package addon
+        run: |
+          VERSION="${{ needs.release-please.outputs.version }}"
+          zip -r "macromog-${VERSION}.zip" \
+            macromog.lua lib/ data/.gitkeep README.md CHANGELOG.md LICENSE \
+            --exclude "data/*.bak" --exclude "data/*_backup_*.yml"
+
+      - name: Upload to release
+        run: gh release upload "${{ needs.release-please.outputs.tag_name }}" "macromog-${{ needs.release-please.outputs.version }}.zip"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
