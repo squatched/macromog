@@ -6,6 +6,10 @@ Macromog allows you to manage your entire collection of FFXI macros using simple
 
 Perfect for players with 40 macro books full of job-specific setups, gear swaps, and complex commands.
 
+## Status
+
+Early Development. Core YAML handling & validation in progress. Full memory/DAT integration coming soon, kupo!
+
 ## Features
 
 - Export your current in-game macros (including custom book names) to a structured `<character>_macros.yml`
