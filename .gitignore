@@ -28,12 +28,7 @@ coverage-plugin.xml
 coverage-cli.out
 
 # Go build outputs
-macromog
-*.exe
-*.exe~
-*.dll
-*.so
-*.dylib
+/bin/
 
 # Go test binaries (built with go test -c)
 *.test

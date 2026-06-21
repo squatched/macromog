@@ -96,81 +96,9 @@ These limits are empirically confirmed against the live FFXI client.
 | Property | Limit | Notes |
 |----------|-------|-------|
 | Macros per set | 20 | 10 `ctrl` + 10 `alt`, indexed 1–9 then 0 |
-| Name (button title) | 8 characters | All printable characters allowed |
+| Name (button title) | 8 characters | Printable characters only; no tabs, newlines, or control codes. The DAT format stores text as Shift-JIS (CJK = 2 bytes each), so the practical limit for Japanese text is 4 CJK characters. |
 | Lines per macro | 6 | — |
-| Characters per line | 60 | All printable characters allowed |
-
----
-
-## JSON Schema
-
-The schema is used by the CLI for validation.
-
-```json
-{
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/squatched/macromog/schema/macromog.schema.json",
-  "title": "Macromog Macro Definition",
-  "type": "object",
-  "required": ["version", "books"],
-  "properties": {
-    "version": { "type": "integer", "const": 1 },
-    "character": { "type": "string" },
-    "exported_at": { "type": "string", "format": "date-time" },
-    "books": {
-      "type": "object",
-      "patternProperties": {
-        "^([1-9]|[1-3][0-9]|40)$": { "$ref": "#/$defs/book" }
-      },
-      "additionalProperties": false
-    }
-  },
-  "$defs": {
-    "book": {
-      "type": "object",
-      "properties": {
-        "name": {
-          "type": "string",
-          "maxLength": 15,
-          "pattern": "^[A-Za-z0-9]*$"
-        },
-        "sets": {
-          "type": "object",
-          "patternProperties": {
-            "^([1-9]|10)$": { "$ref": "#/$defs/set" }
-          },
-          "additionalProperties": false
-        }
-      }
-    },
-    "set": {
-      "type": "object",
-      "properties": {
-        "ctrl": { "$ref": "#/$defs/macroRow" },
-        "alt": { "$ref": "#/$defs/macroRow" }
-      }
-    },
-    "macroRow": {
-      "type": "object",
-      "patternProperties": {
-        "^([0-9])$": { "$ref": "#/$defs/macro" }
-      },
-      "additionalProperties": false
-    },
-    "macro": {
-      "type": "object",
-      "properties": {
-        "name": { "type": "string", "maxLength": 8 },
-        "contents": {
-          "type": "array",
-          "maxItems": 6,
-          "items": { "type": "string", "maxLength": 60 }
-        }
-      }
-    }
-  }
-}
-```
+| Characters per line | 60 | Printable characters only; no tabs, newlines, or control codes. |
 
 ---
 
@@ -199,7 +127,7 @@ The CLI (`macromog`) is a standalone binary for offline-first macro management.
 |---------|-------------|---------|
 | `export` | Export macros from `.dat` files to YAML | `macromog export --char 0x12345678` |
 | `import` | Import from YAML into `.dat` files (auto-backups first) | `macromog import mymacros.yml --char 0x12345678` |
-| `validate` | Validate a YAML file against the schema | `macromog validate mymacros.yml` |
+| `validate` | Validate a YAML file against FFXI constraints | `macromog validate mymacros.yml` |
 | `backup` | Create a timestamped backup of all macro `.dat` files | `macromog backup --char 0x12345678` |
 | `list` | List detected characters and macro books | `macromog list` |
 
