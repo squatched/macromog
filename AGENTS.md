@@ -110,7 +110,7 @@ Append `!` after the type for a **breaking change** (major bump): `feat!:`, `fix
 
 ### Scopes (optional but encouraged)
 
-`core`, `yaml`, `macros`, `validate`, `ci`, `docs`
+`core`, `yaml`, `macros`, `validate`, `ci`, `docs`, `plugin`, `cli`
 
 ### Examples
 

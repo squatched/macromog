@@ -24,15 +24,29 @@ jobs:
           sudo luarocks install luacov
           sudo luarocks install luacov-cobertura
 
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
       - name: validate-plugin-coverage
         run: make validate-plugin-coverage
 
-      - name: Upload coverage.xml
+      - name: validate-cli-coverage
+        run: make validate-cli-coverage
+
+      - name: Generate CLI function coverage report
+        if: always()
+        run: |
+          [ -f coverage-cli.out ] && go tool cover -func=coverage-cli.out > coverage-cli-func.txt || true
+
+      - name: Upload coverage artifacts
         if: always()
         uses: actions/upload-artifact@v6
         with:
-          name: coverage-xml
-          path: coverage.xml
+          name: coverage-reports
+          path: |
+            coverage.xml
+            coverage-cli.out
           if-no-files-found: warn
 
       - name: Comment coverage on PR
@@ -41,52 +55,103 @@ jobs:
         with:
           script: |
             const fs = require('fs')
+            const MARKER = '<!-- macromog-coverage -->'
 
-            let coveragePct = null
-            let fileTable = ''
+            // ── Plugin Coverage (Lua) ──────────────────────────────────────
+            let pluginPct = null
+            let pluginTable = ''
             try {
               const report = fs.readFileSync('luacov.report.out', 'utf8')
-              // Parse per-file lines: "lib/foo.lua  45  2  95.65%"
               const fileRows = []
               for (const line of report.split('\n')) {
                 const m = line.match(/^(\S+\.lua)\s+(\d+)\s+(\d+)\s+([\d.]+)%/)
                 if (m) fileRows.push(`| \`${m[1]}\` | ${m[2]} | ${m[3]} | ${m[4]}% |`)
               }
               if (fileRows.length) {
-                fileTable = [
+                pluginTable = [
                   '| File | Hits | Missed | Coverage |',
                   '|------|------|--------|----------|',
                   ...fileRows,
                 ].join('\n')
               }
-              const totMatch = report.match(/^Total\s+\d+\s+\d+\s+([\d.]+)%/m)
-              if (totMatch) coveragePct = parseFloat(totMatch[1])
+              const tot = report.match(/^Total\s+\d+\s+\d+\s+([\d.]+)%/m)
+              if (tot) pluginPct = parseFloat(tot[1])
             } catch (_) {}
 
+            // ── CLI Coverage (Go) ──────────────────────────────────────────
+            let cliPct = null
+            let cliTable = ''
+            try {
+              const report = fs.readFileSync('coverage-cli-func.txt', 'utf8')
+              const funcRows = []
+              for (const line of report.split('\n')) {
+                // e.g. github.com/owner/repo/cmd/macromog/main.go:24:  main  0.0%
+                const m = line.match(/^(\S+):(\d+):\s+(\S+)\s+([\d.]+)%/)
+                if (m) {
+                  // strip module prefix (github.com/owner/repo/)
+                  const file = m[1].replace(/^[^/]+\/[^/]+\/[^/]+\//, '')
+                  funcRows.push(`| \`${file}\` | \`${m[3]}\` | ${m[4]}% |`)
+                }
+              }
+              if (funcRows.length) {
+                cliTable = [
+                  '| File | Function | Coverage |',
+                  '|------|----------|----------|',
+                  ...funcRows,
+                ].join('\n')
+              }
+              const tot = report.match(/^total:\s+\(statements\)\s+([\d.]+)%/m)
+              if (tot) cliPct = parseFloat(tot[1])
+            } catch (_) {}
+
+            // ── Compose comment ────────────────────────────────────────────
             const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
-            const threshold = 80
-            const passed = coveragePct !== null && coveragePct >= threshold
-            const status = passed ? '✅' : '❌'
-            const pctDisplay = coveragePct !== null ? `${coveragePct.toFixed(2)}%` : 'unknown'
+            const pluginThreshold = 80
+            const cliThreshold = 0
+
+            const pluginPassed = pluginPct !== null && pluginPct >= pluginThreshold
+            const cliPassed   = cliPct   !== null && cliPct   >= cliThreshold
+
+            const fmt = (pct) => pct !== null ? `${pct.toFixed(2)}%` : 'unknown'
+            const icon = (ok) => ok ? '✅' : '❌'
+
+            const pluginSection = [
+              `### ${icon(pluginPassed)} Plugin Coverage — ${fmt(pluginPct)}`,
+              '',
+              pluginPassed
+                ? `Meets the ${pluginThreshold}% threshold.`
+                : `Below the ${pluginThreshold}% threshold. Download [\`coverage.xml\`](${runUrl}) to identify gaps.`,
+              '',
+              pluginTable,
+            ].filter(s => s !== undefined).join('\n')
+
+            const cliSection = [
+              `### ${icon(cliPassed)} CLI Coverage — ${fmt(cliPct)}`,
+              '',
+              cliPassed
+                ? `Meets the ${cliThreshold}% threshold.`
+                : `Below the ${cliThreshold}% threshold.`,
+              '',
+              cliTable,
+            ].filter(s => s !== undefined).join('\n')
 
             const body = [
-              `## ${status} Plugin Coverage — ${pctDisplay}`,
+              MARKER,
+              '## Coverage Report',
               '',
-              passed
-                ? `Plugin Coverage meets the ${threshold}% threshold.`
-                : `Plugin Coverage is below the ${threshold}% threshold. Download [\`coverage.xml\`](${runUrl}) to identify gaps.`,
+              pluginSection,
               '',
-              fileTable,
+              cliSection,
               '',
               `[View workflow run](${runUrl})`,
-            ].filter(Boolean).join('\n')
+            ].join('\n')
 
             const { data: comments } = await github.rest.issues.listComments({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
             })
-            const existing = comments.find(c => c.body.includes('Plugin Coverage'))
+            const existing = comments.find(c => c.body.includes(MARKER))
 
             if (existing) {
               await github.rest.issues.updateComment({
