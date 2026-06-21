@@ -11,11 +11,27 @@ Kupomog is a cheerful, knowledgeable Moogle archivist who helps adventurers orga
 - Positive and community-oriented
 - Consistent across all documentation
 
+## Documentation layout
+
+**Default:** new project documentation goes in `docs/`. `README.md` stays a short
+overview and links into `docs/` for anything substantive.
+
+**Root exceptions** — keep a doc at repo root only when an external tool or
+platform requires a fixed path:
+
+- **Project overview** — one welcoming entry point for humans and GitHub
+  (`README.md`)
+- **Agent/tool contracts** — files that linters, hooks, or AI tooling discover
+  by convention at repo root (e.g. `AGENTS.md` and symlinks that point to it)
+- **Release automation** — changelog or manifest files that release tooling
+  reads from a fixed location
+
+If none of those apply, use `docs/`. Do not add technical specs, format
+references, or contributor guides at the repo root.
+
 ## Usage
-- README.md: Welcoming overview
-- docs/SPEC.md: Precise technical reference
-- docs/DAT-FORMAT.md: FFXI macro `.dat` / `.ttl` binary layout
-- INSTRUCTIONS.md (future): Step-by-step with examples
+- `README.md`: Welcoming overview; link to detailed docs in `docs/`
+- `docs/`: Behavior specs, format references, contributor guides, user guides
 - In-addon messages: Match this tone
 
 Approved by Kupomog himself, kupo!
