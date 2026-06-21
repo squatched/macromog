@@ -168,6 +168,22 @@ corresponding `fix-<component>-<check>` target that repairs it in place. Current
 | `validate-plugin-format` | `fix-plugin-format` | `stylua` |
 | `validate-cli-format` | `fix-cli-format` | `gofmt` |
 
+### Build targets
+
+Build targets are distinct from `validate-*` — they compile production artifacts, not check code
+quality. They do not belong under the `validate` umbrella.
+
+| Target | Purpose |
+|--------|---------|
+| `build-cli` | Build the CLI binary for the current platform (`./macromog`) |
+| `build-cli-all` | Cross-compile for all 6 release platforms; no output kept |
+
+Release platforms: `darwin/amd64`, `darwin/arm64`, `linux/amd64`, `linux/386`,
+`windows/amd64`, `windows/386`. (`darwin/386` was dropped in Go 1.15.)
+
+A failed build blocks PRs via a dedicated `build.yml` workflow. Unlike `validate-*` targets,
+`build-cli-all` is not run as part of `make validate`.
+
 ### Local / CI parity
 
 GitHub Actions workflows call `make` targets directly — no inline commands. This guarantees
@@ -175,6 +191,7 @@ that the exact same check runs locally (`make validate-plugin-lint`) and in CI. 
 invocations directly in workflow YAML; always route through a Makefile target.
 
 Workflow files are named to mirror the Makefile structure:
+- `.github/workflows/build.yml` — CLI cross-compilation (6-platform matrix, blocks PRs)
 - `.github/workflows/validate-plugin.yml` — Plugin Coverage lint + format
 - `.github/workflows/test.yml` — Plugin Coverage (with PR comment)
 - `.github/workflows/validate-cli.yml` — CLI Coverage lint + format + test + coverage
