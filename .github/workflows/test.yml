@@ -7,86 +7,210 @@ on:
     branches: [main]
 
 jobs:
-  coverage:
-    name: coverage
+  coverage-plugin:
+    name: coverage-plugin
     runs-on: ubuntu-latest
-    permissions:
-      pull-requests: write
-      contents: read
-
     steps:
       - uses: actions/checkout@v5
 
       - name: Install Lua dependencies
         run: |
+          sudo apt-get update -y
           sudo apt-get install -y luarocks
           sudo luarocks install busted
           sudo luarocks install luacov
           sudo luarocks install luacov-cobertura
 
-      - name: validate-coverage
-        run: make validate-coverage
+      - name: validate-plugin-coverage
+        run: make validate-plugin-coverage
 
-      - name: Upload coverage.xml
+      - name: Generate plugin HTML report
+        if: always()
+        run: |
+          if [ -f luacov.report.out ]; then
+            cp luacov.report.out coverage-plugin-summary.txt
+            luacov -r html 2>&1 || echo "::warning::luacov -r html failed"
+            mv luacov.report.out coverage-plugin.html || true
+          else
+            echo "::warning::luacov.report.out not found — skipping HTML report"
+          fi
+
+      - name: Upload plugin coverage artifact
         if: always()
         uses: actions/upload-artifact@v6
         with:
-          name: coverage-xml
-          path: coverage.xml
+          name: coverage-plugin
+          path: |
+            coverage-plugin.xml
+            coverage-plugin.html
+            coverage-plugin-summary.txt
           if-no-files-found: warn
 
+  coverage-cli:
+    name: coverage-cli
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: validate-cli-coverage
+        run: make validate-cli-coverage
+
+      - name: Generate CLI coverage reports
+        if: always()
+        run: |
+          [ -f coverage-cli.out ] && go tool cover -func=coverage-cli.out > coverage-cli-func.txt || true
+          [ -f coverage-cli.out ] && go tool cover -html=coverage-cli.out -o coverage-cli.html || true
+
+      - name: Upload CLI coverage artifact
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: coverage-cli
+          path: |
+            coverage-cli.out
+            coverage-cli-func.txt
+            coverage-cli.html
+          if-no-files-found: warn
+
+  summarize:
+    name: coverage-summary
+    runs-on: ubuntu-latest
+    needs: [coverage-plugin, coverage-cli]
+    if: always() && github.event_name == 'pull_request'
+    permissions:
+      pull-requests: write
+      contents: read
+
+    steps:
+      - name: Download plugin coverage artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: coverage-plugin
+          path: ./plugin-reports/
+        continue-on-error: true
+
+      - name: Download CLI coverage artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: coverage-cli
+          path: ./cli-reports/
+        continue-on-error: true
+
       - name: Comment coverage on PR
-        if: github.event_name == 'pull_request' && always()
         uses: actions/github-script@v8
         with:
           script: |
             const fs = require('fs')
+            const MARKER = '<!-- macromog-coverage -->'
 
-            let coveragePct = null
-            let fileTable = ''
+            // ── Plugin Coverage (Lua) ──────────────────────────────────────
+            let pluginPct = null
+            let pluginTable = ''
             try {
-              const report = fs.readFileSync('luacov.report.out', 'utf8')
-              // Parse per-file lines: "lib/foo.lua  45  2  95.65%"
+              const report = fs.readFileSync('./plugin-reports/coverage-plugin-summary.txt', 'utf8')
               const fileRows = []
               for (const line of report.split('\n')) {
                 const m = line.match(/^(\S+\.lua)\s+(\d+)\s+(\d+)\s+([\d.]+)%/)
                 if (m) fileRows.push(`| \`${m[1]}\` | ${m[2]} | ${m[3]} | ${m[4]}% |`)
               }
               if (fileRows.length) {
-                fileTable = [
+                pluginTable = [
                   '| File | Hits | Missed | Coverage |',
                   '|------|------|--------|----------|',
                   ...fileRows,
                 ].join('\n')
               }
-              const totMatch = report.match(/^Total\s+\d+\s+\d+\s+([\d.]+)%/m)
-              if (totMatch) coveragePct = parseFloat(totMatch[1])
+              const tot = report.match(/^Total\s+\d+\s+\d+\s+([\d.]+)%/m)
+              if (tot) pluginPct = parseFloat(tot[1])
             } catch (_) {}
 
+            // ── CLI Coverage (Go) ──────────────────────────────────────────
+            let cliPct = null
+            let cliTable = ''
+            try {
+              const report = fs.readFileSync('./cli-reports/coverage-cli-func.txt', 'utf8')
+              const funcRows = []
+              for (const line of report.split('\n')) {
+                const m = line.match(/^(\S+):(\d+):\s+(\S+)\s+([\d.]+)%/)
+                if (m) {
+                  const file = m[1].replace(/^[^/]+\/[^/]+\/[^/]+\//, '')
+                  funcRows.push(`| \`${file}\` | \`${m[3]}\` | ${m[4]}% |`)
+                }
+              }
+              if (funcRows.length) {
+                cliTable = [
+                  '| File | Function | Coverage |',
+                  '|------|----------|----------|',
+                  ...funcRows,
+                ].join('\n')
+              }
+              const tot = report.match(/^total:\s+\(statements\)\s+([\d.]+)%/m)
+              if (tot) cliPct = parseFloat(tot[1])
+            } catch (_) {}
+
+            // ── Compose comment ────────────────────────────────────────────
             const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
-            const threshold = 80
-            const passed = coveragePct !== null && coveragePct >= threshold
-            const status = passed ? '✅' : '❌'
-            const pctDisplay = coveragePct !== null ? `${coveragePct.toFixed(2)}%` : 'unknown'
+            const pluginThreshold = 80
+            const cliThreshold = 0
+
+            const pluginPassed = pluginPct !== null && pluginPct >= pluginThreshold
+            const cliPassed   = cliPct   !== null && cliPct   >= cliThreshold
+
+            const fmt  = (pct) => pct !== null ? `${pct.toFixed(2)}%` : 'unknown'
+            const icon = (ok)  => ok ? '✅' : '❌'
+
+            const pluginSection = [
+              `### ${icon(pluginPassed)} Plugin Coverage — ${fmt(pluginPct)}`,
+              '',
+              pluginPassed
+                ? `Meets the ${pluginThreshold}% threshold.`
+                : pluginPct !== null
+                  ? `Below the ${pluginThreshold}% threshold.`
+                  : `Coverage data unavailable — the coverage-plugin job may have failed. See the [workflow run](${runUrl}) for details.`,
+              '',
+              pluginTable,
+              '',
+              '> **`coverage-plugin` artifact** — open `coverage-plugin.html` for a visual report.',
+              '> Also includes `coverage-plugin.xml` (Cobertura) for IDE plugins such as Coverage Gutters.',
+            ].filter(s => s !== undefined).join('\n')
+
+            const cliSection = [
+              `### ${icon(cliPassed)} CLI Coverage — ${fmt(cliPct)}`,
+              '',
+              cliPassed
+                ? `Meets the ${cliThreshold}% threshold.`
+                : cliPct !== null
+                  ? `Below the ${cliThreshold}% threshold.`
+                  : `Coverage data unavailable — the coverage-cli job may have failed. See the [workflow run](${runUrl}) for details.`,
+              '',
+              cliTable,
+              '',
+              '> **`coverage-cli` artifact** — open `coverage-cli.html` for an annotated source report.',
+              '> Also includes `coverage-cli.out` (Go cover profile) for local tooling.',
+            ].filter(s => s !== undefined).join('\n')
 
             const body = [
-              `## ${status} Coverage Report — ${pctDisplay}`,
+              MARKER,
+              '## Coverage Report',
               '',
-              passed
-                ? `Coverage meets the ${threshold}% threshold.`
-                : `Coverage is below the ${threshold}% threshold. Download [\`coverage.xml\`](${runUrl}) to identify gaps.`,
+              pluginSection,
               '',
-              fileTable,
+              cliSection,
               '',
-              `[View workflow run](${runUrl})`,
-            ].filter(Boolean).join('\n')
+              `[Download artifacts / view run](${runUrl})`,
+            ].join('\n')
 
             const { data: comments } = await github.rest.issues.listComments({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
             })
-            const existing = comments.find(c => c.body.includes('Coverage Report'))
+            const existing = comments.find(c => c.body.includes(MARKER))
 
             if (existing) {
               await github.rest.issues.updateComment({

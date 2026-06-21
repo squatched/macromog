@@ -110,22 +110,91 @@ Append `!` after the type for a **breaking change** (major bump): `feat!:`, `fix
 
 ### Scopes (optional but encouraged)
 
-`core`, `yaml`, `macros`, `validate`, `ci`, `docs`
+`core`, `yaml`, `macros`, `validate`, `ci`, `docs`, `plugin`, `cli`
 
 ### Examples
 
 ```
-feat(yaml): implement pure-Lua YAML parser for macro structure
-fix(validate): correct book index upper bound check
+feat(yaml): add pure-Lua YAML parser
+fix(validate): correct book index bounds
 chore(ci): add release-please workflow
-feat!: change YAML schema — book indices now 1-based
+feat!: use 1-based book indices
 docs: add INSTRUCTIONS.md with quick-start guide
 ```
 
 ### Rules
-- Summary line: imperative mood, lowercase, no trailing period, ≤72 chars
+- Subject line: imperative mood, lowercase, no trailing period, **≤50 chars**
+- Body/footer lines: **≤72 chars** each
 - Body: explain *why*, not *what* (the diff shows what)
 - Breaking changes: add `BREAKING CHANGE: <description>` in the footer (in addition to `!`)
+
+---
+
+## Validation & CI Conventions
+
+### Terminology
+
+| Term | Meaning |
+|------|---------|
+| **Plugin Coverage** | Test coverage of the Lua/Windower addon (`macromog.lua`, `lib/`) |
+| **CLI Coverage** | Test coverage of the Go binary (`cmd/`) |
+
+These are tracked and reported separately. Never combine them into a single percentage — a high score in one must not mask a low score in the other.
+
+### Target naming
+
+All validation targets follow a two-level naming scheme:
+
+```
+validate-<component>-<check>
+fix-<component>-<check>
+```
+
+| Segment | Values | Notes |
+|---------|--------|-------|
+| `<component>` | `plugin`, `cli` | `plugin` = Lua/Windower addon; `cli` = Go binary |
+| `<check>` | `lint`, `format`, `test`, `coverage` | Not every check exists for every component |
+
+Component umbrellas (`validate-plugin`, `validate-cli`) run all checks for that component.
+The top-level `validate` target runs all component umbrellas.
+
+### The fix-* rule
+
+Any `validate-<component>-<check>` target that catches an auto-fixable issue **must** have a
+corresponding `fix-<component>-<check>` target that repairs it in place. Current pairs:
+
+| Validate target | Fix target | Tool |
+|----------------|------------|------|
+| `validate-plugin-format` | `fix-plugin-format` | `stylua` |
+| `validate-cli-format` | `fix-cli-format` | `gofmt` |
+
+### Build targets
+
+Build targets are distinct from `validate-*` — they compile production artifacts, not check code
+quality. They do not belong under the `validate` umbrella.
+
+| Target | Purpose |
+|--------|---------|
+| `build-cli` | Build the CLI binary for the current platform (`./macromog`) |
+| `build-cli-all` | Cross-compile for all 6 release platforms; no output kept |
+
+Release platforms: `darwin/amd64`, `darwin/arm64`, `linux/amd64`, `linux/386`,
+`windows/amd64`, `windows/386`. (`darwin/386` was dropped in Go 1.15.)
+
+A failed build blocks PRs via a dedicated `build.yml` workflow. Unlike `validate-*` targets,
+`build-cli-all` is not run as part of `make validate`.
+
+### Local / CI parity
+
+GitHub Actions workflows call `make` targets directly — no inline commands. This guarantees
+that the exact same check runs locally (`make validate-plugin-lint`) and in CI. Never put tool
+invocations directly in workflow YAML; always route through a Makefile target.
+
+Workflow files are named to mirror the Makefile structure:
+- `.github/workflows/build.yml` — CLI cross-compilation (6-platform matrix, blocks PRs)
+- `.github/workflows/validate-plugin.yml` — Plugin Coverage lint + format
+- `.github/workflows/test.yml` — Plugin Coverage (with PR comment)
+- `.github/workflows/validate-cli.yml` — CLI Coverage lint + format + test + coverage
 
 ---
 
@@ -154,8 +223,8 @@ to a branch:
 make validate
 ```
 
-This runs `validate-lint`, `validate-format`, and `validate-coverage` in
-sequence — exactly what CI enforces. If it passes locally, CI will pass.
+This runs `validate-plugin` and `validate-cli` in sequence — exactly what CI
+enforces. If it passes locally, CI will pass.
 
 **You must actually run this command.** Do not simulate the result, describe
 what it would do, or carry forward an earlier passing result. Run it fresh and

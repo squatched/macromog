@@ -1,0 +1,40 @@
+name: Build CLI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    name: build (${{ matrix.goos }}/${{ matrix.goarch }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        goos:   [darwin, linux, windows]
+        goarch: [amd64, arm64, 386]
+        exclude:
+          # darwin/386 dropped in Go 1.15; darwin/arm64 takes its place
+          - goos: darwin
+            goarch: 386
+          # linux/arm64 and windows/arm64 are not in the release matrix
+          - goos: linux
+            goarch: arm64
+          - goos: windows
+            goarch: arm64
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: build-cli
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: make build-cli

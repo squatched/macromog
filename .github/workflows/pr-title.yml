@@ -29,6 +29,8 @@ jobs:
             validate
             ci
             docs
+            plugin
+            cli
           # Scope is optional — contributors may omit it
           requireScope: false
           # Subject line length is enforced by the CC action's own checks;

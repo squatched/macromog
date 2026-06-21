@@ -1,4 +1,4 @@
-name: Lint
+name: Validate Plugin
 
 on:
   push:
@@ -7,8 +7,8 @@ on:
     branches: [main]
 
 jobs:
-  luacheck:
-    name: luacheck
+  plugin-lint:
+    name: validate-plugin-lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -18,11 +18,11 @@ jobs:
           sudo apt-get install -y luarocks
           sudo luarocks install luacheck
 
-      - name: validate-lint
-        run: make validate-lint
+      - name: validate-plugin-lint
+        run: make validate-plugin-lint
 
-  stylua:
-    name: stylua
+  plugin-format:
+    name: validate-plugin-format
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -34,5 +34,5 @@ jobs:
           unzip -q stylua.zip
           sudo mv stylua /usr/local/bin/stylua
 
-      - name: validate-format
-        run: make validate-format
+      - name: validate-plugin-format
+        run: make validate-plugin-format
