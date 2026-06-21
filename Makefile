@@ -12,6 +12,12 @@ PLUGIN_COV_MIN   := 80
 CLI_COV_MIN      := 0
 GO_SRC           := ./...
 CLI_DIRS         := ./cmd
+CLI_MAIN         := ./cmd/macromog
+BINARY           := macromog
+BUILD_PLATFORMS  := \
+    darwin/amd64 darwin/arm64 \
+    linux/amd64  linux/386   \
+    windows/amd64 windows/386
 
 .PHONY: all \
         validate validate-plugin validate-cli \
@@ -19,6 +25,7 @@ CLI_DIRS         := ./cmd
         validate-plugin-test validate-plugin-coverage \
         validate-cli-lint validate-cli-format validate-cli-test validate-cli-coverage \
         fix fix-plugin-format fix-cli-format \
+        build-cli build-cli-all \
         clean
 
 all: validate
@@ -101,6 +108,22 @@ validate-cli-coverage:
 fix-cli-format:
 	gofmt -w $(CLI_DIRS)
 
+# ── Build ─────────────────────────────────────────────────────────────────────
+
+## Build the CLI binary for the current platform (output: ./macromog)
+build-cli:
+	$(GO) build -o $(BINARY) $(CLI_MAIN)
+
+## Cross-compile the CLI for all release platforms (compilation check, no output)
+build-cli-all:
+	@for target in $(BUILD_PLATFORMS); do \
+	    os=$$(printf '%s' "$$target" | cut -d/ -f1); \
+	    arch=$$(printf '%s' "$$target" | cut -d/ -f2); \
+	    printf "  %-24s" "$$os/$$arch"; \
+	    GOOS=$$os GOARCH=$$arch $(GO) build ./cmd/... && printf "OK\n" || exit 1; \
+	done
+	@printf "All platforms: OK\n"
+
 # ── Umbrella fix targets ──────────────────────────────────────────────────────
 
 ## Auto-fix all issues that can be fixed automatically
@@ -108,6 +131,6 @@ fix: fix-plugin-format fix-cli-format
 
 # ── Housekeeping ─────────────────────────────────────────────────────────────
 
-## Remove generated coverage artifacts
+## Remove generated coverage artifacts and local build output
 clean:
-	rm -f luacov.stats.out luacov.report.out coverage.xml coverage-cli.out
+	rm -f luacov.stats.out luacov.report.out coverage.xml coverage-cli.out $(BINARY)
