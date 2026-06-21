@@ -15,11 +15,11 @@ jobs:
 
       - name: Install Lua dependencies
         run: |
+          sudo apt-get update -y
           sudo apt-get install -y luarocks
           sudo luarocks install busted
           sudo luarocks install luacov
           sudo luarocks install luacov-cobertura
-          sudo luarocks install luacov-html
 
       - name: validate-plugin-coverage
         run: make validate-plugin-coverage
@@ -27,7 +27,13 @@ jobs:
       - name: Generate plugin HTML report
         if: always()
         run: |
-          [ -f luacov.stats.out ] && luacov-html || true
+          if [ -f luacov.report.out ]; then
+            cp luacov.report.out coverage-plugin-summary.txt
+            luacov -r html 2>&1 || echo "::warning::luacov -r html failed"
+            mv luacov.report.out coverage-plugin.html || true
+          else
+            echo "::warning::luacov.report.out not found — skipping HTML report"
+          fi
 
       - name: Upload plugin coverage artifact
         if: always()
@@ -36,8 +42,8 @@ jobs:
           name: coverage-plugin
           path: |
             coverage-plugin.xml
-            luacov-html/
-            luacov.report.out
+            coverage-plugin.html
+            coverage-plugin-summary.txt
           if-no-files-found: warn
 
   coverage-cli:
@@ -82,14 +88,14 @@ jobs:
 
     steps:
       - name: Download plugin coverage artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: coverage-plugin
           path: ./plugin-reports/
         continue-on-error: true
 
       - name: Download CLI coverage artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: coverage-cli
           path: ./cli-reports/
@@ -106,7 +112,7 @@ jobs:
             let pluginPct = null
             let pluginTable = ''
             try {
-              const report = fs.readFileSync('./plugin-reports/luacov.report.out', 'utf8')
+              const report = fs.readFileSync('./plugin-reports/coverage-plugin-summary.txt', 'utf8')
               const fileRows = []
               for (const line of report.split('\n')) {
                 const m = line.match(/^(\S+\.lua)\s+(\d+)\s+(\d+)\s+([\d.]+)%/)
@@ -169,7 +175,7 @@ jobs:
               '',
               pluginTable,
               '',
-              '> **`coverage-plugin` artifact** — open `luacov-html/index.html` for a visual report.',
+              '> **`coverage-plugin` artifact** — open `coverage-plugin.html` for a visual report.',
               '> Also includes `coverage-plugin.xml` (Cobertura) for IDE plugins such as Coverage Gutters.',
             ].filter(s => s !== undefined).join('\n')
 
