@@ -35,7 +35,7 @@ func run(args []string) int {
 	case "export":
 		return runExport(args[2:])
 	case "import":
-		return unimplemented("import")
+		return runImport(args[2:])
 	case "validate":
 		return runValidate(args[2:])
 	case "backup":

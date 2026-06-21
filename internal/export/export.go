@@ -237,7 +237,14 @@ func keyNode(key interface{}) *yaml.Node {
 }
 
 func scalarNode(value string) *yaml.Node {
-	return &yaml.Node{Kind: yaml.ScalarNode, Value: value}
+	n := &yaml.Node{Kind: yaml.ScalarNode, Value: value}
+	if value == "" {
+		// A bare scalar node with no value serializes as YAML null, which
+		// yaml.v3 drops when unmarshaling into []string. Use double-quoted
+		// style so empty strings round-trip as "" instead of vanishing.
+		n.Style = yaml.DoubleQuotedStyle
+	}
+	return n
 }
 
 func intNode(value int) *yaml.Node {
