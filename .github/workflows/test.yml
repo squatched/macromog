@@ -24,9 +24,10 @@ jobs:
           sudo luarocks install luacov
           sudo luarocks install luacov-cobertura
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
+          cache: false
 
       - name: validate-plugin-coverage
         run: make validate-plugin-coverage

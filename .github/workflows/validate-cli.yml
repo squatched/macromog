@@ -13,9 +13,10 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
+          cache: false
 
       - name: validate-cli-lint
         run: make validate-cli-lint
@@ -26,9 +27,10 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
+          cache: false
 
       - name: validate-cli-format
         run: make validate-cli-format
@@ -39,9 +41,10 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
+          cache: false
 
       - name: validate-cli-test
         run: make validate-cli-test
@@ -52,9 +55,10 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
+          cache: false
 
       - name: validate-cli-coverage
         run: make validate-cli-coverage
