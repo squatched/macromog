@@ -1,6 +1,6 @@
 # FFXI Macro DAT and TTL File Format
 
-Technical reference for the per-character macro files the FFXI client stores under each character's `USER` folder. Macromog's CLI export reads these files; import will write them in a later release.
+Technical reference for the per-character macro files the FFXI client stores under each character's `USER` folder. Macromog's CLI reads these files on export and writes them on import.
 
 Notation uses **1-based** book and set numbers throughout (matching in-game labels):
 
@@ -51,10 +51,39 @@ Both `.dat` macro sets and `.ttl` title files begin with the same 24-byte header
 | Offset | Size | Type | Value |
 |--------|------|------|-------|
 | 0x00 | 4 | `uint32` LE | Magic / version (`1`) |
-| 0x04 | 4 | `uint32` LE | Unknown; observed as `0` or `0x80000000` |
-| 0x08 | 16 | `uint8[16]` | MD5 digest of payload |
+| 0x04 | 4 | `uint32` LE | Write timestamp (see below) |
+| 0x08 | 16 | `uint8[16]` | MD5 digest of payload (bytes 0x18 onward) |
 
-Macromog checks the magic value but does not verify the MD5 on read.
+Macromog checks the magic value on read and writes the correct MD5 on write, but does not verify the MD5 on read.
+
+### Unknown field (bytes 0x04–0x07)
+
+The meaning of this field is not definitively known. What is confirmed from a survey of live character files:
+
+- `0x00000000` — file has never been written by the game (untouched slots consistently have this value)
+- Non-zero — set by the game at write time; files written in the same save operation share an identical value
+- Copying files between characters (e.g. via the macro save-slot system) preserves the original value verbatim — the game does not update this field on load or copy
+- `nmcr*.dat` files written by Windower contain `0x00000001` — Windower uses a constant
+
+The `.ttl` title files use the same field and are always stamped with the same value as `mcr.dat` (book 1, set 1) in the same write operation.
+
+**Working theory — write timestamp:** The field appears to be a 32-bit clock value stamped at write time, but the exact unit and epoch are unclear. Attempting to interpret the observed non-zero values as *seconds since the FFXI JP launch date (2002-05-16)* yields plausible calendar dates for most values:
+
+| Observed value | Seconds-since-JP interpretation |
+|---|---|
+| `0x00169984` | 2002-06-02 |
+| `0x0089e9a0` | 2002-08-28 |
+| `0x00912758` | 2002-09-03 |
+| `0x01074388` | 2002-12-01 |
+| `0x031fd205` | 2004-01-12 |
+| `0x0ad50be0` | 2008-02-17 |
+| `0x0aebeae0` | 2008-03-05 |
+
+However, two values found in the same character directories (`0x7817334c`, `0xc6204571`) produce dates of 2066 and 2107 under that same interpretation — clearly wrong. Those same values read as milliseconds since Windows session start correspond to 23 and 38 days of uptime, which is plausible but cannot be converted to an absolute timestamp without knowing when the system was booted. No single epoch+unit combination fits all observed values.
+
+POLUtils carries a `// TODO: Figure out when to write 0x80000000` comment, implying the developer observed only two values (`0` and one file that happened to have the high bit set) and assumed it was a boolean flag. The survey above shows it is not.
+
+**Macromog writes `0` for this field.** The game does not validate it on read (confirmed by POLUtils writing `0` without issue for years), and correctly replicating it would require reverse-engineering client internals that remain opaque.
 
 ---
 
