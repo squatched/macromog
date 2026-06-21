@@ -248,7 +248,7 @@ All work lands on `main` via pull request — never direct-push.
    unit of work.
 3. **Validate before opening** — run `make validate` and confirm it passes.
 4. **Open the PR** — use `gh pr create` targeting `main`. Include:
-   - A clear title (imperative mood, ≤70 chars)
+   - A clear title (imperative mood, ≤50 chars)
    - A body with a short summary of *why* the change is needed and a test plan
 5. **Present for approval** — share the PR URL and wait for the user to review
    and approve before merging. Do not merge without explicit sign-off.
