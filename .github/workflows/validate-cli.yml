@@ -16,10 +16,24 @@ jobs:
       - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
-          cache: false
+          cache: true
 
       - name: validate-cli-lint
         run: make validate-cli-lint
+
+  cli-tidy:
+    name: validate-cli-tidy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: validate-cli-tidy
+        run: make validate-cli-tidy
 
   cli-format:
     name: validate-cli-format
@@ -30,7 +44,7 @@ jobs:
       - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
-          cache: false
+          cache: true
 
       - name: validate-cli-format
         run: make validate-cli-format
@@ -44,7 +58,7 @@ jobs:
       - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
-          cache: false
+          cache: true
 
       - name: validate-cli-test
         run: make validate-cli-test
@@ -58,7 +72,7 @@ jobs:
       - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
-          cache: false
+          cache: true
 
       - name: validate-cli-coverage
         run: make validate-cli-coverage

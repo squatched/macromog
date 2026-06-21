@@ -8,8 +8,7 @@ GO               := go
 LUA_SRC          := macromog.lua lib/
 TEST_DIR         := tests/
 PLUGIN_COV_MIN   := 80
-# CLI_COV_MIN is 0 for the stub; raise it as implementation fills in
-CLI_COV_MIN      := 0
+CLI_COV_MIN      := 80
 GO_SRC           := ./...
 CLI_DIRS         := ./cmd
 CLI_MAIN         := ./cmd/macromog
@@ -19,39 +18,38 @@ BUILD_PLATFORMS  := \
     linux/amd64  linux/386   \
     windows/amd64 windows/386
 
-.PHONY: all \
+.DEFAULT_GOAL := help
+
+.PHONY: help \
         validate validate-plugin validate-cli \
         validate-plugin-lint validate-plugin-format \
         validate-plugin-test validate-plugin-coverage \
-        validate-cli-lint validate-cli-format validate-cli-test validate-cli-coverage \
-        fix fix-plugin-format fix-cli-format \
+        validate-cli-lint validate-cli-format validate-cli-tidy validate-cli-test validate-cli-coverage \
+        fix fix-plugin-format fix-cli-format fix-cli-tidy \
         build-cli build-cli-all \
         clean
 
-all: validate
+help: ## Show available targets
+	@awk 'BEGIN {FS = ":.*##"; printf "Targets:\n"} \
+	  /^[a-zA-Z_-]+:.*?##/ {printf "  %-28s %s\n", $$1, $$2}' \
+	  $(MAKEFILE_LIST)
 
-## Run all validation checks across the plugin (Lua) and CLI (Go)
-validate: validate-plugin validate-cli
+validate: validate-plugin validate-cli ## Run all validation checks across plugin (Lua) and CLI (Go)
 
 # ── Plugin (Lua / Windower addon) ────────────────────────────────────────────
 
-## Run all plugin validation checks (lint + format + coverage)
-validate-plugin: validate-plugin-lint validate-plugin-format validate-plugin-coverage
+validate-plugin: validate-plugin-lint validate-plugin-format validate-plugin-coverage ## Run all plugin validation checks
 
-## Static analysis with luacheck
-validate-plugin-lint:
+validate-plugin-lint: ## Static analysis with luacheck
 	$(LUACHECK) $(LUA_SRC)
 
-## Formatting check — fails if any file is not formatted
-validate-plugin-format:
+validate-plugin-format: ## Formatting check — fails if any file is not stylua-clean
 	$(STYLUA) --check $(LUA_SRC)
 
-## Run test suite without coverage instrumentation (fast, local iteration)
-validate-plugin-test:
+validate-plugin-test: ## Run test suite without coverage instrumentation (fast, local)
 	$(BUSTED) $(TEST_DIR)
 
-## Run tests with coverage and enforce the $(PLUGIN_COV_MIN)% threshold
-validate-plugin-coverage:
+validate-plugin-coverage: ## Run tests with coverage and enforce $(PLUGIN_COV_MIN)% threshold
 	$(BUSTED) --coverage $(TEST_DIR)
 	$(LUACOV)
 	$(LUACOV_COBERTURA) -o coverage-plugin.xml
@@ -65,21 +63,17 @@ validate-plugin-coverage:
 	    } \
 	  }' luacov.report.out
 
-## Auto-format all Lua source files in place
-fix-plugin-format:
+fix-plugin-format: ## Auto-format all Lua source files in place
 	$(STYLUA) $(LUA_SRC)
 
 # ── CLI (Go) ─────────────────────────────────────────────────────────────────
 
-## Run all CLI validation checks (lint + format + test + coverage)
-validate-cli: validate-cli-lint validate-cli-format validate-cli-test validate-cli-coverage
+validate-cli: validate-cli-lint validate-cli-format validate-cli-tidy validate-cli-test validate-cli-coverage ## Run all CLI validation checks
 
-## Static analysis with go vet
-validate-cli-lint:
+validate-cli-lint: ## Static analysis with go vet
 	$(GO) vet $(GO_SRC)
 
-## Formatting check — fails if any file is not gofmt-clean
-validate-cli-format:
+validate-cli-format: ## Formatting check — fails if any file is not gofmt-clean
 	@out=$$(gofmt -l $(CLI_DIRS)); \
 	if [ -n "$$out" ]; then \
 		echo "unformatted files (run 'make fix-cli-format'):"; \
@@ -87,12 +81,21 @@ validate-cli-format:
 		exit 1; \
 	fi
 
-## Run Go test suite without coverage instrumentation (fast, local iteration)
-validate-cli-test:
+validate-cli-tidy: ## Check that go.mod and go.sum are tidy
+	@cp go.mod go.mod.tidy-bak && cp go.sum go.sum.tidy-bak; \
+	$(GO) mod tidy; \
+	if ! diff -q go.mod go.mod.tidy-bak > /dev/null 2>&1 || \
+	   ! diff -q go.sum go.sum.tidy-bak > /dev/null 2>&1; then \
+	    cp go.mod.tidy-bak go.mod; cp go.sum.tidy-bak go.sum; \
+	    rm -f go.mod.tidy-bak go.sum.tidy-bak; \
+	    echo "go.mod/go.sum not tidy — run 'make fix-cli-tidy'"; exit 1; \
+	fi; \
+	rm -f go.mod.tidy-bak go.sum.tidy-bak
+
+validate-cli-test: ## Run Go test suite without coverage instrumentation (fast, local)
 	$(GO) test $(GO_SRC)
 
-## Run Go tests with coverage and enforce the $(CLI_COV_MIN)% threshold
-validate-cli-coverage:
+validate-cli-coverage: ## Run Go tests with coverage and enforce $(CLI_COV_MIN)% threshold
 	$(GO) test -coverprofile=coverage-cli.out $(GO_SRC)
 	@go tool cover -func=coverage-cli.out | awk '/^total:/{gsub(/%/, "", $$NF); cov = $$NF + 0} \
 	  END { \
@@ -104,18 +107,18 @@ validate-cli-coverage:
 	    } \
 	  }'
 
-## Auto-format all Go source files in place
-fix-cli-format:
+fix-cli-tidy: ## Run go mod tidy in place
+	$(GO) mod tidy
+
+fix-cli-format: ## Auto-format all Go source files in place
 	gofmt -w $(CLI_DIRS)
 
 # ── Build ─────────────────────────────────────────────────────────────────────
 
-## Build the CLI binary for the current platform (output: ./macromog)
-build-cli:
+build-cli: ## Build the CLI binary for the current platform (output: ./bin/macromog)
 	$(GO) build -o $(BINARY) $(CLI_MAIN)
 
-## Cross-compile the CLI for all release platforms (compilation check, no output)
-build-cli-all:
+build-cli-all: ## Cross-compile the CLI for all release platforms (compilation check)
 	@for target in $(BUILD_PLATFORMS); do \
 	    os=$$(printf '%s' "$$target" | cut -d/ -f1); \
 	    arch=$$(printf '%s' "$$target" | cut -d/ -f2); \
@@ -126,11 +129,9 @@ build-cli-all:
 
 # ── Umbrella fix targets ──────────────────────────────────────────────────────
 
-## Auto-fix all issues that can be fixed automatically
-fix: fix-plugin-format fix-cli-format
+fix: fix-plugin-format fix-cli-format fix-cli-tidy ## Auto-fix all issues that can be fixed automatically
 
 # ── Housekeeping ─────────────────────────────────────────────────────────────
 
-## Remove generated coverage artifacts and local build output
-clean:
+clean: ## Remove generated coverage artifacts and local build output
 	rm -f luacov.stats.out luacov.report.out coverage-plugin.xml coverage-cli.out $(BINARY)

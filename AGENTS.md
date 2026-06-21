@@ -161,12 +161,8 @@ The top-level `validate` target runs all component umbrellas.
 ### The fix-* rule
 
 Any `validate-<component>-<check>` target that catches an auto-fixable issue **must** have a
-corresponding `fix-<component>-<check>` target that repairs it in place. Current pairs:
-
-| Validate target | Fix target | Tool |
-|----------------|------------|------|
-| `validate-plugin-format` | `fix-plugin-format` | `stylua` |
-| `validate-cli-format` | `fix-cli-format` | `gofmt` |
+corresponding `fix-<component>-<check>` target that repairs it in place.
+Run `make help` to see all current pairs.
 
 ### Build targets
 
