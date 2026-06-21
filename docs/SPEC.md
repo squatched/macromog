@@ -168,9 +168,7 @@ The CLI (`macromog`) is a standalone binary for offline-first macro management.
 
 ## Additional Notes
 
-- Macros are stored per-character in `mcr*.dat` files under the character's folder.
-- Reference implementations for DAT parsing: POLUtils, xi-tinkerer.
-- Japanese client encoding should be handled when reading/writing character name metadata.
+- Macros are stored per-character in `mcr*.dat` files under the character's USER folder. See [DAT-FORMAT.md](DAT-FORMAT.md) for the on-disk binary layout.
 
 ## Future Improvements
 
