@@ -25,9 +25,9 @@ Flags:
   --name <name>   character name for YAML metadata (default: directory name)
 
 Examples:
-  macromog export data/dats/c75afe
-  macromog export data/dats/c75afe hendrimod.yml
-  macromog export --char /path/to/USER/c75afe -o hendrimod.yml
+  macromog export /path/to/USER/a1b2c3d4
+  macromog export /path/to/USER/a1b2c3d4 macros.yml
+  macromog export --char /path/to/USER/a1b2c3d4 -o macros.yml
 `
 
 func runExport(args []string) int {

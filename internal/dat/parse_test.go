@@ -6,12 +6,12 @@ import (
 	"testing"
 
 	"github.com/squatched/macromog/internal/dat"
+	"github.com/squatched/macromog/internal/dat/testdata"
 )
 
-const datRoot = "../../data/dats"
-
 func TestReadMacroSet_Book33Set1(t *testing.T) {
-	data, err := os.ReadFile(filepath.Join(datRoot, "Book33/mcr320.dat"))
+	charDir := testdata.CharDir()
+	data, err := os.ReadFile(filepath.Join(charDir, "mcr320.dat"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -35,7 +35,7 @@ func TestReadMacroSet_Book33Set1(t *testing.T) {
 }
 
 func TestReadMacroSet_StructTest(t *testing.T) {
-	data, err := os.ReadFile(filepath.Join(datRoot, "b6s10_struct_test_macros.dat"))
+	data, err := os.ReadFile(filepath.Join(testdata.CharDir(), "mcr59.dat"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -69,7 +69,7 @@ func TestReadMacroSet_StructTest(t *testing.T) {
 }
 
 func TestReadMacroSet_Pathological(t *testing.T) {
-	data, err := os.ReadFile(filepath.Join(datRoot, "b6s9_pathological_macros.dat"))
+	data, err := os.ReadFile(filepath.Join(testdata.CharDir(), "mcr58.dat"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -94,11 +94,8 @@ func TestReadMacroSet_Pathological(t *testing.T) {
 	}
 
 	line3 := set.Ctrl[9].Contents[2]
-	for i := 0; i < 5; i++ {
-		if !contains(line3, "[02020114]") {
-			t.Errorf("line3 missing Good luck marker #%d: %q", i, line3)
-			break
-		}
+	if !contains(line3, "[02020114]") {
+		t.Errorf("line3 missing Good luck marker: %q", line3)
 	}
 	if !contains(line3, "Good luck!") {
 		t.Errorf("line3 missing typed text: %q", line3)
@@ -106,18 +103,18 @@ func TestReadMacroSet_Pathological(t *testing.T) {
 }
 
 func TestReadBookTitles(t *testing.T) {
-	titles, err := dat.ReadBookTitles(datRoot)
+	titles, err := dat.ReadBookTitles(testdata.CharDir())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if titles[0] != "JobsHub" {
-		t.Errorf("book 1 = %q, want JobsHub", titles[0])
+	if titles[0] != "Macros01" {
+		t.Errorf("book 1 = %q, want Macros01", titles[0])
 	}
-	if titles[32] != "Book33" { // index 32 = book 33
+	if titles[32] != "Book33" {
 		t.Errorf("book 33 = %q, want Book33", titles[32])
 	}
-	if titles[39] != "jVE2M4P6MXKYPl0" {
-		t.Errorf("book 40 = %q, want jVE2M4P6MXKYPl0", titles[39])
+	if titles[39] != "Book40" {
+		t.Errorf("book 40 = %q, want Book40", titles[39])
 	}
 }
 
@@ -129,17 +126,17 @@ func TestReadMacroSet_InvalidSize(t *testing.T) {
 }
 
 func TestDiscoverMacroFiles(t *testing.T) {
-	files, err := dat.DiscoverMacroFiles(filepath.Join(datRoot, "Book33"))
+	files, err := dat.DiscoverMacroFiles(testdata.CharDir())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(files) != 10 {
-		t.Fatalf("got %d files, want 10", len(files))
+	if len(files) != 12 {
+		t.Fatalf("got %d files, want 12", len(files))
 	}
 }
 
 func TestReadMacroSetFile(t *testing.T) {
-	set, err := dat.ReadMacroSetFile(filepath.Join(datRoot, "Book33/mcr320.dat"))
+	set, err := dat.ReadMacroSetFile(filepath.Join(testdata.CharDir(), "mcr320.dat"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -149,7 +146,7 @@ func TestReadMacroSetFile(t *testing.T) {
 }
 
 func contains(s, sub string) bool {
-	return len(s) >= len(sub) && (s == sub || len(sub) == 0 || indexOf(s, sub) >= 0)
+	return len(s) >= len(sub) && (s == sub || indexOf(s, sub) >= 0)
 }
 
 func indexOf(s, sub string) int {

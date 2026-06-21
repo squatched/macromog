@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/squatched/macromog/internal/dat/testdata"
 )
 
 func TestRunExport_MissingChar(t *testing.T) {
@@ -28,11 +30,7 @@ func TestRunExport_BadCharDir(t *testing.T) {
 func TestRunExport_Book33(t *testing.T) {
 	dir := t.TempDir()
 	out := filepath.Join(dir, "book33.yml")
-	datDir, err := filepath.Abs(filepath.Join("..", "..", "data", "dats", "Book33"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	args := []string{"--char", datDir, "-o", out}
+	args := []string{"--char", testdata.CharDir(), "-o", out}
 	if got := runExport(args); got != 0 {
 		t.Errorf("runExport = %d, want 0", got)
 	}
@@ -48,11 +46,7 @@ func TestRunExport_Book33(t *testing.T) {
 func TestRunExport_PositionalCharDir(t *testing.T) {
 	dir := t.TempDir()
 	out := filepath.Join(dir, "book33.yml")
-	datDir, err := filepath.Abs(filepath.Join("..", "..", "data", "dats", "Book33"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got := runExport([]string{datDir, out}); got != 0 {
+	if got := runExport([]string{testdata.CharDir(), out}); got != 0 {
 		t.Errorf("runExport(positional) = %d, want 0", got)
 	}
 	data, err := os.ReadFile(out)

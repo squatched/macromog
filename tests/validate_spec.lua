@@ -355,7 +355,7 @@ describe('validate.macros', function()
         it('accepts a fully populated valid macro table', function()
             local data = {
                 version = 1,
-                character = 'Hendrimod',
+                character = 'squatched',
                 books = {
                     [1] = {
                         name = 'WHM75NIN',

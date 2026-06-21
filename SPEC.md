@@ -33,7 +33,7 @@ The YAML file is the shared data format for both the plugin and CLI. It is **spa
 ### File Naming
 
 - Default export filename: `<character_name>_macros_<YYYYMMDD_HHMMSS>.yml`
-- Example: `Hendrimod_macros_20260620_033000.yml`
+- Example: `squatched_macros_20260620_033000.yml`
 - A timestamp suffix is always added to default filenames to prevent overwriting previous exports.
 - An explicit filename argument skips the timestamp: `//macromog export myfile.yml` writes `myfile.yml`.
 
@@ -41,7 +41,7 @@ The YAML file is the shared data format for both the plugin and CLI. It is **spa
 
 ```yaml
 version: 1                        # Schema version for future compatibility
-character: "Hendrimod"            # Optional metadata
+character: "squatched"            # Optional metadata
 exported_at: "2026-06-20T03:30:00Z"
 
 books:
@@ -139,7 +139,7 @@ The CLI (`macromog`) is a standalone binary for offline-first macro management.
 
 | Command | Description | Example |
 |---------|-------------|---------|
-| `export` | Export macros from `.dat` files to YAML | `macromog export /path/to/USER/c75afe` |
+| `export` | Export macros from `.dat` files to YAML | `macromog export /path/to/USER/a1b2c3d4` |
 | `import` | Import from YAML into `.dat` files (auto-backups first) | `macromog import mymacros.yml --char 0x12345678` |
 | `validate` | Validate a YAML file against FFXI constraints | `macromog validate mymacros.yml` |
 | `backup` | Create a timestamped backup of all macro `.dat` files | `macromog backup --char 0x12345678` |

@@ -23,7 +23,7 @@ func TestValidate(t *testing.T) {
 		{
 			name: "full example from spec",
 			input: `version: 1
-character: "Hendrimod"
+character: "squatched"
 exported_at: "2026-06-20T03:30:00Z"
 books:
   1:

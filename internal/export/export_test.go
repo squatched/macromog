@@ -6,16 +6,15 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/squatched/macromog/internal/dat/testdata"
 	"github.com/squatched/macromog/internal/export"
 	"github.com/squatched/macromog/internal/validate"
 )
 
-const datRoot = "../../data/dats"
-
 func TestFromCharacterDir_Book33(t *testing.T) {
 	doc, err := export.FromCharacterDir(export.Options{
-		CharacterDir: filepath.Join(datRoot, "Book33"),
-		Character:    "Book33Test",
+		CharacterDir: testdata.CharDir(),
+		Character:    "testchar",
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -39,7 +38,7 @@ func TestFromCharacterDir_Book33(t *testing.T) {
 
 func TestFromCharacterDir_StructTest(t *testing.T) {
 	doc, err := export.FromCharacterDir(export.Options{
-		CharacterDir: filepath.Join(datRoot, "c75afe"),
+		CharacterDir: testdata.CharDir(),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -49,14 +48,13 @@ func TestFromCharacterDir_StructTest(t *testing.T) {
 	if set.Ctrl[1].Name != "Ctrl1" {
 		t.Errorf("ctrl[1].Name = %q", set.Ctrl[1].Name)
 	}
-	// SkpLines sits in alt slot 4 (YAML key 4); alt slot 1 is intentionally empty.
 	if len(set.Alt[4].Contents) != 4 || set.Alt[4].Contents[3] != "Line 4" {
 		t.Errorf("alt[4].Contents = %#v", set.Alt[4].Contents)
 	}
 }
 
 func TestMarshalYAML_Validates(t *testing.T) {
-	doc, err := export.FromCharacterDir(export.Options{CharacterDir: filepath.Join(datRoot, "Book33")})
+	doc, err := export.FromCharacterDir(export.Options{CharacterDir: testdata.CharDir()})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -79,7 +77,7 @@ func TestFromCharacterDir_MissingDir(t *testing.T) {
 func TestWriteFile(t *testing.T) {
 	dir := t.TempDir()
 	out := filepath.Join(dir, "out.yml")
-	if err := export.WriteFile(filepath.Join(datRoot, "Book33"), out, "test"); err != nil {
+	if err := export.WriteFile(testdata.CharDir(), out, "test"); err != nil {
 		t.Fatal(err)
 	}
 	data, err := os.ReadFile(out)
