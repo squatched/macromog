@@ -6,8 +6,8 @@ Each macro is a C++ struct that looks like this:
 
 ```cpp
 struct Macro {
-    char[9] name; // 8 + null terminator
     char[6][61] lines; // 6 lines of 60 chars + null terminator
+    char[9] name; // 8 + null terminator
 }
 
 struct MacroSet {
