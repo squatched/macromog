@@ -54,7 +54,7 @@ validate-plugin-test:
 validate-plugin-coverage:
 	$(BUSTED) --coverage $(TEST_DIR)
 	$(LUACOV)
-	$(LUACOV_COBERTURA) -o coverage.xml
+	$(LUACOV_COBERTURA) -o coverage-plugin.xml
 	@awk '/^Total/{gsub(/%/, "", $$NF); cov = $$NF + 0} \
 	  END { \
 	    printf "Plugin Coverage: %.2f%%\n", cov; \
@@ -133,4 +133,4 @@ fix: fix-plugin-format fix-cli-format
 
 ## Remove generated coverage artifacts and local build output
 clean:
-	rm -f luacov.stats.out luacov.report.out coverage.xml coverage-cli.out $(BINARY)
+	rm -f luacov.stats.out luacov.report.out coverage-plugin.xml coverage-cli.out $(BINARY)

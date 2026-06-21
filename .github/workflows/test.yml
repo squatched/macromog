@@ -23,6 +23,7 @@ jobs:
           sudo luarocks install busted
           sudo luarocks install luacov
           sudo luarocks install luacov-cobertura
+          sudo luarocks install luacov-html
 
       - uses: actions/setup-go@v6
         with:
@@ -35,19 +36,31 @@ jobs:
       - name: validate-cli-coverage
         run: make validate-cli-coverage
 
-      - name: Generate CLI function coverage report
+      - name: Generate coverage reports
         if: always()
         run: |
           [ -f coverage-cli.out ] && go tool cover -func=coverage-cli.out > coverage-cli-func.txt || true
+          [ -f coverage-cli.out ] && go tool cover -html=coverage-cli.out -o coverage-cli.html || true
+          [ -f luacov.stats.out ] && luacov-html || true
 
-      - name: Upload coverage artifacts
+      - name: Upload plugin coverage artifact
         if: always()
         uses: actions/upload-artifact@v6
         with:
-          name: coverage-reports
+          name: coverage-plugin
           path: |
-            coverage.xml
+            coverage-plugin.xml
+            luacov-html/
+          if-no-files-found: warn
+
+      - name: Upload CLI coverage artifact
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: coverage-cli
+          path: |
             coverage-cli.out
+            coverage-cli.html
           if-no-files-found: warn
 
       - name: Comment coverage on PR
@@ -125,7 +138,8 @@ jobs:
               '',
               pluginTable,
               '',
-              `[Download \`coverage.xml\`](${runUrl})`,
+              '> **`coverage-plugin` artifact** — open `luacov-html/index.html` for a visual report.',
+              '> Also includes `coverage-plugin.xml` (Cobertura) for IDE plugins such as Coverage Gutters.',
             ].filter(s => s !== undefined).join('\n')
 
             const cliSection = [
@@ -137,7 +151,8 @@ jobs:
               '',
               cliTable,
               '',
-              `[Download \`coverage-cli.out\`](${runUrl})`,
+              '> **`coverage-cli` artifact** — open `coverage-cli.html` for an annotated source report.',
+              '> Also includes `coverage-cli.out` (Go cover profile) for local tooling.',
             ].filter(s => s !== undefined).join('\n')
 
             const body = [
@@ -148,7 +163,7 @@ jobs:
               '',
               cliSection,
               '',
-              `[View workflow run](${runUrl})`,
+              `[Download artifacts / view run](${runUrl})`,
             ].join('\n')
 
             const { data: comments } = await github.rest.issues.listComments({

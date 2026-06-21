@@ -24,7 +24,7 @@ luac.out
 # Coverage artifacts
 luacov.stats.out
 luacov.report.out
-coverage.xml
+coverage-plugin.xml
 coverage-cli.out
 
 # Go build outputs
