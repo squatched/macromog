@@ -22,31 +22,36 @@ Run 'macromog <command> --help' for command-specific flags.
 `
 
 func main() {
-	if len(os.Args) < 2 {
+	os.Exit(run(os.Args))
+}
+
+func run(args []string) int {
+	if len(args) < 2 {
 		fmt.Fprint(os.Stderr, usage)
-		os.Exit(1)
+		return 1
 	}
 
-	switch os.Args[1] {
+	switch args[1] {
 	case "export":
-		unimplemented("export")
+		return unimplemented("export")
 	case "import":
-		unimplemented("import")
+		return unimplemented("import")
 	case "validate":
-		runValidate(os.Args[2:])
+		return runValidate(args[2:])
 	case "backup":
-		unimplemented("backup")
+		return unimplemented("backup")
 	case "list":
-		unimplemented("list")
+		return unimplemented("list")
 	case "--help", "-h", "help":
 		fmt.Fprint(os.Stdout, usage)
+		return 0
 	default:
-		fmt.Fprintf(os.Stderr, "macromog: unknown command %q\n\n%s", os.Args[1], usage)
-		os.Exit(1)
+		fmt.Fprintf(os.Stderr, "macromog: unknown command %q\n\n%s", args[1], usage)
+		return 1
 	}
 }
 
-func unimplemented(cmd string) {
+func unimplemented(cmd string) int {
 	fmt.Fprintf(os.Stderr, "macromog %s: not yet implemented\n", cmd)
-	os.Exit(1)
+	return 1
 }
