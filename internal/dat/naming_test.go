@@ -67,3 +67,23 @@ func TestYAMLKey(t *testing.T) {
 		}
 	}
 }
+func TestSlotFromYAMLKey(t *testing.T) {
+	// Inverse of YAMLKey: keys 1-9 → slots 0-8, key 0 → slot 9
+	want := []struct{ key, slot int }{
+		{1, 0}, {2, 1}, {3, 2}, {4, 3}, {5, 4},
+		{6, 5}, {7, 6}, {8, 7}, {9, 8}, {0, 9},
+	}
+	for _, c := range want {
+		if got := dat.SlotFromYAMLKey(c.key); got != c.slot {
+			t.Errorf("SlotFromYAMLKey(%d) = %d, want %d", c.key, got, c.slot)
+		}
+	}
+}
+
+func TestYAMLKeySlotFromYAMLKeyRoundTrip(t *testing.T) {
+	for slot := 0; slot < 10; slot++ {
+		if got := dat.SlotFromYAMLKey(dat.YAMLKey(slot)); got != slot {
+			t.Errorf("SlotFromYAMLKey(YAMLKey(%d)) = %d, want %d", slot, got, slot)
+		}
+	}
+}

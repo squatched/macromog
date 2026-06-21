@@ -59,3 +59,12 @@ func YAMLKey(slot int) int {
 	}
 	return slot + 1
 }
+
+// SlotFromYAMLKey is the inverse of YAMLKey: converts a YAML key (1-9 or 0)
+// to a zero-based ctrl/alt slot (0-9).
+func SlotFromYAMLKey(key int) int {
+	if key == 0 {
+		return 9
+	}
+	return key - 1
+}

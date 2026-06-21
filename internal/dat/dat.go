@@ -1,14 +1,22 @@
 package dat
 
 // Macro set (.dat) file layout derived from POLUtils and confirmed against
-// live FFXI client files. Each macro is a C++ struct serialized without
-// inter-field padding:
+// live FFXI client files.
+//
+// Header (24 bytes):
+//
+//	uint32  magic = 1
+//	uint32  unknown flag (0 or 0x80000000; purpose unclear)
+//	byte[16] MD5 checksum of bytes 24..end (the macro payload)
+//
+// Each macro is a C++ struct serialized without inter-field padding:
 //
 //	uint32  prefix (always 0)
 //	char[6][61] lines (60 chars + NUL, Shift-JIS with FFXI extensions)
 //	char[10] name (8 chars + NUL + padding, Shift-JIS)
 //
-// A macro set file stores 20 macros (10 ctrl + 10 alt) after a 24-byte header.
+// A macro set file stores 20 macros (10 ctrl + 10 alt) after the header.
+// The .ttl (book title) files use the same header structure.
 
 const (
 	MacroSetFileSize = 7624

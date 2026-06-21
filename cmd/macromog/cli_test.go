@@ -27,7 +27,7 @@ func TestRun_UnknownCommand(t *testing.T) {
 }
 
 func TestRun_UnimplementedCommands(t *testing.T) {
-	for _, cmd := range []string{"import", "backup", "list"} {
+	for _, cmd := range []string{"backup", "list"} {
 		if got := run([]string{"macromog", cmd}); got != 1 {
 			t.Errorf("run(%s) = %d, want 1", cmd, got)
 		}
