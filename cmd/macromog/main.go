@@ -33,7 +33,7 @@ func main() {
 	case "import":
 		unimplemented("import")
 	case "validate":
-		unimplemented("validate")
+		runValidate(os.Args[2:])
 	case "backup":
 		unimplemented("backup")
 	case "list":

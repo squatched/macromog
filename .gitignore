@@ -28,7 +28,7 @@ coverage-plugin.xml
 coverage-cli.out
 
 # Go build outputs
-macromog
+/macromog
 *.exe
 *.exe~
 *.dll
