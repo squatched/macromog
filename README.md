@@ -22,7 +22,7 @@ Early Development. Core YAML handling & validation in progress. Full memory/DAT 
 
 ## Quick Start
 
-(See `INSTRUCTIONS.md` for full setup and commands once implemented, kupo!)
+Full setup and command walkthroughs will live in `docs/` once implemented, kupo!
 
 ## Documentation
 

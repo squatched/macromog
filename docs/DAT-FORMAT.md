@@ -51,7 +51,7 @@ Both `.dat` macro sets and `.ttl` title files begin with the same 24-byte header
 | Offset | Size | Type | Value |
 |--------|------|------|-------|
 | 0x00 | 4 | `uint32` LE | Magic / version (`1`) |
-| 0x04 | 4 | `uint32` LE | Unknown (observed non-zero) |
+| 0x04 | 4 | `uint32` LE | Unknown; observed as `0` or `0x80000000` |
 | 0x08 | 16 | `uint8[16]` | MD5 digest of payload |
 
 Macromog checks the magic value but does not verify the MD5 on read.
@@ -75,14 +75,14 @@ Macros are packed C-style structs with **no inter-field padding**:
 ```
 uint32  prefix     always 0
 char    line[6][61]   six lines, 60 usable chars + NUL each
-char    name[10]      eight usable chars + NUL + one padding byte
+char    name[10]      NUL-terminated; up to 8 content bytes; zeroed to fill
 ```
 
 | Field | Size | Notes |
 |-------|------|-------|
 | `prefix` | 4 | Always `0` in observed files |
 | Each line | 61 | NUL-terminated Shift-JIS text (see [Text encoding](#text-encoding)) |
-| Name | 10 | NUL-terminated Shift-JIS; 8 character byte budget for CJK |
+| Name | 10 | Fixed `char[10]`; NUL-terminated Shift-JIS; up to 8 content bytes |
 
 Early hypotheses assumed a 9-byte name field; live client files use **10 bytes**.
 
@@ -152,7 +152,7 @@ Because fields are byte-bounded, not glyph-bounded:
 
 | Field | Byte budget | JP practical limit |
 |-------|-------------|-------------------|
-| Macro name | 8 bytes | 4 kanana/kanji (2 bytes each) |
+| Macro name | 8 bytes | 4 kana/kanji (2 bytes each) |
 | Macro line | 60 bytes | 30 full-width characters (fewer when mixed with ASCII) |
 | Book name | 15 bytes | 7–8 CJK characters depending on code points |
 
