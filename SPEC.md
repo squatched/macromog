@@ -77,8 +77,8 @@ In-game auto-translate phrases and resource references are stored as binary toke
 
 ```yaml
 contents:
-  - 'The following is auto-translate cure3: ≺[07021203]≻'
-  - '≺[02020114]≻≺[02020114]≻Good luck!'
+  - The following is auto-translate cure3: ≺[07021203]≻
+  - ≺[02020114]≻≺[02020114]≻Good luck!
 ```
 
 - `≺` (U+227A) and `≻` (U+227B) delimit a marker; `[XXXXXXXX]` is the 8-digit hex resource ID from the client.
