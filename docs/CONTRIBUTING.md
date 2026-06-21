@@ -142,7 +142,7 @@ All commits must follow [Conventional Commits](https://www.conventionalcommits.o
 
 The commit-msg hook will reject messages that don't comply. Full guidelines —
 types, scopes, examples, and the 50/72 line-length rule — are in
-[AGENTS.md](AGENTS.md#commit-messages-conventional-commits).
+[AGENTS.md](../AGENTS.md#commit-messages-conventional-commits).
 
 ## Pull requests
 

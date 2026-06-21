@@ -33,7 +33,7 @@ func run(args []string) int {
 
 	switch args[1] {
 	case "export":
-		return unimplemented("export")
+		return runExport(args[2:])
 	case "import":
 		return unimplemented("import")
 	case "validate":

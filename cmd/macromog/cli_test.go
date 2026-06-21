@@ -27,10 +27,16 @@ func TestRun_UnknownCommand(t *testing.T) {
 }
 
 func TestRun_UnimplementedCommands(t *testing.T) {
-	for _, cmd := range []string{"export", "import", "backup", "list"} {
+	for _, cmd := range []string{"import", "backup", "list"} {
 		if got := run([]string{"macromog", cmd}); got != 1 {
 			t.Errorf("run(%s) = %d, want 1", cmd, got)
 		}
+	}
+}
+
+func TestRun_ExportMissingChar(t *testing.T) {
+	if got := run([]string{"macromog", "export"}); got != 1 {
+		t.Errorf("run(export) = %d, want 1", got)
 	}
 }
 

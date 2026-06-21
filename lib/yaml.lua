@@ -1,6 +1,6 @@
 -- lib/yaml.lua
 -- Minimal pure-Lua YAML serializer/parser for Macromog's macro structure.
--- Only handles the subset defined in SPEC.md; not a general-purpose parser.
+-- Only handles the subset defined in docs/SPEC.md; not a general-purpose parser.
 --
 -- TODO: Implement parse() and dump(). Options:
 --   1. Hand-roll a recursive descent parser for the known schema.
