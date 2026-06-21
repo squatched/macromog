@@ -48,7 +48,14 @@ type macro struct {
 	Contents []string `yaml:"contents"`
 }
 
-var bookNameRe = regexp.MustCompile(`^[A-Za-z0-9]*$`)
+var (
+	bookNameRe      = regexp.MustCompile(`^[A-Za-z0-9]*$`)
+	resourceMarkerRe = regexp.MustCompile(`≺\[[0-9A-Fa-f]{8}]≻`)
+)
+
+func containsResourceMarker(s string) bool {
+	return resourceMarkerRe.MatchString(s)
+}
 
 func hasNonPrintable(s string) bool {
 	for _, r := range s {
@@ -162,8 +169,12 @@ func validateMacro(path string, m macro) []Error {
 
 	for i, line := range m.Contents {
 		linePath := fmt.Sprintf("%s.contents[%d]", path, i)
-		if lineLen := utf8.RuneCountInString(line); lineLen > 60 {
-			errs = append(errs, Error{Path: linePath, Message: fmt.Sprintf("max 60 characters, %q is %d", line, lineLen)})
+		// Auto-translate resource markers (≺[XXXXXXXX]≻) expand in-game; YAML
+		// length cannot reflect the client-side character budget.
+		if !containsResourceMarker(line) {
+			if lineLen := utf8.RuneCountInString(line); lineLen > 60 {
+				errs = append(errs, Error{Path: linePath, Message: fmt.Sprintf("max 60 characters, %q is %d", line, lineLen)})
+			}
 		}
 		if hasNonPrintable(line) {
 			errs = append(errs, Error{Path: linePath, Message: fmt.Sprintf("must contain only printable characters, got %q", line)})

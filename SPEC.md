@@ -71,6 +71,20 @@ books:
 - All indices are **1-based** (1–40 for books, 1–10 for sets) to align with in-game designations.
 - Ctrl and Alt key indices use the order **1, 2, 3, 4, 5, 6, 7, 8, 9, 0** — matching keyboard layout. The value `10` is never used.
 
+### Auto-Translate Resource Markers
+
+In-game auto-translate phrases and resource references are stored as binary tokens in `.dat` files. On export they appear as printable placeholders:
+
+```yaml
+contents:
+  - 'The following is auto-translate cure3: ≺[07021203]≻'
+  - '≺[02020114]≻≺[02020114]≻Good luck!'
+```
+
+- `≺` (U+227A) and `≻` (U+227B) delimit a marker; `[XXXXXXXX]` is the 8-digit hex resource ID from the client.
+- These markers are unlikely to collide with user-typed macro text.
+- **Line-length validation is skipped** for lines containing a resource marker, because the in-game client counts the *expanded* auto-translate text against the 60-character budget, not the placeholder length in YAML.
+
 ---
 
 ## Constraints
@@ -125,7 +139,7 @@ The CLI (`macromog`) is a standalone binary for offline-first macro management.
 
 | Command | Description | Example |
 |---------|-------------|---------|
-| `export` | Export macros from `.dat` files to YAML | `macromog export --char 0x12345678` |
+| `export` | Export macros from `.dat` files to YAML | `macromog export /path/to/USER/c75afe` |
 | `import` | Import from YAML into `.dat` files (auto-backups first) | `macromog import mymacros.yml --char 0x12345678` |
 | `validate` | Validate a YAML file against FFXI constraints | `macromog validate mymacros.yml` |
 | `backup` | Create a timestamped backup of all macro `.dat` files | `macromog backup --char 0x12345678` |
@@ -136,6 +150,7 @@ The CLI (`macromog`) is a standalone binary for offline-first macro management.
 | Flag | Description |
 |------|-------------|
 | `--ffxi-path <path>` | Path to FFXI install (auto-detected if possible) |
+| `<char-dir>` | Character USER directory (positional; same as `--char`) |
 | `--char <id>` | Character folder (hex ID or path) |
 | `--output <file>` / `-o` | Output file for export |
 | `--backup` | Auto-backup before import (default: true) |
@@ -156,3 +171,19 @@ The CLI (`macromog`) is a standalone binary for offline-first macro management.
 - Macros are stored per-character in `mcr*.dat` files under the character's folder.
 - Reference implementations for DAT parsing: POLUtils, xi-tinkerer.
 - Japanese client encoding should be handled when reading/writing character name metadata.
+
+## Future Improvements
+
+### Scoped export and import
+
+Partial exports with explicit authority boundaries are deferred. The intended model uses granularity levels — full, book, set, macro — where each level defines what YAML entries pull entities into scope and omissions within that scope imply clearing:
+
+| Granularity | Example scope | Import behavior |
+|-------------|---------------|-----------------|
+| Full | Entire character | Books not in YAML are cleared |
+| Book | Book 1 and Book 5 | Other books untouched; within scoped books, unlisted sets cleared |
+| Set | Book 1 Set 2, Book 5 Set 6 | Other sets untouched; within scoped sets, unlisted macros cleared |
+| Macro | Two specific macros | Only those macros updated; nothing deleted |
+
+CLI flags like `--book` and `--set` would shape exports; `export_scope` metadata (or equivalent) would tell import which rules apply. Not implemented yet — current export is always a sparse full-character dump of non-empty macros.
+
