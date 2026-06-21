@@ -1,11 +1,13 @@
 package export_test
 
 import (
+	"encoding/binary"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/squatched/macromog/internal/dat"
 	"github.com/squatched/macromog/internal/dat/testdata"
 	"github.com/squatched/macromog/internal/export"
 	"github.com/squatched/macromog/internal/validate"
@@ -71,6 +73,40 @@ func TestFromCharacterDir_MissingDir(t *testing.T) {
 	_, err := export.FromCharacterDir(export.Options{CharacterDir: "/nonexistent/char"})
 	if err == nil {
 		t.Fatal("expected error")
+	}
+}
+
+func TestFromCharacterDir_EmptyCharacter(t *testing.T) {
+	dir := t.TempDir()
+	blank := make([]byte, dat.MacroSetFileSize)
+	binary.LittleEndian.PutUint32(blank[0:4], dat.MagicVersion)
+	if err := os.WriteFile(filepath.Join(dir, "mcr.dat"), blank, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	doc, err := export.FromCharacterDir(export.Options{
+		CharacterDir: dir,
+		Character:    "newbie",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if doc.Character != "newbie" {
+		t.Errorf("character = %q, want newbie", doc.Character)
+	}
+	if len(doc.Books) != 0 {
+		t.Errorf("books = %d, want empty document", len(doc.Books))
+	}
+
+	data, err := export.MarshalYAML(doc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), "version: 1") {
+		t.Errorf("expected version in output: %s", data)
+	}
+	if strings.Contains(string(data), "books:") {
+		t.Errorf("sparse empty export should omit books key: %s", data)
 	}
 }
 

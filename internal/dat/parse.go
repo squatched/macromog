@@ -96,16 +96,26 @@ func DiscoverMacroFiles(dir string) ([]string, error) {
 		return nil, err
 	}
 
-	var paths []string
+	type indexedPath struct {
+		index int
+		path  string
+	}
+	var items []indexedPath
 	for _, e := range entries {
 		if e.IsDir() {
 			continue
 		}
-		if _, ok := ParseMacroFileName(e.Name()); ok {
-			paths = append(paths, filepath.Join(dir, e.Name()))
+		index, ok := ParseMacroFileName(e.Name())
+		if !ok {
+			continue
 		}
+		items = append(items, indexedPath{index, filepath.Join(dir, e.Name())})
 	}
-	sort.Strings(paths)
+	sort.Slice(items, func(i, j int) bool { return items[i].index < items[j].index })
+	paths := make([]string, len(items))
+	for i, item := range items {
+		paths[i] = item.path
+	}
 	return paths, nil
 }
 

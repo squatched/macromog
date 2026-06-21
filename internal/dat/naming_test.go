@@ -52,7 +52,7 @@ func TestParseMacroFileName(t *testing.T) {
 			t.Errorf("ParseMacroFileName(%q) = (%d,%v), want (%d,true)", name, got, ok, want)
 		}
 	}
-	for _, name := range []string{"nmcr.dat", "mcr.ttl", "foo.dat"} {
+	for _, name := range []string{"nmcr.dat", "mcr.ttl", "foo.dat", "mcr400.dat"} {
 		if _, ok := dat.ParseMacroFileName(name); ok {
 			t.Errorf("ParseMacroFileName(%q) should be false", name)
 		}

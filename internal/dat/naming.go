@@ -45,7 +45,7 @@ func ParseMacroFileName(name string) (index int, ok bool) {
 		return 0, true
 	}
 	n, err := strconv.Atoi(m[1])
-	if err != nil {
+	if err != nil || n < 0 || n >= MaxFileIndex {
 		return 0, false
 	}
 	return n, true

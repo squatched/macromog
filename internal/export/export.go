@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 	"time"
 
 	"github.com/squatched/macromog/internal/dat"
@@ -67,6 +67,9 @@ func FromCharacterDir(opts Options) (Document, error) {
 			continue
 		}
 		book, set := dat.ParseFileIndex(index)
+		if book < 1 || book > dat.MaxBooks {
+			continue
+		}
 
 		setData, err := dat.ReadMacroSetFile(path)
 		if err != nil {
@@ -87,10 +90,6 @@ func FromCharacterDir(opts Options) (Document, error) {
 		}
 		b.Sets[set] = exported
 		doc.Books[book] = b
-	}
-
-	if len(doc.Books) == 0 {
-		return Document{}, fmt.Errorf("no macro data found in %s", dir)
 	}
 
 	return doc, nil
@@ -151,14 +150,10 @@ func compactLines(lines [dat.LineCount]string) []string {
 
 // MarshalYAML encodes doc with stable key ordering for maps.
 func MarshalYAML(doc Document) ([]byte, error) {
-	node, err := buildYAMLNode(doc)
-	if err != nil {
-		return nil, err
-	}
-	return yaml.Marshal(node)
+	return yaml.Marshal(buildYAMLNode(doc))
 }
 
-func buildYAMLNode(doc Document) (*yaml.Node, error) {
+func buildYAMLNode(doc Document) *yaml.Node {
 	root := &yaml.Node{Kind: yaml.MappingNode}
 	addKV(root, "version", intNode(doc.Version))
 	if doc.Character != "" {
@@ -168,7 +163,7 @@ func buildYAMLNode(doc Document) (*yaml.Node, error) {
 		addKV(root, "exported_at", scalarNode(doc.ExportedAt))
 	}
 
-	bookKeys := sortedKeys(doc.Books)
+	bookKeys := sortedIntKeys(doc.Books)
 	if len(bookKeys) > 0 {
 		booksNode := &yaml.Node{Kind: yaml.MappingNode}
 		for _, bk := range bookKeys {
@@ -177,7 +172,7 @@ func buildYAMLNode(doc Document) (*yaml.Node, error) {
 			if book.Name != "" {
 				addKV(bookNode, "name", scalarNode(book.Name))
 			}
-			setKeys := sortedKeys(book.Sets)
+			setKeys := sortedIntKeys(book.Sets)
 			if len(setKeys) > 0 {
 				setsNode := &yaml.Node{Kind: yaml.MappingNode}
 				for _, sk := range setKeys {
@@ -190,7 +185,7 @@ func buildYAMLNode(doc Document) (*yaml.Node, error) {
 		addKV(root, "books", booksNode)
 	}
 
-	return root, nil
+	return root
 }
 
 func setNode(s Set) *yaml.Node {
@@ -206,7 +201,7 @@ func setNode(s Set) *yaml.Node {
 
 func macroRowNode(row map[int]Macro) *yaml.Node {
 	n := &yaml.Node{Kind: yaml.MappingNode}
-	for _, key := range sortedKeys(row) {
+	for _, key := range sortedIntKeys(row) {
 		addKV(n, key, macroNode(row[key]))
 	}
 	return n
@@ -228,8 +223,8 @@ func macroNode(m Macro) *yaml.Node {
 }
 
 func addKV(parent *yaml.Node, key interface{}, value *yaml.Node) {
-	keyNode := keyNode(key)
-	parent.Content = append(parent.Content, keyNode, value)
+	kn := keyNode(key)
+	parent.Content = append(parent.Content, kn, value)
 }
 
 func keyNode(key interface{}) *yaml.Node {
@@ -249,12 +244,12 @@ func intNode(value int) *yaml.Node {
 	return &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!int", Value: fmt.Sprintf("%d", value)}
 }
 
-func sortedKeys[V any](m map[int]V) []int {
+func sortedIntKeys[V any](m map[int]V) []int {
 	keys := make([]int, 0, len(m))
 	for k := range m {
 		keys = append(keys, k)
 	}
-	sort.Ints(keys)
+	slices.Sort(keys)
 	return keys
 }
 

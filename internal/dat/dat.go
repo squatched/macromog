@@ -23,6 +23,7 @@ const (
 	MagicVersion = 1
 	MaxBooks     = 40
 	SetsPerBook  = 10
+	MaxFileIndex = MaxBooks * SetsPerBook // valid mcr*.dat indices are 0..399
 	BookNameSize = 16
 )
 

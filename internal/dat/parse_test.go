@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/squatched/macromog/internal/dat"
@@ -90,15 +91,15 @@ func TestReadMacroSet_Pathological(t *testing.T) {
 	if want := "The following is auto-translate cure3: "; line2[:len(want)] != want {
 		t.Errorf("line2 prefix = %q", line2[:len(want)])
 	}
-	if !contains(line2, "[07021203]") {
+	if !strings.Contains(line2, "[07021203]") {
 		t.Errorf("line2 missing Cure III resource marker: %q", line2)
 	}
 
 	line3 := set.Ctrl[9].Contents[2]
-	if !contains(line3, "[02020114]") {
+	if !strings.Contains(line3, "[02020114]") {
 		t.Errorf("line3 missing Good luck marker: %q", line3)
 	}
-	if !contains(line3, "Good luck!") {
+	if !strings.Contains(line3, "Good luck!") {
 		t.Errorf("line3 missing typed text: %q", line3)
 	}
 }
@@ -235,6 +236,31 @@ func TestDiscoverMacroFiles(t *testing.T) {
 	}
 }
 
+func TestDiscoverMacroFiles_NumericOrder(t *testing.T) {
+	dir := t.TempDir()
+	blank := make([]byte, dat.MacroSetFileSize)
+	binary.LittleEndian.PutUint32(blank[0:4], dat.MagicVersion)
+	for _, name := range []string{"mcr10.dat", "mcr1.dat", "mcr2.dat", "mcr400.dat"} {
+		if err := os.WriteFile(filepath.Join(dir, name), blank, 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	files, err := dat.DiscoverMacroFiles(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(files) != 3 {
+		t.Fatalf("got %d files, want 3 (mcr400.dat ignored)", len(files))
+	}
+	want := []string{"mcr1.dat", "mcr2.dat", "mcr10.dat"}
+	for i, name := range want {
+		if filepath.Base(files[i]) != name {
+			t.Errorf("files[%d] = %q, want %q", i, filepath.Base(files[i]), name)
+		}
+	}
+}
+
 func TestReadMacroSetFile(t *testing.T) {
 	set, err := dat.ReadMacroSetFile(filepath.Join(testdata.CharDir(), "mcr320.dat"))
 	if err != nil {
@@ -245,15 +271,3 @@ func TestReadMacroSetFile(t *testing.T) {
 	}
 }
 
-func contains(s, sub string) bool {
-	return len(s) >= len(sub) && (s == sub || indexOf(s, sub) >= 0)
-}
-
-func indexOf(s, sub string) int {
-	for i := 0; i+len(sub) <= len(s); i++ {
-		if s[i:i+len(sub)] == sub {
-			return i
-		}
-	}
-	return -1
-}

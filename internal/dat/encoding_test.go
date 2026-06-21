@@ -71,6 +71,12 @@ func TestDecodeText_ShiftJIS(t *testing.T) {
 			want: "アイ",
 		},
 		{
+			name: "katakana past skipped 0x7F trail",
+			// ムメ (83 80, 83 81) — trail bytes at/above 0x80
+			raw:  []byte{0x83, 0x80, 0x83, 0x81},
+			want: "ムメ",
+		},
+		{
 			name: "mixed ascii and kana",
 			raw:  []byte{'/', 'm', 'a', ' ', 0x82, 0xA0, 0x82, 0xA2},
 			want: "/ma あい",

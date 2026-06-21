@@ -123,9 +123,12 @@ func shiftJISToUnicode(lead, trail byte) (rune, bool) {
 			return rune(0x3041 + base), true // ぁ..ゖ approx range
 		}
 	}
-	// Katakana block (lead 0x83, trail 0x40-0x96)
+	// Katakana block (lead 0x83, trail 0x40-0x96). SJIS skips 0x7F as a trail byte.
 	if lead == 0x83 && trail >= 0x40 {
 		base := int(trail) - 0x40
+		if trail > 0x7E {
+			base--
+		}
 		if base >= 0 && base < 86 {
 			return rune(0x30A1 + base), true
 		}
