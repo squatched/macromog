@@ -121,9 +121,11 @@ jobs:
               '',
               pluginPassed
                 ? `Meets the ${pluginThreshold}% threshold.`
-                : `Below the ${pluginThreshold}% threshold. Download [\`coverage.xml\`](${runUrl}) to identify gaps.`,
+                : `Below the ${pluginThreshold}% threshold.`,
               '',
               pluginTable,
+              '',
+              `[Download \`coverage.xml\`](${runUrl})`,
             ].filter(s => s !== undefined).join('\n')
 
             const cliSection = [
@@ -134,6 +136,8 @@ jobs:
                 : `Below the ${cliThreshold}% threshold.`,
               '',
               cliTable,
+              '',
+              `[Download \`coverage-cli.out\`](${runUrl})`,
             ].filter(s => s !== undefined).join('\n')
 
             const body = [
