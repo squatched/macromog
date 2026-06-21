@@ -96,9 +96,9 @@ These limits are empirically confirmed against the live FFXI client.
 | Property | Limit | Notes |
 |----------|-------|-------|
 | Macros per set | 20 | 10 `ctrl` + 10 `alt`, indexed 1–9 then 0 |
-| Name (button title) | 8 characters | All printable characters allowed |
+| Name (button title) | 8 characters | Printable characters only; no tabs, newlines, or control codes. The DAT format stores text as Shift-JIS (CJK = 2 bytes each), so the practical limit for Japanese text is 4 CJK characters. |
 | Lines per macro | 6 | — |
-| Characters per line | 60 | All printable characters allowed |
+| Characters per line | 60 | Printable characters only; no tabs, newlines, or control codes. |
 
 ---
 

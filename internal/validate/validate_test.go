@@ -175,6 +175,188 @@ books:
 			wantValid: true,
 		},
 
+		// ── Japanese client sanity checks ──────────────────────────────────────
+		// The underlying DAT format uses Shift-JIS (each CJK char = 2 bytes), so
+		// the 8-character macro name limit is effectively 4 CJK chars in-game.
+		// Our validator counts Unicode code points, which is permissive for CJK;
+		// the import step enforces the byte-level Shift-JIS constraint.
+		{
+			name: "JP character name in character field is valid",
+			input: `version: 1
+character: "ヘンドリモード"
+books: {}
+`,
+			wantValid: true,
+		},
+		{
+			// 攻撃開始 = 4 kanji = 4 runes = 8 Shift-JIS bytes — exactly at the
+			// game's byte limit and confirmed in screenshots (BaseATK set 1, Ctrl1).
+			name: "4-kanji macro name at Shift-JIS byte boundary is valid",
+			input: `version: 1
+books:
+  1:
+    sets:
+      1:
+        ctrl:
+          1:
+            name: "攻撃開始"
+`,
+			wantValid: true,
+		},
+		{
+			// ProShel = 7 ASCII = 7 bytes — confirmed in screenshots (BaseMAG set 2,
+			// Alt0). Tests near-limit ASCII macro name.
+			name: "7-char ASCII macro name near limit is valid",
+			input: `version: 1
+books:
+  1:
+    sets:
+      2:
+        alt:
+          0:
+            name: "ProShel"
+            contents:
+              - /ma "Protectra V" <me>
+`,
+			wantValid: true,
+		},
+		{
+			// From screenshots: 装備FLM (image 2) — mixed kanji+ASCII macro name.
+			// Auto-translate characters seen in the screenshot are omitted; their
+			// encoding in the DAT format is unknown and out of scope for YAML validation.
+			name: "real-world: mixed kanji+ASCII macro name with equipset and echo",
+			input: `version: 1
+books:
+  1:
+    sets:
+      1:
+        ctrl:
+          4:
+            name: "装備FLM"
+            contents:
+              - /equipset 67
+              - /echo フラマ装備
+`,
+			wantValid: true,
+		},
+		{
+			// From screenshots: ニビル (image 6) — equipment swap macro.
+			// Auto-translate item name brackets omitted (encoding unknown).
+			name: "real-world: equipment swap macro with JP item name",
+			input: `version: 1
+books:
+  1:
+    sets:
+      1:
+        ctrl:
+          6:
+            name: "ニビル"
+            contents:
+              - /equip main ニビルブレード 1 <wait 1>
+              - /equip sub ニビルブレード 2
+`,
+			wantValid: true,
+		},
+		{
+			// From screenshots: 範囲舞手 (image 5) — 4-kanji name at the Shift-JIS
+			// byte boundary, all 6 lines used, JP spell names. The most pathological
+			// real-world example from the article. Auto-translate brackets omitted.
+			name: "real-world: 4-kanji name at byte boundary, all 6 lines, JP spells",
+			input: `version: 1
+books:
+  1:
+    name: "BaseMAG"
+    sets:
+      1:
+        alt:
+          7:
+            name: "範囲舞手"
+            contents:
+              - /recast ディフュージョン
+              - /equipset 50
+              - /ja ディフュージョン <me> <stal> <wait 3>
+              - /ja ノートリアスナレッジ <me> <wait 3>
+              - /equip feet LLチャルク+2
+              - /ma マイティガード <me>
+`,
+			wantValid: true,
+		},
+		{
+			// From screenshots: BaseATK/BaseMAG palette (images 3-4) — a realistic
+			// multi-set book with JP names, ASCII names, and mixed names.
+			name: "real-world: multi-set book matching BaseATK/BaseMAG screenshots",
+			input: `version: 1
+books:
+  1:
+    name: "BaseATK"
+    sets:
+      1:
+        ctrl:
+          1:
+            name: "空蝉1"
+          2:
+            name: "空蝉2"
+          3:
+            name: "命中上昇"
+          4:
+            name: "ディフェ"
+          5:
+            name: "雄叫"
+          6:
+            name: "戦狂"
+          7:
+            name: "挑発"
+          8:
+            name: "攻撃開始"
+          9:
+            name: "遠隔"
+          0:
+            name: "戦狂雄叫"
+        alt:
+          1:
+            name: "空蝉1"
+          2:
+            name: "攻撃開始"
+      2:
+        ctrl:
+          1:
+            name: "Hワルツ"
+          2:
+            name: "Hサンバ"
+          9:
+            name: "攻撃開始"
+          0:
+            name: "アシスト"
+`,
+			wantValid: true,
+		},
+		{
+			name: "JP macro name over 8-character limit is rejected",
+			// ケアルケアルケアル = 9 katakana = 9 runes — exceeds our Unicode limit
+			input: `version: 1
+books:
+  1:
+    sets:
+      1:
+        ctrl:
+          1:
+            name: "ケアルケアルケアル"
+`,
+			wantValid:   false,
+			errContains: []string{"ctrl.1.name", "max 8 characters"},
+		},
+		{
+			name: "JP characters in book name are rejected",
+			// book names are alphanumeric ASCII only — confirmed by screenshots
+			input: `version: 1
+books:
+  1:
+    name: "白魔道士"
+`,
+			wantValid:   false,
+			errContains: []string{"books.1.name", "alphanumeric", "白魔道士"},
+		},
+
 		// ── Invalid cases ──────────────────────────────────────────────────────
 		{
 			name:        "invalid YAML syntax",
@@ -309,13 +491,73 @@ books:
 			name:        "exported_at date-only string is invalid",
 			input:       "version: 1\nbooks: {}\nexported_at: \"2026-06-20\"\n",
 			wantValid:   false,
-			errContains: []string{"exported_at", "RFC 3339"},
+			errContains: []string{"exported_at", "2026-06-20T03:30:00Z"},
 		},
 		{
 			name:        "exported_at free-form string is invalid",
 			input:       "version: 1\nbooks: {}\nexported_at: \"not a date\"\n",
 			wantValid:   false,
-			errContains: []string{"exported_at", "RFC 3339"},
+			errContains: []string{"exported_at", "2026-06-20T03:30:00Z"},
+		},
+		{
+			// yaml.v3 itself rejects most control characters before our validation runs
+			name:        "control character in macro name rejected as invalid YAML",
+			input:       "version: 1\nbooks:\n  1:\n    sets:\n      1:\n        ctrl:\n          1:\n            name: \"Cure\x01\"\n",
+			wantValid:   false,
+			errContains: []string{"invalid YAML"},
+		},
+		{
+			name:        "control character in content line rejected as invalid YAML",
+			input:       "version: 1\nbooks:\n  1:\n    sets:\n      1:\n        ctrl:\n          1:\n            contents:\n              - /ma \"Cure\"\x00\n",
+			wantValid:   false,
+			errContains: []string{"invalid YAML"},
+		},
+		{
+			// YAML \t escape in a double-quoted scalar produces a literal tab that
+			// yaml.v3 allows but the game client would not render meaningfully.
+			name: "tab in macro name is rejected",
+			input: `version: 1
+books:
+  1:
+    sets:
+      1:
+        ctrl:
+          1:
+            name: "Cure\t"
+`,
+			wantValid:   false,
+			errContains: []string{"ctrl.1.name", "printable"},
+		},
+		{
+			name: "tab in content line is rejected",
+			input: `version: 1
+books:
+  1:
+    sets:
+      1:
+        ctrl:
+          1:
+            contents:
+              - "/ma \"Cure\"\t<me>"
+`,
+			wantValid:   false,
+			errContains: []string{"contents[0]", "printable"},
+		},
+		{
+			// YAML \n in a double-quoted scalar embeds a literal newline into the string.
+			name: "newline in content line is rejected",
+			input: `version: 1
+books:
+  1:
+    sets:
+      1:
+        ctrl:
+          1:
+            contents:
+              - "/ma \"Cure\"\n<me>"
+`,
+			wantValid:   false,
+			errContains: []string{"contents[0]", "printable"},
 		},
 		{
 			name:        "empty input reports both required fields missing",

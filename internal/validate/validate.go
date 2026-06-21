@@ -5,6 +5,8 @@ import (
 	"regexp"
 	"sort"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"gopkg.in/yaml.v3"
 )
@@ -48,6 +50,15 @@ type macro struct {
 
 var bookNameRe = regexp.MustCompile(`^[A-Za-z0-9]*$`)
 
+func hasNonPrintable(s string) bool {
+	for _, r := range s {
+		if !unicode.IsPrint(r) {
+			return true
+		}
+	}
+	return false
+}
+
 // Validate parses data as YAML and checks it against the macromog schema.
 // Returns an empty slice when the file is valid.
 func Validate(data []byte) []Error {
@@ -70,7 +81,7 @@ func Validate(data []byte) []Error {
 
 	if doc.ExportedAt != "" {
 		if _, err := time.Parse(time.RFC3339, doc.ExportedAt); err != nil {
-			errs = append(errs, Error{Path: "exported_at", Message: "must be a valid RFC 3339 date-time"})
+			errs = append(errs, Error{Path: "exported_at", Message: `must be a date-time like "2026-06-20T03:30:00Z"`})
 		}
 	}
 
@@ -138,8 +149,11 @@ func validateMacroRow(path string, row map[int]macro) []Error {
 func validateMacro(path string, m macro) []Error {
 	var errs []Error
 
-	if len(m.Name) > 8 {
-		errs = append(errs, Error{Path: path + ".name", Message: fmt.Sprintf("max 8 characters, %q is %d", m.Name, len(m.Name))})
+	if nameLen := utf8.RuneCountInString(m.Name); nameLen > 8 {
+		errs = append(errs, Error{Path: path + ".name", Message: fmt.Sprintf("max 8 characters, %q is %d", m.Name, nameLen)})
+	}
+	if m.Name != "" && hasNonPrintable(m.Name) {
+		errs = append(errs, Error{Path: path + ".name", Message: fmt.Sprintf("must contain only printable characters, got %q", m.Name)})
 	}
 
 	if len(m.Contents) > 6 {
@@ -147,11 +161,12 @@ func validateMacro(path string, m macro) []Error {
 	}
 
 	for i, line := range m.Contents {
-		if len(line) > 60 {
-			errs = append(errs, Error{
-				Path:    fmt.Sprintf("%s.contents[%d]", path, i),
-				Message: fmt.Sprintf("max 60 characters, %q is %d", line, len(line)),
-			})
+		linePath := fmt.Sprintf("%s.contents[%d]", path, i)
+		if lineLen := utf8.RuneCountInString(line); lineLen > 60 {
+			errs = append(errs, Error{Path: linePath, Message: fmt.Sprintf("max 60 characters, %q is %d", line, lineLen)})
+		}
+		if hasNonPrintable(line) {
+			errs = append(errs, Error{Path: linePath, Message: fmt.Sprintf("must contain only printable characters, got %q", line)})
 		}
 	}
 
