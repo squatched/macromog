@@ -13,7 +13,7 @@ CLI_COV_MIN      := 0
 GO_SRC           := ./...
 CLI_DIRS         := ./cmd
 CLI_MAIN         := ./cmd/macromog
-BINARY           := macromog
+BINARY           := bin/macromog
 BUILD_PLATFORMS  := \
     darwin/amd64 darwin/arm64 \
     linux/amd64  linux/386   \
