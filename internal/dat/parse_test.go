@@ -1,6 +1,7 @@
 package dat_test
 
 import (
+	"encoding/binary"
 	"os"
 	"path/filepath"
 	"testing"
@@ -123,6 +124,105 @@ func TestReadMacroSet_InvalidSize(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for short file")
 	}
+}
+
+func TestReadMacroSet_BadMagic(t *testing.T) {
+	data := make([]byte, dat.MacroSetFileSize)
+	binary.LittleEndian.PutUint32(data[0:4], 99)
+	_, err := dat.ReadMacroSet(data)
+	if err == nil {
+		t.Fatal("expected error for bad magic")
+	}
+}
+
+func TestReadMacroSet_ShiftJIS(t *testing.T) {
+	// Synthetic JP macro: katakana name アイ, hiragana line あい
+	data := buildMacroSetFile(t, [20]macroSpec{{
+		name:  string([]byte{0x83, 0x41, 0x83, 0x43}), // アイ
+		lines: [6]string{string([]byte{0x82, 0xA0, 0x82, 0xA2})}, // あい
+	}})
+	set, err := dat.ReadMacroSet(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if set.Ctrl[0].Name != "アイ" {
+		t.Errorf("name = %q, want アイ", set.Ctrl[0].Name)
+	}
+	if set.Ctrl[0].Contents[0] != "あい" {
+		t.Errorf("line1 = %q, want あい", set.Ctrl[0].Contents[0])
+	}
+	if set.Ctrl[0].Empty() {
+		t.Error("JP macro should not be empty")
+	}
+}
+
+func TestReadBookTitles_BadMagic(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "mcr.ttl")
+	if err := os.WriteFile(path, []byte{2, 0, 0, 0}, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := dat.ReadBookTitles(dir)
+	if err == nil {
+		t.Fatal("expected error for bad magic")
+	}
+}
+
+func TestReadBookTitles_PayloadSize(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "mcr.ttl")
+	// 24-byte header + 17-byte payload (not a multiple of 16)
+	data := make([]byte, 41)
+	binary.LittleEndian.PutUint32(data[0:4], dat.MagicVersion)
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := dat.ReadBookTitles(dir)
+	if err == nil {
+		t.Fatal("expected error for misaligned payload")
+	}
+}
+
+func TestMacro_Empty(t *testing.T) {
+	var m dat.Macro
+	if !m.Empty() {
+		t.Error("zero macro should be empty")
+	}
+	m.Name = "x"
+	if m.Empty() {
+		t.Error("named macro should not be empty")
+	}
+	m = dat.Macro{Contents: [6]string{"", "line"}}
+	if m.Empty() {
+		t.Error("macro with line content should not be empty")
+	}
+}
+
+type macroSpec struct {
+	name  string
+	lines [6]string
+}
+
+func buildMacroSetFile(t *testing.T, macros [20]macroSpec) []byte {
+	t.Helper()
+	data := make([]byte, dat.MacroSetFileSize)
+	binary.LittleEndian.PutUint32(data[0:4], dat.MagicVersion)
+	offset := dat.HeaderSize
+	for i := 0; i < dat.MacrosPerSet; i++ {
+		writeMacro(data[offset:], macros[i])
+		offset += dat.MacroSize
+	}
+	return data
+}
+
+func writeMacro(buf []byte, spec macroSpec) {
+	pos := dat.MacroPrefixSize
+	for i := 0; i < dat.LineCount; i++ {
+		line := spec.lines[i]
+		copy(buf[pos:], line)
+		pos += dat.LineSize
+	}
+	copy(buf[pos:], spec.name)
 }
 
 func TestDiscoverMacroFiles(t *testing.T) {

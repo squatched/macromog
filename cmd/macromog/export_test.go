@@ -57,3 +57,39 @@ func TestRunExport_PositionalCharDir(t *testing.T) {
 		t.Errorf("missing B33S1 in output: %s", data)
 	}
 }
+
+func TestRunExport_DefaultOutputName(t *testing.T) {
+	dir := t.TempDir()
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(wd) })
+
+	if got := runExport([]string{"--char", testdata.CharDir()}); got != 0 {
+		t.Fatalf("runExport = %d, want 0", got)
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var ymlFiles []string
+	for _, e := range entries {
+		if strings.HasSuffix(e.Name(), ".yml") && strings.HasPrefix(e.Name(), "char_macros_") {
+			ymlFiles = append(ymlFiles, e.Name())
+		}
+	}
+	if len(ymlFiles) != 1 {
+		t.Fatalf("expected one default output file, got %v", ymlFiles)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, ymlFiles[0]))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), "B33S1") {
+		t.Errorf("missing B33S1 in default output: %s", data)
+	}
+}
