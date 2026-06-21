@@ -24,16 +24,22 @@ Early Development. Core YAML handling & validation in progress. Full memory/DAT 
 
 (See `INSTRUCTIONS.md` for full setup and commands once implemented, kupo!)
 
+## Documentation
+
+- [Behavior specification](docs/SPEC.md) — YAML schema, CLI/plugin commands, constraints
+- [DAT file format](docs/DAT-FORMAT.md) — FFXI macro `.dat` and `.ttl` binary layout
+- [Contributing](docs/CONTRIBUTING.md) — setup, validation, PR workflow
+
 ## Repository Structure
 
-- `macromog.lua` - Main addon
-- `SPEC.md` - Detailed behavior specification
-- `AGENTS.md` - Development guide
-- `data/` - YAML files live here
+- `macromog.lua` — Main addon
+- `docs/` — Technical documentation
+- `AGENTS.md` — Development and agent guide (repo root for tooling)
+- `data/` — YAML macro files
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for setup steps, commit message guidelines, and PR workflow.
+See [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) for setup steps, commit message guidelines, and PR workflow.
 
 ---
 

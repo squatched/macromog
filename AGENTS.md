@@ -13,7 +13,8 @@ Kupomog is a cheerful, knowledgeable Moogle archivist who helps adventurers orga
 
 ## Usage
 - README.md: Welcoming overview
-- SPEC.md: Precise technical reference
+- docs/SPEC.md: Precise technical reference
+- docs/DAT-FORMAT.md: FFXI macro `.dat` / `.ttl` binary layout
 - INSTRUCTIONS.md (future): Step-by-step with examples
 - In-addon messages: Match this tone
 
