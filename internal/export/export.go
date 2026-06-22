@@ -25,8 +25,9 @@ type Book struct {
 }
 
 type Set struct {
-	Ctrl map[int]Macro `yaml:"ctrl,omitempty"`
-	Alt  map[int]Macro `yaml:"alt,omitempty"`
+	HeaderUnknown uint32        `yaml:"header_unknown,omitempty"`
+	Ctrl          map[int]Macro `yaml:"ctrl,omitempty"`
+	Alt           map[int]Macro `yaml:"alt,omitempty"`
 }
 
 type Macro struct {
@@ -96,7 +97,7 @@ func FromCharacterDir(opts Options) (Document, error) {
 }
 
 func exportMacroSet(set dat.MacroSet) Set {
-	out := Set{}
+	out := Set{HeaderUnknown: set.HeaderUnknown}
 	for i := 0; i < 10; i++ {
 		if m := exportMacro(set.Ctrl[i]); m != nil {
 			if out.Ctrl == nil {
@@ -190,6 +191,9 @@ func buildYAMLNode(doc Document) *yaml.Node {
 
 func setNode(s Set) *yaml.Node {
 	n := &yaml.Node{Kind: yaml.MappingNode}
+	if s.HeaderUnknown != 0 {
+		addKV(n, "header_unknown", uint32Node(s.HeaderUnknown))
+	}
 	if len(s.Ctrl) > 0 {
 		addKV(n, "ctrl", macroRowNode(s.Ctrl))
 	}
@@ -248,6 +252,10 @@ func scalarNode(value string) *yaml.Node {
 }
 
 func intNode(value int) *yaml.Node {
+	return &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!int", Value: fmt.Sprintf("%d", value)}
+}
+
+func uint32Node(value uint32) *yaml.Node {
 	return &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!int", Value: fmt.Sprintf("%d", value)}
 }
 
