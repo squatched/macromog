@@ -115,6 +115,28 @@ func assertBackupUnder(t *testing.T, parent, charID string) {
 	}
 }
 
+func TestRunBackup_All(t *testing.T) {
+	ffxiDir, _, _ := makeFFXITree(t, "a1b2c3d4", "e5f6a7b8")
+	dest := t.TempDir()
+	args := []string{"--ffxi-path", ffxiDir, "--all", "--out", dest}
+	if got := runBackup(args); got != 0 {
+		t.Errorf("runBackup(--all) = %d, want 0", got)
+	}
+	assertBackupUnder(t, dest, "a1b2c3d4")
+	assertBackupUnder(t, dest, "e5f6a7b8")
+}
+
+func TestRunBackup_AllInPlace(t *testing.T) {
+	ffxiDir, userDir, _ := makeFFXITree(t, "a1b2c3d4", "e5f6a7b8")
+	_ = userDir
+	args := []string{"--ffxi-path", ffxiDir, "--all", "--in-place"}
+	if got := runBackup(args); got != 0 {
+		t.Errorf("runBackup(--all --in-place) = %d, want 0", got)
+	}
+	assertBackupUnder(t, filepath.Join(ffxiDir, "USER", "a1b2c3d4", "backups"), "a1b2c3d4")
+	assertBackupUnder(t, filepath.Join(ffxiDir, "USER", "e5f6a7b8", "backups"), "e5f6a7b8")
+}
+
 func prepBackupCharDir(t *testing.T) string {
 	t.Helper()
 	src := testdata.CharDir()
