@@ -8,16 +8,17 @@ import (
 	"time"
 )
 
-// Backup copies all *.dat and *.ttl files in dir to a timestamped
-// subdirectory and returns its path.
-func Backup(dir string) (string, error) {
+// Backup copies all *.dat and *.ttl files from charDir into a new subdirectory
+// of destDir named "<charID>_YYYYMMDD_HHMMSS" and returns that subdirectory's path.
+func Backup(charDir, destDir string) (string, error) {
+	charID := filepath.Base(charDir)
 	stamp := time.Now().UTC().Format("20060102_150405")
-	backupDir := filepath.Join(dir, "backups", stamp)
+	backupDir := filepath.Join(destDir, charID+"_"+stamp)
 	if err := os.MkdirAll(backupDir, 0o755); err != nil {
 		return "", err
 	}
 
-	entries, err := os.ReadDir(dir)
+	entries, err := os.ReadDir(charDir)
 	if err != nil {
 		return "", err
 	}
@@ -29,7 +30,7 @@ func Backup(dir string) (string, error) {
 		if !strings.HasSuffix(lower, ".dat") && !strings.HasSuffix(lower, ".ttl") {
 			continue
 		}
-		if err := copyFile(filepath.Join(dir, e.Name()), filepath.Join(backupDir, e.Name())); err != nil {
+		if err := copyFile(filepath.Join(charDir, e.Name()), filepath.Join(backupDir, e.Name())); err != nil {
 			return "", err
 		}
 	}

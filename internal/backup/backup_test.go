@@ -10,26 +10,36 @@ import (
 	"github.com/squatched/macromog/internal/dat/testdata"
 )
 
-func TestBackup_CreatesTimestampedDirectory(t *testing.T) {
+func TestBackup_CreatesNamedDirectory(t *testing.T) {
 	tmp := prepCharDir(t)
+	dest := t.TempDir()
 
-	dir, err := backup.Backup(tmp)
+	dir, err := backup.Backup(tmp, dest)
 	if err != nil {
 		t.Fatalf("Backup: %v", err)
 	}
 	if st, err := os.Stat(dir); err != nil || !st.IsDir() {
 		t.Errorf("backup dir not created: %s", dir)
 	}
-	if !strings.HasPrefix(dir, filepath.Join(tmp, "backups")+string(filepath.Separator)) {
-		t.Errorf("backup dir %s not under <char>/backups/", dir)
+
+	// Must be directly under dest (no extra nesting).
+	if filepath.Dir(dir) != dest {
+		t.Errorf("backup dir %s not directly under dest %s", dir, dest)
+	}
+
+	// Name must start with the char ID (basename of the source dir).
+	charID := filepath.Base(tmp)
+	if !strings.HasPrefix(filepath.Base(dir), charID+"_") {
+		t.Errorf("backup dir name %q does not start with %q", filepath.Base(dir), charID+"_")
 	}
 }
 
 func TestBackup_CopiesDatAndTtlFiles(t *testing.T) {
 	src := testdata.CharDir()
 	tmp := prepCharDir(t)
+	dest := t.TempDir()
 
-	backupDir, err := backup.Backup(tmp)
+	backupDir, err := backup.Backup(tmp, dest)
 	if err != nil {
 		t.Fatalf("Backup: %v", err)
 	}
@@ -47,11 +57,11 @@ func TestBackup_CopiesDatAndTtlFiles(t *testing.T) {
 
 func TestBackup_SkipsSubdirectoriesAndOtherFiles(t *testing.T) {
 	tmp := prepCharDir(t)
-	// Plant a file with a non-dat/ttl extension and a subdirectory
+	dest := t.TempDir()
 	_ = os.WriteFile(filepath.Join(tmp, "notes.txt"), []byte("ignore me"), 0o644)
 	_ = os.MkdirAll(filepath.Join(tmp, "subdir"), 0o755)
 
-	backupDir, err := backup.Backup(tmp)
+	backupDir, err := backup.Backup(tmp, dest)
 	if err != nil {
 		t.Fatalf("Backup: %v", err)
 	}
@@ -70,8 +80,9 @@ func TestBackup_SkipsSubdirectoriesAndOtherFiles(t *testing.T) {
 
 func TestBackup_EmptyDir(t *testing.T) {
 	tmp := t.TempDir()
+	dest := t.TempDir()
 
-	dir, err := backup.Backup(tmp)
+	dir, err := backup.Backup(tmp, dest)
 	if err != nil {
 		t.Fatalf("Backup empty dir: %v", err)
 	}

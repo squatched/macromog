@@ -87,7 +87,7 @@ func Import(opts Options) (Result, error) {
 	// Backup before any writes.
 	var backupDir string
 	if opts.Backup {
-		backupDir, err = backup.Backup(opts.CharacterDir)
+		backupDir, err = backup.Backup(opts.CharacterDir, filepath.Join(opts.CharacterDir, "backups"))
 		if err != nil {
 			return Result{}, fmt.Errorf("backup: %w", err)
 		}
