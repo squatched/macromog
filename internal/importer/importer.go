@@ -2,13 +2,12 @@ package importer
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
-	"time"
 
+	"github.com/squatched/macromog/internal/backup"
 	"github.com/squatched/macromog/internal/dat"
 	"github.com/squatched/macromog/internal/export"
 	"github.com/squatched/macromog/internal/validate"
@@ -88,7 +87,7 @@ func Import(opts Options) (Result, error) {
 	// Backup before any writes.
 	var backupDir string
 	if opts.Backup {
-		backupDir, err = backupCharDir(opts.CharacterDir)
+		backupDir, err = backup.Backup(opts.CharacterDir, filepath.Join(opts.CharacterDir, "backups"))
 		if err != nil {
 			return Result{}, fmt.Errorf("backup: %w", err)
 		}
@@ -108,51 +107,6 @@ func Import(opts Options) (Result, error) {
 	}
 
 	return Result{BackupDir: backupDir, Sets: sets}, nil
-}
-
-// backupCharDir copies all *.dat and *.ttl files in dir to a timestamped
-// subdirectory and returns its path.
-func backupCharDir(dir string) (string, error) {
-	stamp := time.Now().UTC().Format("20060102_150405")
-	backupDir := filepath.Join(dir, "backups", stamp)
-	if err := os.MkdirAll(backupDir, 0o755); err != nil {
-		return "", err
-	}
-
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return "", err
-	}
-	for _, e := range entries {
-		if e.IsDir() {
-			continue
-		}
-		lower := strings.ToLower(e.Name())
-		if !strings.HasSuffix(lower, ".dat") && !strings.HasSuffix(lower, ".ttl") {
-			continue
-		}
-		if err := copyFile(filepath.Join(dir, e.Name()), filepath.Join(backupDir, e.Name())); err != nil {
-			return "", err
-		}
-	}
-	return backupDir, nil
-}
-
-func copyFile(src, dst string) error {
-	in, err := os.Open(src)
-	if err != nil {
-		return err
-	}
-	defer in.Close()
-	out, err := os.Create(dst)
-	if err != nil {
-		return err
-	}
-	defer out.Close()
-	if _, err := io.Copy(out, in); err != nil {
-		return err
-	}
-	return out.Close()
 }
 
 // updateBookTitles reads existing book titles, applies any names from doc,

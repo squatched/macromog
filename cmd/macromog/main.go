@@ -39,7 +39,7 @@ func run(args []string) int {
 	case "validate":
 		return runValidate(args[2:])
 	case "backup":
-		return unimplemented("backup")
+		return runBackup(args[2:])
 	case "list":
 		return runList(args[2:])
 	case "--help", "-h", "help":
