@@ -110,45 +110,16 @@ jobs:
 
             // ── Plugin Coverage (Lua) ──────────────────────────────────────
             let pluginPct = null
-            let pluginTable = ''
             try {
               const report = fs.readFileSync('./plugin-reports/coverage-plugin-summary.txt', 'utf8')
-              const fileRows = []
-              for (const line of report.split('\n')) {
-                const m = line.match(/^(\S+\.lua)\s+(\d+)\s+(\d+)\s+([\d.]+)%/)
-                if (m) fileRows.push(`| \`${m[1]}\` | ${m[2]} | ${m[3]} | ${m[4]}% |`)
-              }
-              if (fileRows.length) {
-                pluginTable = [
-                  '| File | Hits | Missed | Coverage |',
-                  '|------|------|--------|----------|',
-                  ...fileRows,
-                ].join('\n')
-              }
               const tot = report.match(/^Total\s+\d+\s+\d+\s+([\d.]+)%/m)
               if (tot) pluginPct = parseFloat(tot[1])
             } catch (_) {}
 
             // ── CLI Coverage (Go) ──────────────────────────────────────────
             let cliPct = null
-            let cliTable = ''
             try {
               const report = fs.readFileSync('./cli-reports/coverage-cli-func.txt', 'utf8')
-              const funcRows = []
-              for (const line of report.split('\n')) {
-                const m = line.match(/^(\S+):(\d+):\s+(\S+)\s+([\d.]+)%/)
-                if (m) {
-                  const file = m[1].replace(/^[^/]+\/[^/]+\/[^/]+\//, '')
-                  funcRows.push(`| \`${file}\` | \`${m[3]}\` | ${m[4]}% |`)
-                }
-              }
-              if (funcRows.length) {
-                cliTable = [
-                  '| File | Function | Coverage |',
-                  '|------|----------|----------|',
-                  ...funcRows,
-                ].join('\n')
-              }
               const tot = report.match(/^total:\s+\(statements\)\s+([\d.]+)%/m)
               if (tot) cliPct = parseFloat(tot[1])
             } catch (_) {}
@@ -156,7 +127,7 @@ jobs:
             // ── Compose comment ────────────────────────────────────────────
             const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
             const pluginThreshold = 80
-            const cliThreshold = 0
+            const cliThreshold = 80
 
             const pluginPassed = pluginPct !== null && pluginPct >= pluginThreshold
             const cliPassed   = cliPct   !== null && cliPct   >= cliThreshold
@@ -173,8 +144,6 @@ jobs:
                   ? `Below the ${pluginThreshold}% threshold.`
                   : `Coverage data unavailable — the coverage-plugin job may have failed. See the [workflow run](${runUrl}) for details.`,
               '',
-              pluginTable,
-              '',
               '> **`coverage-plugin` artifact** — open `coverage-plugin.html` for a visual report.',
               '> Also includes `coverage-plugin.xml` (Cobertura) for IDE plugins such as Coverage Gutters.',
             ].filter(s => s !== undefined).join('\n')
@@ -187,8 +156,6 @@ jobs:
                 : cliPct !== null
                   ? `Below the ${cliThreshold}% threshold.`
                   : `Coverage data unavailable — the coverage-cli job may have failed. See the [workflow run](${runUrl}) for details.`,
-              '',
-              cliTable,
               '',
               '> **`coverage-cli` artifact** — open `coverage-cli.html` for an annotated source report.',
               '> Also includes `coverage-cli.out` (Go cover profile) for local tooling.',
