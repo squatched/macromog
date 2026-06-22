@@ -39,8 +39,9 @@ type book struct {
 }
 
 type set struct {
-	Ctrl map[int]macro `yaml:"ctrl"`
-	Alt  map[int]macro `yaml:"alt"`
+	HeaderUnknown uint32        `yaml:"header_unknown"`
+	Ctrl      map[int]macro `yaml:"ctrl"`
+	Alt       map[int]macro `yaml:"alt"`
 }
 
 type macro struct {

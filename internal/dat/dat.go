@@ -43,8 +43,9 @@ type Macro struct {
 
 // MacroSet is one in-game macro set (ctrl bar + alt bar).
 type MacroSet struct {
-	Ctrl [10]Macro
-	Alt  [10]Macro
+	HeaderUnknown uint32 // bytes 4–7 of the DAT header; purpose unclear, preserved on round-trip, 0 when generated
+	Ctrl      [10]Macro
+	Alt       [10]Macro
 }
 
 // Empty reports whether the macro has no name and no line content.

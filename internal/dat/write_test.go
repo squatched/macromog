@@ -140,10 +140,10 @@ func TestEncodeMacroSet_Header(t *testing.T) {
 		t.Errorf("magic = %d, want %d", magic, MagicVersion)
 	}
 
-	// bytes 4–7: unknown flag, written as 0
+	// bytes 4–7: unknown field, written as 0 when MacroSet.HeaderUnknown is zero
 	flag := binary.LittleEndian.Uint32(out[4:8])
 	if flag != 0 {
-		t.Errorf("unknown flag = 0x%08X, want 0x00000000", flag)
+		t.Errorf("header unknown bytes = 0x%08X, want 0x00000000", flag)
 	}
 
 	// bytes 8–23: MD5 of the payload (bytes 24+)
@@ -174,6 +174,26 @@ func TestEncodeMacroSet_RoundTrip(t *testing.T) {
 	}
 	if decoded.Alt[9].Name != original.Alt[9].Name {
 		t.Errorf("alt[9].Name = %q, want %q", decoded.Alt[9].Name, original.Alt[9].Name)
+	}
+}
+
+func TestEncodeMacroSet_HeaderUnknownPreserved(t *testing.T) {
+	set := MacroSet{HeaderUnknown: 0xDEADBEEF}
+	set.Ctrl[0] = Macro{Name: "Test"}
+
+	encoded := EncodeMacroSet(set)
+
+	got := binary.LittleEndian.Uint32(encoded[4:8])
+	if got != 0xDEADBEEF {
+		t.Errorf("header unknown bytes = 0x%08X, want 0xDEADBEEF", got)
+	}
+
+	decoded, err := ReadMacroSet(encoded)
+	if err != nil {
+		t.Fatalf("ReadMacroSet: %v", err)
+	}
+	if decoded.HeaderUnknown != 0xDEADBEEF {
+		t.Errorf("decoded HeaderUnknown = 0x%08X, want 0xDEADBEEF", decoded.HeaderUnknown)
 	}
 }
 

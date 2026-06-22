@@ -137,7 +137,7 @@ func unicodeToShiftJIS(r rune) (lead, trail byte, ok bool) {
 func EncodeMacroSet(set MacroSet) []byte {
 	out := make([]byte, MacroSetFileSize)
 	binary.LittleEndian.PutUint32(out[0:4], MagicVersion)
-	// bytes 4–7: unknown flag; write 0 (POLUtils default)
+	binary.LittleEndian.PutUint32(out[4:8], set.HeaderUnknown)
 	// bytes 8–23: MD5, filled in below
 
 	offset := HeaderSize

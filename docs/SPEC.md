@@ -49,6 +49,7 @@ books:
     name: "WHM75NIN"              # Custom book name (max 15 chars, alphanumeric only)
     sets:
       1:                          # Set index (1–10)
+        header_unknown: 1234567890  # Optional; bytes 4–7 of DAT header (purpose unclear); preserved from original DAT file; defaults to 0 when generated
         ctrl:
           1:                      # Key index (1–9, then 0)
             name: "Cure"          # Macro button title (max 8 chars, any printable)
@@ -104,6 +105,7 @@ These limits are empirically confirmed against the live FFXI client.
 |----------|-------|-------|
 | Sets per book | 10 | Indices 1–10 |
 | Name | — | Sets have no custom names in-game. YAML comments may be used for personal reference. |
+| `header_unknown` | Optional `uint32` | Bytes 4–7 of the DAT header (purpose unclear; possibly a write timestamp). Preserved on export; defaults to `0` when generating YAML by hand. The game does not validate this field on read. |
 
 ### Macros
 

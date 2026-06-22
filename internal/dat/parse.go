@@ -21,6 +21,7 @@ func ReadMacroSet(data []byte) (MacroSet, error) {
 	}
 
 	var set MacroSet
+	set.HeaderUnknown = binary.LittleEndian.Uint32(data[4:8])
 	offset := HeaderSize
 	for i := 0; i < MacrosPerSet; i++ {
 		m, n := parseMacro(data[offset:])

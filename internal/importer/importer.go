@@ -171,7 +171,7 @@ func updateBookTitles(dir string, doc export.Document) error {
 }
 
 func buildMacroSet(s export.Set) dat.MacroSet {
-	var ms dat.MacroSet
+	ms := dat.MacroSet{HeaderUnknown: s.HeaderUnknown}
 	for yamlKey, m := range s.Ctrl {
 		slot := dat.SlotFromYAMLKey(yamlKey)
 		if slot >= 0 && slot < 10 {
