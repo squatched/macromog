@@ -41,7 +41,7 @@ func run(args []string) int {
 	case "backup":
 		return unimplemented("backup")
 	case "list":
-		return unimplemented("list")
+		return runList(args[2:])
 	case "--help", "-h", "help":
 		fmt.Fprint(os.Stdout, usage)
 		return 0
