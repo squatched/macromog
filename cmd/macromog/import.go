@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 
@@ -34,7 +35,24 @@ Examples:
   macromog import --dry-run mymacros.yml /path/to/USER/a1b2c3d4
 `
 
-func runImport(args []string) int {
+type importEntry struct {
+	Character  string          `json:"character"`
+	YAMLFile   string          `json:"yaml_file"`
+	Sets       int             `json:"sets"`
+	BackupPath string          `json:"backup_path,omitempty"`
+	DryRun     bool            `json:"dry_run"`
+	DryRunSets []importSetInfo `json:"dry_run_sets,omitempty"`
+	OK         bool            `json:"ok"`
+	Error      string          `json:"error,omitempty"`
+}
+
+type importSetInfo struct {
+	FileName string `json:"file"`
+	Book     int    `json:"book"`
+	Set      int    `json:"set"`
+}
+
+func runImport(args []string, p *Printer) int {
 	if len(args) > 0 && (args[0] == "--help" || args[0] == "-h") {
 		fmt.Fprint(os.Stdout, importUsage)
 		return 0
@@ -82,47 +100,95 @@ func runImport(args []string) int {
 
 	multi := len(charDirs) > 1
 	failed := false
+	var results []importEntry
+
 	for _, dir := range charDirs {
-		result, err := importer.Import(importer.Options{
+		charID := filepath.Base(dir)
+		result, ierr := importer.Import(importer.Options{
 			CharacterDir: dir,
 			YAMLPath:     yamlAbs,
 			Backup:       !*noBackup,
 			DryRun:       *dryRun,
 		})
-		if err != nil {
-			if multi {
-				fmt.Fprintf(os.Stderr, "macromog import: %s: %v\n", filepath.Base(dir), err)
-			} else {
-				fmt.Fprintf(os.Stderr, "macromog import: %v\n", err)
+		if ierr != nil {
+			if !p.IsJSON() {
+				if multi {
+					fmt.Fprintf(os.Stderr, "macromog import: %s: %v\n", charID, ierr)
+				} else {
+					fmt.Fprintf(os.Stderr, "macromog import: %v\n", ierr)
+				}
 			}
+			results = append(results, importEntry{
+				Character: charID,
+				YAMLFile:  filepath.Base(yamlPath),
+				DryRun:    *dryRun,
+				OK:        false,
+				Error:     ierr.Error(),
+			})
 			failed = true
 			continue
 		}
 
-		if *dryRun {
-			if multi {
-				fmt.Printf("[%s] dry run: would write %d macro set(s)\n", filepath.Base(dir), len(result.Sets))
+		p.Text(func(w io.Writer) {
+			if *dryRun {
+				if multi {
+					fmt.Fprintf(w, "[%s] dry run: would write %d macro set(s)\n", charID, len(result.Sets))
+				} else {
+					fmt.Fprintf(w, "dry run: would write %d macro set(s):\n", len(result.Sets))
+					for _, s := range result.Sets {
+						fmt.Fprintf(w, "  %s (book %d, set %d)\n", s.FileName, s.Book, s.Set)
+					}
+				}
 			} else {
-				fmt.Printf("dry run: would write %d macro set(s):\n", len(result.Sets))
-				for _, s := range result.Sets {
-					fmt.Printf("  %s (book %d, set %d)\n", s.FileName, s.Book, s.Set)
+				if multi {
+					if result.BackupDir != "" {
+						fmt.Fprintf(w, "[%s] backed up to %s\n", charID, result.BackupDir)
+					}
+					fmt.Fprintf(w, "[%s] imported %d macro set(s) from %s\n", charID, len(result.Sets), filepath.Base(yamlPath))
+				} else {
+					if result.BackupDir != "" {
+						fmt.Fprintf(w, "backed up to %s\n", result.BackupDir)
+					}
+					fmt.Fprintf(w, "imported %d macro set(s) from %s\n", len(result.Sets), filepath.Base(yamlPath))
 				}
 			}
-			continue
-		}
+		})
 
+		entry := importEntry{
+			Character: charID,
+			YAMLFile:  filepath.Base(yamlPath),
+			Sets:      len(result.Sets),
+			DryRun:    *dryRun,
+			OK:        true,
+		}
+		if result.BackupDir != "" {
+			entry.BackupPath = result.BackupDir
+		}
+		if *dryRun {
+			sets := make([]importSetInfo, len(result.Sets))
+			for i, s := range result.Sets {
+				sets[i] = importSetInfo{FileName: s.FileName, Book: s.Book, Set: s.Set}
+			}
+			entry.DryRunSets = sets
+		}
+		results = append(results, entry)
+	}
+
+	if p.IsJSON() {
 		if multi {
-			if result.BackupDir != "" {
-				fmt.Printf("[%s] backed up to %s\n", filepath.Base(dir), result.BackupDir)
+			p.JSON(results)
+		} else if len(results) == 1 {
+			p.JSON(results[0])
+		}
+		if failed {
+			for _, r := range results {
+				if !r.OK {
+					fmt.Fprintf(os.Stderr, "macromog import: %s: %s\n", r.Character, r.Error)
+				}
 			}
-			fmt.Printf("[%s] imported %d macro set(s) from %s\n", filepath.Base(dir), len(result.Sets), filepath.Base(yamlPath))
-		} else {
-			if result.BackupDir != "" {
-				fmt.Printf("backed up to %s\n", result.BackupDir)
-			}
-			fmt.Printf("imported %d macro set(s) from %s\n", len(result.Sets), filepath.Base(yamlPath))
 		}
 	}
+
 	if failed {
 		return 1
 	}

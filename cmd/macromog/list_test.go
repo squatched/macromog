@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/binary"
 	"os"
 	"path/filepath"
@@ -54,21 +55,21 @@ func makeTestUserDir(t *testing.T) string {
 
 func TestRunList_Help(t *testing.T) {
 	for _, flag := range []string{"--help", "-h"} {
-		if got := runList([]string{flag}); got != 0 {
+		if got := runList([]string{flag}, newTextPrinter()); got != 0 {
 			t.Errorf("runList(%s) = %d, want 0", flag, got)
 		}
 	}
 }
 
 func TestRunList_BadFlag(t *testing.T) {
-	if got := runList([]string{"--unknown-flag"}); got != 1 {
+	if got := runList([]string{"--unknown-flag"}, newTextPrinter()); got != 1 {
 		t.Errorf("runList(bad flag) = %d, want 1", got)
 	}
 }
 
 func TestRunList_MissingFFXIPath(t *testing.T) {
 	// Supply a path that does not contain a USER subdir.
-	if got := runList([]string{"--ffxi-path", t.TempDir()}); got != 1 {
+	if got := runList([]string{"--ffxi-path", t.TempDir()}, newTextPrinter()); got != 1 {
 		t.Errorf("runList(missing USER dir) = %d, want 1", got)
 	}
 }
@@ -83,7 +84,7 @@ func TestRunList_WithFFXIPath(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if got := runList([]string{"--ffxi-path", ffxiRoot}); got != 0 {
+	if got := runList([]string{"--ffxi-path", ffxiRoot}, newTextPrinter()); got != 0 {
 		t.Errorf("runList(--ffxi-path) = %d, want 0", got)
 	}
 }
@@ -93,27 +94,26 @@ func TestRunList_CharDir_NoMacros(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "mcr.dat"), blankDatBytes(), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if got := runList([]string{"--char", dir}); got != 0 {
+	if got := runList([]string{"--char", dir}, newTextPrinter()); got != 0 {
 		t.Errorf("runList(--char empty) = %d, want 0", got)
 	}
 }
 
 func TestRunList_CharDir_WithMacros(t *testing.T) {
 	// Use the existing test fixture which has macros in book 33.
-	if got := runList([]string{"--char", testdata.CharDir()}); got != 0 {
+	if got := runList([]string{"--char", testdata.CharDir()}, newTextPrinter()); got != 0 {
 		t.Errorf("runList(--char testdata) = %d, want 0", got)
 	}
 }
 
 func TestRunList_CharDir_NotFound(t *testing.T) {
-	if got := runList([]string{"--char", "/nonexistent/char"}); got != 1 {
+	if got := runList([]string{"--char", "/nonexistent/char"}, newTextPrinter()); got != 1 {
 		t.Errorf("runList(--char missing) = %d, want 1", got)
 	}
 }
 
 func TestRunList_CharDir_ShowsBookIndex(t *testing.T) {
 	// Book 33 set 1 is present in the testdata fixture.
-	// Capture stdout by running through the run() dispatcher.
 	// We just verify the exit code and that the logic doesn't crash.
 	if got := run([]string{"macromog", "list", "--char", testdata.CharDir()}); got != 0 {
 		t.Errorf("run(list --char testdata) = %d, want 0", got)
@@ -129,7 +129,7 @@ func TestRunList_UserDir_MultipleChars(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if got := runList([]string{"--ffxi-path", parent}); got != 0 {
+	if got := runList([]string{"--ffxi-path", parent}, newTextPrinter()); got != 0 {
 		t.Errorf("runList(multi-char) = %d, want 0", got)
 	}
 }
@@ -140,7 +140,7 @@ func TestRunList_EmptyUserDir(t *testing.T) {
 	if err := os.Mkdir(userDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if got := runList([]string{"--ffxi-path", parent}); got != 0 {
+	if got := runList([]string{"--ffxi-path", parent}, newTextPrinter()); got != 0 {
 		t.Errorf("runList(empty USER) = %d, want 0", got)
 	}
 }
@@ -159,26 +159,14 @@ func TestRunList_CharDir_BookName(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Redirect stdout to a file so we can inspect output.
-	outFile := filepath.Join(t.TempDir(), "out.txt")
-	f, err := os.Create(outFile)
-	if err != nil {
-		t.Fatal(err)
-	}
-	old := os.Stdout
-	os.Stdout = f
-	code := runList([]string{"--char", dir})
-	f.Close()
-	os.Stdout = old
+	var buf bytes.Buffer
+	p := NewPrinter(&buf, FormatText)
+	code := runList([]string{"--char", dir}, p)
 
 	if code != 0 {
 		t.Fatalf("runList = %d, want 0", code)
 	}
-	data, err := os.ReadFile(outFile)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(string(data), "WHM75NIN") {
-		t.Errorf("output missing book name WHM75NIN:\n%s", data)
+	if !strings.Contains(buf.String(), "WHM75NIN") {
+		t.Errorf("output missing book name WHM75NIN:\n%s", buf.String())
 	}
 }

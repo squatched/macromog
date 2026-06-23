@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 
@@ -28,7 +29,7 @@ Examples:
   macromog list --char /path/to/USER/a1b2c3d4
 `
 
-func runList(args []string) int {
+func runList(args []string, p *Printer) int {
 	if len(args) > 0 && (args[0] == "--help" || args[0] == "-h") {
 		fmt.Fprint(os.Stdout, listUsage)
 		return 0
@@ -44,12 +45,33 @@ func runList(args []string) int {
 	}
 
 	if *charDir != "" {
-		return runListChar(*charDir)
+		return runListChar(*charDir, p)
 	}
-	return runListAll(*ffxiPath)
+	return runListAll(*ffxiPath, p)
 }
 
-func runListChar(charDir string) int {
+type listCharResult struct {
+	Character string          `json:"character"`
+	Books     []listBookEntry `json:"books"`
+}
+
+type listBookEntry struct {
+	Index    int    `json:"index"`
+	Name     string `json:"name"`
+	SetCount int    `json:"set_count"`
+}
+
+type listAllResult struct {
+	UserDir    string          `json:"user_dir"`
+	Characters []listCharEntry `json:"characters"`
+}
+
+type listCharEntry struct {
+	ID        string `json:"id"`
+	BookCount int    `json:"book_count"`
+}
+
+func runListChar(charDir string, p *Printer) int {
 	charDirAbs, err := filepath.Abs(charDir)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "macromog list: %v\n", err)
@@ -66,26 +88,37 @@ func runListChar(charDir string) int {
 		return 1
 	}
 
-	fmt.Printf("Character: %s\n\n", filepath.Base(charDirAbs))
-	if len(books) == 0 {
-		fmt.Println("  (no macros found)")
-		return 0
-	}
-	for _, b := range books {
-		name := b.Name
-		if name == "" {
-			name = "(unnamed)"
+	charID := filepath.Base(charDirAbs)
+
+	p.Text(func(w io.Writer) {
+		fmt.Fprintf(w, "Character: %s\n\n", charID)
+		if len(books) == 0 {
+			fmt.Fprintln(w, "  (no macros found)")
+			return
 		}
-		sets := "sets"
-		if b.SetCount == 1 {
-			sets = "set"
+		for _, b := range books {
+			name := b.Name
+			if name == "" {
+				name = "(unnamed)"
+			}
+			sets := "sets"
+			if b.SetCount == 1 {
+				sets = "set"
+			}
+			fmt.Fprintf(w, "  Book %2d  %-16s  %d %s\n", b.Index, name, b.SetCount, sets)
 		}
-		fmt.Printf("  Book %2d  %-16s  %d %s\n", b.Index, name, b.SetCount, sets)
+	})
+
+	entries := make([]listBookEntry, len(books))
+	for i, b := range books {
+		entries[i] = listBookEntry{Index: b.Index, Name: b.Name, SetCount: b.SetCount}
 	}
+	p.JSON(listCharResult{Character: charID, Books: entries})
+
 	return 0
 }
 
-func runListAll(ffxiPath string) int {
+func runListAll(ffxiPath string, p *Printer) int {
 	var userDir string
 	if ffxiPath != "" {
 		userDir = lister.UserDirFromFFXIPath(ffxiPath)
@@ -108,20 +141,29 @@ func runListAll(ffxiPath string) int {
 		return 1
 	}
 
-	fmt.Printf("FFXI USER: %s\n\n", userDir)
-	if len(chars) == 0 {
-		fmt.Println("  (no character directories found)")
-		return 0
-	}
-	for _, c := range chars {
-		switch c.BookCount {
-		case 0:
-			fmt.Printf("  %-12s  (no macros)\n", c.ID)
-		case 1:
-			fmt.Printf("  %-12s  1 book\n", c.ID)
-		default:
-			fmt.Printf("  %-12s  %d books\n", c.ID, c.BookCount)
+	p.Text(func(w io.Writer) {
+		fmt.Fprintf(w, "FFXI USER: %s\n\n", userDir)
+		if len(chars) == 0 {
+			fmt.Fprintln(w, "  (no character directories found)")
+			return
 		}
+		for _, c := range chars {
+			switch c.BookCount {
+			case 0:
+				fmt.Fprintf(w, "  %-12s  (no macros)\n", c.ID)
+			case 1:
+				fmt.Fprintf(w, "  %-12s  1 book\n", c.ID)
+			default:
+				fmt.Fprintf(w, "  %-12s  %d books\n", c.ID, c.BookCount)
+			}
+		}
+	})
+
+	entries := make([]listCharEntry, len(chars))
+	for i, c := range chars {
+		entries[i] = listCharEntry{ID: c.ID, BookCount: c.BookCount}
 	}
+	p.JSON(listAllResult{UserDir: userDir, Characters: entries})
+
 	return 0
 }

@@ -5,7 +5,7 @@ import (
 	"os"
 )
 
-const usage = `Usage: macromog <command> [flags]
+const usage = `Usage: macromog [--output <format>] <command> [flags]
 
 Commands:
   export    export macros from .dat files to YAML
@@ -15,6 +15,7 @@ Commands:
   list      list detected characters and macro books
 
 Global flags:
+  --output <format>   output format: text (default) or json
   --ffxi-path <path>  path to FFXI install (auto-detected if possible)
   --char <id>         character folder (hex ID or path)
 
@@ -26,22 +27,30 @@ func main() {
 }
 
 func run(args []string) int {
+	format, args, err := extractOutputFormat(args)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 1
+	}
+
 	if len(args) < 2 {
 		fmt.Fprint(os.Stderr, usage)
 		return 1
 	}
 
+	p := NewPrinter(os.Stdout, format)
+
 	switch args[1] {
 	case "export":
-		return runExport(args[2:])
+		return runExport(args[2:], p)
 	case "import":
-		return runImport(args[2:])
+		return runImport(args[2:], p)
 	case "validate":
-		return runValidate(args[2:])
+		return runValidate(args[2:], p)
 	case "backup":
-		return runBackup(args[2:])
+		return runBackup(args[2:], p)
 	case "list":
-		return runList(args[2:])
+		return runList(args[2:], p)
 	case "--help", "-h", "help":
 		fmt.Fprint(os.Stdout, usage)
 		return 0
