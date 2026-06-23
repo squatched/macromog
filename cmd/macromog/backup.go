@@ -104,10 +104,11 @@ func runBackup(args []string, p *Printer) int {
 		backupDir, berr := backup.Backup(dir, destDir)
 		if berr != nil {
 			if !p.IsJSON() {
+				ew := p.Err()
 				if multi {
-					fmt.Fprintf(os.Stderr, "macromog backup: %s: %v\n", charID, berr)
+					fmt.Fprintf(ew, "macromog backup: %s: %v\n", ew.Highlight(charID), berr)
 				} else {
-					fmt.Fprintf(os.Stderr, "macromog backup: %v\n", berr)
+					fmt.Fprintf(ew, "macromog backup: %v\n", berr)
 				}
 			}
 			results = append(results, backupEntry{Character: charID, OK: false, Error: berr.Error()})

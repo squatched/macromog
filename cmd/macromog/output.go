@@ -10,6 +10,7 @@ import (
 
 	"github.com/mattn/go-colorable"
 	"github.com/mattn/go-isatty"
+	"github.com/mattn/go-runewidth"
 )
 
 // OutputFormat controls how command output is rendered.
@@ -44,6 +45,9 @@ func detectColor(w io.Writer) bool {
 	if os.Getenv("NO_COLOR") != "" {
 		return false
 	}
+	if os.Getenv("TERM") == "dumb" {
+		return false
+	}
 	f, ok := w.(*os.File)
 	if !ok {
 		return false
@@ -54,6 +58,17 @@ func detectColor(w io.Writer) bool {
 
 // IsJSON reports whether this printer is in JSON mode.
 func (p *Printer) IsJSON() bool { return p.format == FormatJSON }
+
+// Err returns a TextWriter targeting stderr, with color auto-detected for
+// stderr independently of stdout. Use it for error messages in text mode.
+func (p *Printer) Err() *TextWriter {
+	errColor := detectColor(os.Stderr)
+	w := io.Writer(os.Stderr)
+	if errColor {
+		w = colorable.NewColorableStderr()
+	}
+	return &TextWriter{w: w, color: errColor}
+}
 
 // Text calls fn with a TextWriter when in text mode.
 func (p *Printer) Text(fn func(tw *TextWriter)) {
@@ -86,10 +101,13 @@ func (tw *TextWriter) Write(p []byte) (n int, err error) {
 const ansiReset = "\033[0m"
 
 func (tw *TextWriter) wrap(code, s string) string {
+	// Strip any pre-existing ANSI codes from user-supplied strings so they
+	// cannot inject sequences into the output or corrupt our own wrapping.
+	clean := ansiEscape.ReplaceAllString(s, "")
 	if !tw.color {
-		return s
+		return clean
 	}
-	return code + s + ansiReset
+	return code + clean + ansiReset
 }
 
 // Raw color span helpers — return a styled string for inline embedding.
@@ -124,7 +142,7 @@ func (tw *TextWriter) PadRight(s string, width int) string {
 var ansiEscape = regexp.MustCompile(`\033\[[0-9;]*m`)
 
 func visibleWidth(s string) int {
-	return len([]rune(ansiEscape.ReplaceAllString(s, "")))
+	return runewidth.StringWidth(ansiEscape.ReplaceAllString(s, ""))
 }
 
 // extractOutputFormat scans args for --output text|json and strips it from

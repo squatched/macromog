@@ -115,10 +115,11 @@ func runExport(args []string, p *Printer) int {
 
 		if err := export.WriteFile(dir, outPath, name); err != nil {
 			if !p.IsJSON() {
+				ew := p.Err()
 				if multi {
-					fmt.Fprintf(os.Stderr, "macromog export: %s: %v\n", charID, err)
+					fmt.Fprintf(ew, "macromog export: %s: %v\n", ew.Highlight(charID), err)
 				} else {
-					fmt.Fprintf(os.Stderr, "macromog export: %v\n", err)
+					fmt.Fprintf(ew, "macromog export: %v\n", err)
 				}
 			}
 			results = append(results, exportEntry{Character: charID, OK: false, Error: err.Error()})

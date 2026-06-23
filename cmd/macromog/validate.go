@@ -54,9 +54,10 @@ func runValidate(args []string, p *Printer) int {
 	// In text mode print details to stderr; in JSON mode the errors array
 	// in the output carries them so stderr stays clean.
 	if !p.IsJSON() {
-		fmt.Fprintf(os.Stderr, "%s: %d validation error(s):\n", filename, len(errs))
+		ew := p.Err()
+		fmt.Fprintf(ew, "%s: %d validation error(s):\n", ew.Highlight(filename), len(errs))
 		for _, e := range errs {
-			fmt.Fprintf(os.Stderr, "  %s\n", e)
+			fmt.Fprintf(ew, "  %s\n", ew.Error(e.Error()))
 		}
 	}
 	p.JSON(validateResult{File: filename, Valid: false, Errors: errStrs})

@@ -114,10 +114,11 @@ func runImport(args []string, p *Printer) int {
 		})
 		if ierr != nil {
 			if !p.IsJSON() {
+				ew := p.Err()
 				if multi {
-					fmt.Fprintf(os.Stderr, "macromog import: %s: %v\n", charID, ierr)
+					fmt.Fprintf(ew, "macromog import: %s: %v\n", ew.Highlight(charID), ierr)
 				} else {
-					fmt.Fprintf(os.Stderr, "macromog import: %v\n", ierr)
+					fmt.Fprintf(ew, "macromog import: %v\n", ierr)
 				}
 			}
 			results = append(results, importEntry{
