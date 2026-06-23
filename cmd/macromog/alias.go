@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/squatched/macromog/internal/aliases"
 	"github.com/squatched/macromog/internal/lister"
@@ -83,6 +84,10 @@ type aliasRemoveResult struct {
 }
 
 func runAliasSet(userDir, charID, name string, p *Printer) int {
+	if strings.TrimSpace(name) == "" {
+		fmt.Fprintln(os.Stderr, "macromog alias: name must not be empty")
+		return 1
+	}
 	charDir := filepath.Join(userDir, charID)
 	if !lister.IsCharacterDir(charDir) {
 		fmt.Fprintf(os.Stderr, "macromog alias: %q is not a valid character directory in %s\n", charID, userDir)

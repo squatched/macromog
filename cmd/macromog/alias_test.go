@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/squatched/macromog/internal/aliases"
@@ -154,6 +156,75 @@ func TestRunAlias_Remove_NoArgs(t *testing.T) {
 	args := []string{"--ffxi-path", ffxiDir, "--remove"}
 	if got := runAlias(args, newTextPrinter()); got != 1 {
 		t.Errorf("runAlias(--remove no arg) = %d, want 1", got)
+	}
+}
+
+func TestRunAlias_Set_EmptyName(t *testing.T) {
+	ffxiDir := t.TempDir()
+	userDir := filepath.Join(ffxiDir, "USER")
+	charDir := filepath.Join(userDir, "abc123")
+	for _, d := range []string{userDir, charDir} {
+		if err := os.Mkdir(d, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(charDir, "mcr.dat"), []byte{}, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	args := []string{"--ffxi-path", ffxiDir, "abc123", ""}
+	if got := runAlias(args, newTextPrinter()); got != 1 {
+		t.Errorf("runAlias(empty name) = %d, want 1", got)
+	}
+}
+
+func TestRunAlias_InvalidYAML(t *testing.T) {
+	ffxiDir := t.TempDir()
+	userDir := filepath.Join(ffxiDir, "USER")
+	charDir := filepath.Join(userDir, "abc123")
+	for _, d := range []string{userDir, charDir} {
+		if err := os.Mkdir(d, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(charDir, "mcr.dat"), []byte{}, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(userDir, "characters.yml"),
+		[]byte(":\t not valid yaml at all"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	args := []string{"--ffxi-path", ffxiDir, "abc123", "Squatched"}
+	if got := runAlias(args, newTextPrinter()); got != 1 {
+		t.Errorf("runAlias(corrupt YAML) = %d, want 1", got)
+	}
+}
+
+func TestRunAlias_JSON_Set(t *testing.T) {
+	ffxiDir := t.TempDir()
+	userDir := filepath.Join(ffxiDir, "USER")
+	charDir := filepath.Join(userDir, "abc123")
+	for _, d := range []string{userDir, charDir} {
+		if err := os.Mkdir(d, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(charDir, "mcr.dat"), []byte{}, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	var buf bytes.Buffer
+	p := NewPrinter(&buf, FormatJSON)
+	args := []string{"--ffxi-path", ffxiDir, "abc123", "Squatched"}
+	if got := runAlias(args, p); got != 0 {
+		t.Fatalf("runAlias(JSON set) = %d, want 0", got)
+	}
+	if !strings.Contains(buf.String(), `"char_id"`) {
+		t.Errorf("JSON output missing char_id field:\n%s", buf.String())
+	}
+	if !strings.Contains(buf.String(), "Squatched") {
+		t.Errorf("JSON output missing name:\n%s", buf.String())
 	}
 }
 

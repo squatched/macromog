@@ -54,7 +54,9 @@ func resolveCharDirs(charDir, charName, ffxiPath string, all bool) ([]string, er
 
 	if charName != "" {
 		doc, err := aliases.Load(userDir)
-		if err != nil && !aliases.IsFutureVersion(err) {
+		if aliases.IsFutureVersion(err) {
+			fmt.Fprintf(os.Stderr, "warning: %v\n", err)
+		} else if err != nil {
 			return nil, fmt.Errorf("loading aliases: %w", err)
 		}
 		hexID, err := aliases.Resolve(doc, charName)

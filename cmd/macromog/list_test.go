@@ -145,6 +145,127 @@ func TestRunList_EmptyUserDir(t *testing.T) {
 	}
 }
 
+func TestRunList_CharName(t *testing.T) {
+	userDir := makeTestUserDir(t)
+	parent := t.TempDir()
+	renamedUser := filepath.Join(parent, "USER")
+	if err := os.Rename(userDir, renamedUser); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := writeAliasFile(t, renamedUser, "aabbcc", "Squatched"); err != nil {
+		t.Fatal(err)
+	}
+
+	if got := runList([]string{"--ffxi-path", parent, "--char-name", "Squatched"}, newTextPrinter()); got != 0 {
+		t.Errorf("runList(--char-name) = %d, want 0", got)
+	}
+}
+
+func TestRunList_CharName_NotFound(t *testing.T) {
+	userDir := makeTestUserDir(t)
+	parent := t.TempDir()
+	renamedUser := filepath.Join(parent, "USER")
+	if err := os.Rename(userDir, renamedUser); err != nil {
+		t.Fatal(err)
+	}
+
+	if got := runList([]string{"--ffxi-path", parent, "--char-name", "Nobody"}, newTextPrinter()); got != 1 {
+		t.Errorf("runList(--char-name unknown) = %d, want 1", got)
+	}
+}
+
+func TestRunList_CharName_DirMissing(t *testing.T) {
+	userDir := makeTestUserDir(t)
+	parent := t.TempDir()
+	renamedUser := filepath.Join(parent, "USER")
+	if err := os.Rename(userDir, renamedUser); err != nil {
+		t.Fatal(err)
+	}
+	if err := writeAliasFile(t, renamedUser, "aabbcc", "Squatched"); err != nil {
+		t.Fatal(err)
+	}
+	// Delete the directory the alias points to.
+	if err := os.RemoveAll(filepath.Join(renamedUser, "aabbcc")); err != nil {
+		t.Fatal(err)
+	}
+
+	if got := runList([]string{"--ffxi-path", parent, "--char-name", "Squatched"}, newTextPrinter()); got != 1 {
+		t.Errorf("runList(--char-name deleted dir) = %d, want 1", got)
+	}
+}
+
+func TestRunList_ShowsAliasInOutput(t *testing.T) {
+	userDir := makeTestUserDir(t)
+	parent := t.TempDir()
+	renamedUser := filepath.Join(parent, "USER")
+	if err := os.Rename(userDir, renamedUser); err != nil {
+		t.Fatal(err)
+	}
+	if err := writeAliasFile(t, renamedUser, "aabbcc", "Squatched"); err != nil {
+		t.Fatal(err)
+	}
+
+	var buf bytes.Buffer
+	p := NewPrinter(&buf, FormatText)
+	if got := runList([]string{"--ffxi-path", parent}, p); got != 0 {
+		t.Fatalf("runList = %d, want 0", got)
+	}
+	if !strings.Contains(buf.String(), "Squatched") {
+		t.Errorf("output missing alias name Squatched:\n%s", buf.String())
+	}
+	if !strings.Contains(buf.String(), "aabbcc") {
+		t.Errorf("output missing hex ID aabbcc:\n%s", buf.String())
+	}
+}
+
+func TestRunList_ShowsAliasForSingleChar(t *testing.T) {
+	userDir := makeTestUserDir(t)
+	parent := t.TempDir()
+	renamedUser := filepath.Join(parent, "USER")
+	if err := os.Rename(userDir, renamedUser); err != nil {
+		t.Fatal(err)
+	}
+	if err := writeAliasFile(t, renamedUser, "aabbcc", "Squatched"); err != nil {
+		t.Fatal(err)
+	}
+
+	charDir := filepath.Join(renamedUser, "aabbcc")
+	var buf bytes.Buffer
+	p := NewPrinter(&buf, FormatText)
+	if got := runList([]string{"--char-dir", charDir}, p); got != 0 {
+		t.Fatalf("runList(--char-dir) = %d, want 0", got)
+	}
+	if !strings.Contains(buf.String(), "Squatched") {
+		t.Errorf("single-char output missing alias name:\n%s", buf.String())
+	}
+}
+
+func TestRunList_FutureVersionCharactersYML(t *testing.T) {
+	userDir := makeTestUserDir(t)
+	parent := t.TempDir()
+	renamedUser := filepath.Join(parent, "USER")
+	if err := os.Rename(userDir, renamedUser); err != nil {
+		t.Fatal(err)
+	}
+	// Write a future-version file — list should still succeed, not error.
+	content := "version: 99\nchars:\n  aabbcc:\n    name: Squatched\n"
+	if err := os.WriteFile(filepath.Join(renamedUser, "characters.yml"), []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if got := runList([]string{"--ffxi-path", parent}, newTextPrinter()); got != 0 {
+		t.Errorf("runList(future-version characters.yml) = %d, want 0", got)
+	}
+}
+
+// writeAliasFile writes a minimal characters.yml mapping charID → name.
+func writeAliasFile(t *testing.T, userDir, charID, name string) error {
+	t.Helper()
+	content := "version: 1\nchars:\n  " + charID + ":\n    name: " + name + "\n"
+	return os.WriteFile(filepath.Join(userDir, "characters.yml"), []byte(content), 0o644)
+}
+
 func TestRunList_CharDir_BookName(t *testing.T) {
 	dir := t.TempDir()
 

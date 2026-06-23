@@ -120,6 +120,89 @@ func TestRunExport_AllWithOutputErrors(t *testing.T) {
 	}
 }
 
+func TestRunExport_AliasAutoPopulatesName(t *testing.T) {
+	// Set up a USER dir with a character that has an alias.
+	ffxiDir := t.TempDir()
+	userDir := filepath.Join(ffxiDir, "USER")
+	charID := "a1b2c3d4"
+	charDir := filepath.Join(userDir, charID)
+	for _, d := range []string{userDir, charDir} {
+		if err := os.Mkdir(d, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// Seed with testdata .dat files.
+	src := testdata.CharDir()
+	entries, _ := os.ReadDir(src)
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		data, _ := os.ReadFile(filepath.Join(src, e.Name()))
+		_ = os.WriteFile(filepath.Join(charDir, e.Name()), data, 0o644)
+	}
+	_ = os.WriteFile(filepath.Join(charDir, "mcr.dat"), dat.EncodeMacroSet(dat.MacroSet{}), 0o644)
+
+	// Write alias.
+	aliasContent := "version: 1\nchars:\n  " + charID + ":\n    name: Squatched\n"
+	if err := os.WriteFile(filepath.Join(userDir, "characters.yml"), []byte(aliasContent), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	out := filepath.Join(t.TempDir(), "out.yml")
+	args := []string{"--char-dir", charDir, "-o", out}
+	if got := runExport(args, newTextPrinter()); got != 0 {
+		t.Fatalf("runExport = %d, want 0", got)
+	}
+	data, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), "character: Squatched") {
+		t.Errorf("YAML character field missing alias name:\n%s", data)
+	}
+}
+
+func TestRunExport_CharName(t *testing.T) {
+	ffxiDir := t.TempDir()
+	userDir := filepath.Join(ffxiDir, "USER")
+	charID := "a1b2c3d4"
+	charDir := filepath.Join(userDir, charID)
+	for _, d := range []string{userDir, charDir} {
+		if err := os.Mkdir(d, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	src := testdata.CharDir()
+	entries, _ := os.ReadDir(src)
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		srcData, _ := os.ReadFile(filepath.Join(src, e.Name()))
+		_ = os.WriteFile(filepath.Join(charDir, e.Name()), srcData, 0o644)
+	}
+	_ = os.WriteFile(filepath.Join(charDir, "mcr.dat"), dat.EncodeMacroSet(dat.MacroSet{}), 0o644)
+
+	aliasContent := "version: 1\nchars:\n  " + charID + ":\n    name: Squatched\n"
+	if err := os.WriteFile(filepath.Join(userDir, "characters.yml"), []byte(aliasContent), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	out := filepath.Join(t.TempDir(), "out.yml")
+	args := []string{"--ffxi-path", ffxiDir, "--char-name", "Squatched", "-o", out}
+	if got := runExport(args, newTextPrinter()); got != 0 {
+		t.Fatalf("runExport(--char-name) = %d, want 0", got)
+	}
+	data, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), "character: Squatched") {
+		t.Errorf("YAML character field missing alias name:\n%s", data)
+	}
+}
+
 func TestRunExport_DefaultOutputName(t *testing.T) {
 	dir := t.TempDir()
 	wd, err := os.Getwd()

@@ -175,6 +175,43 @@ func TestResolveCharDirs_CharNameAndAllMutuallyExclusive(t *testing.T) {
 	}
 }
 
+func TestResolveCharDir_ByName_FutureVersion(t *testing.T) {
+	ffxiDir, userDir, charDir := makeFFXITree(t, "a1b2c3d4")
+
+	// Write a future-version characters.yml that still has the alias we need.
+	content := "version: 99\nchars:\n  a1b2c3d4:\n    name: Squatched\n    future_field: something\n"
+	if err := os.WriteFile(filepath.Join(userDir, "characters.yml"), []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Should warn but still resolve successfully.
+	got, err := resolveCharDir("", "Squatched", ffxiDir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	abs, _ := filepath.Abs(charDir)
+	if got != abs {
+		t.Errorf("got %q, want %q", got, abs)
+	}
+}
+
+func TestResolveCharDir_ByName_DirMissing(t *testing.T) {
+	ffxiDir, userDir, _ := makeFFXITree(t, "a1b2c3d4")
+
+	// Alias points to a real char ID, but then we delete the directory.
+	doc := aliases.Document{Version: 1, Chars: map[string]aliases.Entry{"a1b2c3d4": {Name: "Squatched"}}}
+	if err := aliases.Save(userDir, doc); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.RemoveAll(filepath.Join(userDir, "a1b2c3d4")); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := resolveCharDir("", "Squatched", ffxiDir); err == nil {
+		t.Error("expected error when aliased directory is missing, got nil")
+	}
+}
+
 func TestParseSelection_Single(t *testing.T) {
 	got, err := parseSelection("2", 3)
 	if err != nil {
