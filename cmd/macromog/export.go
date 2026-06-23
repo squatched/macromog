@@ -11,20 +11,25 @@ import (
 	"github.com/squatched/macromog/internal/export"
 )
 
-const exportUsage = `Usage: macromog export [flags] <char-dir> [output]
+const exportUsage = `Usage: macromog export [flags] [<char-dir>] [output]
 
 Export macros from FFXI .dat files to YAML.
 
 Arguments:
-  <char-dir>      character USER directory (required unless --char is given)
-  [output]        output file; default: <character>_macros_<timestamp>.yml
+  [<char-dir>]        character USER directory (auto-detected if omitted)
+  [output]            output file; default: <character>_macros_<timestamp>.yml
+                      not valid when multiple characters are selected
 
 Flags:
-  --char <path>   character USER directory (same as positional <char-dir>)
-  --output <file> output file (-o shorthand)
-  --name <name>   character name for YAML metadata (default: directory name)
+  --ffxi-path <path>  FFXI install root (auto-detected if omitted)
+  --char <path>       character USER directory; bypasses selection
+  --all               export all discovered characters without prompting
+  --output <file>     output YAML file (-o shorthand); requires one character
+  --name <name>       character name for YAML metadata; requires one character
 
 Examples:
+  macromog export
+  macromog export --all
   macromog export /path/to/USER/a1b2c3d4
   macromog export /path/to/USER/a1b2c3d4 macros.yml
   macromog export --char /path/to/USER/a1b2c3d4 -o macros.yml
@@ -38,7 +43,9 @@ func runExport(args []string) int {
 
 	fs := flag.NewFlagSet("export", flag.ContinueOnError)
 	fs.SetOutput(os.Stderr)
+	ffxiPath := fs.String("ffxi-path", "", "FFXI install root")
 	charDir := fs.String("char", "", "character USER directory")
+	all := fs.Bool("all", false, "export all discovered characters")
 	output := fs.String("output", "", "output YAML file")
 	shortOut := fs.String("o", "", "output YAML file (shorthand)")
 	charName := fs.String("name", "", "character name for YAML metadata")
@@ -60,38 +67,53 @@ func runExport(args []string) int {
 		*output = remaining[0]
 	}
 
-	if *charDir == "" {
-		fmt.Fprint(os.Stderr, exportUsage)
-		fmt.Fprintln(os.Stderr, "macromog export: character directory required (<char-dir> or --char)")
-		return 1
-	}
-
-	charDirAbs, err := filepath.Abs(*charDir)
+	charDirs, err := resolveCharDirs(*charDir, *ffxiPath, *all)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "macromog export: %v\n", err)
 		return 1
 	}
-	if st, err := os.Stat(charDirAbs); err != nil || !st.IsDir() {
-		fmt.Fprintf(os.Stderr, "macromog export: character directory not found: %s\n", charDirAbs)
+
+	if len(charDirs) > 1 && *output != "" {
+		fmt.Fprintln(os.Stderr, "macromog export: --output requires exactly one character; use --char or remove --all")
+		return 1
+	}
+	if len(charDirs) > 1 && *charName != "" {
+		fmt.Fprintln(os.Stderr, "macromog export: --name requires exactly one character; use --char or remove --all")
 		return 1
 	}
 
-	name := *charName
-	if name == "" {
-		name = filepath.Base(charDirAbs)
-	}
+	stamp := time.Now().UTC().Format("20060102_150405")
+	multi := len(charDirs) > 1
+	failed := false
+	for _, dir := range charDirs {
+		name := *charName
+		if name == "" {
+			name = filepath.Base(dir)
+		}
 
-	outPath := *output
-	if outPath == "" {
-		stamp := time.Now().UTC().Format("20060102_150405")
-		outPath = fmt.Sprintf("%s_macros_%s.yml", strings.ToLower(name), stamp)
-	}
+		outPath := *output
+		if outPath == "" {
+			outPath = fmt.Sprintf("%s_macros_%s.yml", strings.ToLower(name), stamp)
+		}
 
-	if err := export.WriteFile(charDirAbs, outPath, name); err != nil {
-		fmt.Fprintf(os.Stderr, "macromog export: %v\n", err)
+		if err := export.WriteFile(dir, outPath, name); err != nil {
+			if multi {
+				fmt.Fprintf(os.Stderr, "macromog export: %s: %v\n", filepath.Base(dir), err)
+			} else {
+				fmt.Fprintf(os.Stderr, "macromog export: %v\n", err)
+			}
+			failed = true
+			continue
+		}
+
+		if multi {
+			fmt.Printf("[%s] exported macros to %s\n", filepath.Base(dir), outPath)
+		} else {
+			fmt.Printf("exported macros to %s\n", outPath)
+		}
+	}
+	if failed {
 		return 1
 	}
-
-	fmt.Printf("exported macros to %s\n", outPath)
 	return 0
 }
