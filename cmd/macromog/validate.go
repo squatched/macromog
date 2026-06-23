@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"os"
 
 	"github.com/squatched/macromog/internal/validate"
@@ -13,7 +14,13 @@ Validate a YAML macro file against the macromog schema.
 Exits 0 if valid, 1 if errors are found.
 `
 
-func runValidate(args []string) int {
+type validateResult struct {
+	File   string   `json:"file"`
+	Valid  bool     `json:"valid"`
+	Errors []string `json:"errors,omitempty"`
+}
+
+func runValidate(args []string, p *Printer) int {
 	if len(args) == 0 || args[0] == "--help" || args[0] == "-h" {
 		if len(args) == 0 {
 			fmt.Fprint(os.Stderr, validateUsage)
@@ -31,14 +38,28 @@ func runValidate(args []string) int {
 	}
 
 	errs := validate.Validate(data)
+
 	if len(errs) == 0 {
-		fmt.Printf("%s: OK\n", filename)
+		p.Text(func(w io.Writer) {
+			fmt.Fprintf(w, "%s: OK\n", filename)
+		})
+		p.JSON(validateResult{File: filename, Valid: true})
 		return 0
 	}
 
-	fmt.Fprintf(os.Stderr, "%s: %d validation error(s):\n", filename, len(errs))
-	for _, e := range errs {
-		fmt.Fprintf(os.Stderr, "  %s\n", e)
+	errStrs := make([]string, len(errs))
+	for i, e := range errs {
+		errStrs[i] = e.Error()
 	}
+
+	// In text mode print details to stderr; in JSON mode the errors array
+	// in the output carries them so stderr stays clean.
+	if !p.IsJSON() {
+		fmt.Fprintf(os.Stderr, "%s: %d validation error(s):\n", filename, len(errs))
+		for _, e := range errs {
+			fmt.Fprintf(os.Stderr, "  %s\n", e)
+		}
+	}
+	p.JSON(validateResult{File: filename, Valid: false, Errors: errStrs})
 	return 1
 }

@@ -11,19 +11,19 @@ import (
 )
 
 func TestRunExport_MissingChar(t *testing.T) {
-	if got := runExport(nil); got != 1 {
+	if got := runExport(nil, newTextPrinter()); got != 1 {
 		t.Errorf("runExport(nil) = %d, want 1", got)
 	}
 }
 
 func TestRunExport_Help(t *testing.T) {
-	if got := runExport([]string{"--help"}); got != 0 {
+	if got := runExport([]string{"--help"}, newTextPrinter()); got != 0 {
 		t.Errorf("runExport(--help) = %d, want 0", got)
 	}
 }
 
 func TestRunExport_BadCharDir(t *testing.T) {
-	if got := runExport([]string{"--char", "/nonexistent/char"}); got != 1 {
+	if got := runExport([]string{"--char", "/nonexistent/char"}, newTextPrinter()); got != 1 {
 		t.Errorf("runExport(bad char) = %d, want 1", got)
 	}
 }
@@ -32,7 +32,7 @@ func TestRunExport_Book33(t *testing.T) {
 	dir := t.TempDir()
 	out := filepath.Join(dir, "book33.yml")
 	args := []string{"--char", testdata.CharDir(), "-o", out}
-	if got := runExport(args); got != 0 {
+	if got := runExport(args, newTextPrinter()); got != 0 {
 		t.Errorf("runExport = %d, want 0", got)
 	}
 	data, err := os.ReadFile(out)
@@ -47,7 +47,7 @@ func TestRunExport_Book33(t *testing.T) {
 func TestRunExport_PositionalCharDir(t *testing.T) {
 	dir := t.TempDir()
 	out := filepath.Join(dir, "book33.yml")
-	if got := runExport([]string{testdata.CharDir(), out}); got != 0 {
+	if got := runExport([]string{testdata.CharDir(), out}, newTextPrinter()); got != 0 {
 		t.Errorf("runExport(positional) = %d, want 0", got)
 	}
 	data, err := os.ReadFile(out)
@@ -97,7 +97,7 @@ func TestRunExport_AllFlag(t *testing.T) {
 	t.Cleanup(func() { _ = os.Chdir(wd) })
 
 	args := []string{"--ffxi-path", ffxiDir, "--all"}
-	if got := runExport(args); got != 0 {
+	if got := runExport(args, newTextPrinter()); got != 0 {
 		t.Fatalf("runExport(--all) = %d, want 0", got)
 	}
 	entries, _ := os.ReadDir(dir)
@@ -115,7 +115,7 @@ func TestRunExport_AllFlag(t *testing.T) {
 func TestRunExport_AllWithOutputErrors(t *testing.T) {
 	ffxiDir, _, _ := makeFFXITree(t, "a1b2c3d4", "e5f6a7b8")
 	args := []string{"--ffxi-path", ffxiDir, "--all", "--output", "out.yml"}
-	if got := runExport(args); got != 1 {
+	if got := runExport(args, newTextPrinter()); got != 1 {
 		t.Errorf("runExport(--all --output) = %d, want 1", got)
 	}
 }
@@ -131,7 +131,7 @@ func TestRunExport_DefaultOutputName(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = os.Chdir(wd) })
 
-	if got := runExport([]string{"--char", testdata.CharDir()}); got != 0 {
+	if got := runExport([]string{"--char", testdata.CharDir()}, newTextPrinter()); got != 0 {
 		t.Fatalf("runExport = %d, want 0", got)
 	}
 	entries, err := os.ReadDir(dir)

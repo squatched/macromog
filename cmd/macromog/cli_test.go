@@ -6,6 +6,9 @@ import (
 	"testing"
 )
 
+// newTextPrinter returns a text-mode Printer writing to stdout, for use in tests.
+func newTextPrinter() *Printer { return NewPrinter(os.Stdout, FormatText) }
+
 func TestRun_NoArgs(t *testing.T) {
 	if got := run([]string{"macromog"}); got != 1 {
 		t.Errorf("run(no args) = %d, want 1", got)
@@ -33,35 +36,35 @@ func TestRun_ExportMissingChar(t *testing.T) {
 }
 
 func TestRunValidate_NoArgs(t *testing.T) {
-	if got := runValidate(nil); got != 1 {
+	if got := runValidate(nil, newTextPrinter()); got != 1 {
 		t.Errorf("runValidate(nil) = %d, want 1", got)
 	}
 }
 
 func TestRunValidate_Help(t *testing.T) {
 	for _, flag := range []string{"--help", "-h"} {
-		if got := runValidate([]string{flag}); got != 0 {
+		if got := runValidate([]string{flag}, newTextPrinter()); got != 0 {
 			t.Errorf("runValidate(%s) = %d, want 0", flag, got)
 		}
 	}
 }
 
 func TestRunValidate_FileNotFound(t *testing.T) {
-	if got := runValidate([]string{"/nonexistent/path/file.yaml"}); got != 1 {
+	if got := runValidate([]string{"/nonexistent/path/file.yaml"}, newTextPrinter()); got != 1 {
 		t.Errorf("runValidate(missing file) = %d, want 1", got)
 	}
 }
 
 func TestRunValidate_ValidFile(t *testing.T) {
 	f := writeTemp(t, "version: 1\nbooks: {}\n")
-	if got := runValidate([]string{f}); got != 0 {
+	if got := runValidate([]string{f}, newTextPrinter()); got != 0 {
 		t.Errorf("runValidate(valid file) = %d, want 0", got)
 	}
 }
 
 func TestRunValidate_InvalidFile(t *testing.T) {
 	f := writeTemp(t, "version: 2\nbooks: {}\n")
-	if got := runValidate([]string{f}); got != 1 {
+	if got := runValidate([]string{f}, newTextPrinter()); got != 1 {
 		t.Errorf("runValidate(invalid file) = %d, want 1", got)
 	}
 }
