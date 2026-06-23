@@ -61,13 +61,17 @@ func (p *Printer) IsJSON() bool { return p.format == FormatJSON }
 
 // Err returns a TextWriter targeting stderr, with color auto-detected for
 // stderr independently of stdout. Use it for error messages in text mode.
-func (p *Printer) Err() *TextWriter {
-	errColor := detectColor(os.Stderr)
+func (p *Printer) Err() *TextWriter { return newErrWriter() }
+
+// newErrWriter creates a stderr TextWriter for use outside a Printer.Text
+// callback (e.g. interactive prompts in charselect.go).
+func newErrWriter() *TextWriter {
+	colorOn := detectColor(os.Stderr)
 	w := io.Writer(os.Stderr)
-	if errColor {
+	if colorOn {
 		w = colorable.NewColorableStderr()
 	}
-	return &TextWriter{w: w, color: errColor}
+	return &TextWriter{w: w, color: colorOn}
 }
 
 // Text calls fn with a TextWriter when in text mode.
