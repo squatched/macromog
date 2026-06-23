@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"io"
 	"os"
 
 	"github.com/squatched/macromog/internal/validate"
@@ -40,8 +39,8 @@ func runValidate(args []string, p *Printer) int {
 	errs := validate.Validate(data)
 
 	if len(errs) == 0 {
-		p.Text(func(w io.Writer) {
-			fmt.Fprintf(w, "%s: OK\n", filename)
+		p.Text(func(tw *TextWriter) {
+			fmt.Fprintf(tw, "%s: %s\n", tw.Highlight(filename), tw.Success("OK"))
 		})
 		p.JSON(validateResult{File: filename, Valid: true})
 		return 0

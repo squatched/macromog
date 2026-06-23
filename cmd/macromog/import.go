@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 
@@ -132,27 +131,27 @@ func runImport(args []string, p *Printer) int {
 			continue
 		}
 
-		p.Text(func(w io.Writer) {
+		p.Text(func(tw *TextWriter) {
 			if *dryRun {
 				if multi {
-					fmt.Fprintf(w, "[%s] dry run: would write %d macro set(s)\n", charID, len(result.Sets))
+					fmt.Fprintf(tw, "[%s] %s: would write %d macro set(s)\n", tw.Highlight(charID), tw.Warn("dry run"), len(result.Sets))
 				} else {
-					fmt.Fprintf(w, "dry run: would write %d macro set(s):\n", len(result.Sets))
+					fmt.Fprintf(tw, "%s: would write %d macro set(s):\n", tw.Warn("dry run"), len(result.Sets))
 					for _, s := range result.Sets {
-						fmt.Fprintf(w, "  %s (book %d, set %d)\n", s.FileName, s.Book, s.Set)
+						fmt.Fprintf(tw, "  %s %s\n", s.FileName, tw.Muted(fmt.Sprintf("(book %d, set %d)", s.Book, s.Set)))
 					}
 				}
 			} else {
 				if multi {
 					if result.BackupDir != "" {
-						fmt.Fprintf(w, "[%s] backed up to %s\n", charID, result.BackupDir)
+						fmt.Fprintf(tw, "[%s] backed up to %s\n", tw.Highlight(charID), tw.Muted(result.BackupDir))
 					}
-					fmt.Fprintf(w, "[%s] imported %d macro set(s) from %s\n", charID, len(result.Sets), filepath.Base(yamlPath))
+					fmt.Fprintf(tw, "[%s] imported %d macro set(s) from %s\n", tw.Highlight(charID), len(result.Sets), tw.Success(filepath.Base(yamlPath)))
 				} else {
 					if result.BackupDir != "" {
-						fmt.Fprintf(w, "backed up to %s\n", result.BackupDir)
+						fmt.Fprintf(tw, "backed up to %s\n", tw.Muted(result.BackupDir))
 					}
-					fmt.Fprintf(w, "imported %d macro set(s) from %s\n", len(result.Sets), filepath.Base(yamlPath))
+					fmt.Fprintf(tw, "imported %d macro set(s) from %s\n", len(result.Sets), tw.Success(filepath.Base(yamlPath)))
 				}
 			}
 		})

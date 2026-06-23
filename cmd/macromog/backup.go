@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 
@@ -116,11 +115,11 @@ func runBackup(args []string, p *Printer) int {
 			continue
 		}
 
-		p.Text(func(w io.Writer) {
+		p.Text(func(tw *TextWriter) {
 			if multi {
-				fmt.Fprintf(w, "[%s] backed up to %s\n", charID, backupDir)
+				fmt.Fprintf(tw, "[%s] backed up to %s\n", tw.Highlight(charID), tw.Success(backupDir))
 			} else {
-				fmt.Fprintf(w, "backed up to %s\n", backupDir)
+				fmt.Fprintf(tw, "backed up to %s\n", tw.Success(backupDir))
 			}
 		})
 		results = append(results, backupEntry{Character: charID, Path: backupDir, OK: true})
