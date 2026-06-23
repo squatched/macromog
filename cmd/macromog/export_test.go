@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/squatched/macromog/internal/dat"
 	"github.com/squatched/macromog/internal/dat/testdata"
 )
 
@@ -55,6 +56,67 @@ func TestRunExport_PositionalCharDir(t *testing.T) {
 	}
 	if !strings.Contains(string(data), "B33S1") {
 		t.Errorf("missing B33S1 in output: %s", data)
+	}
+}
+
+func TestRunExport_AllFlag(t *testing.T) {
+	// Two chars in a fake FFXI tree; --all should produce two YAML files.
+	src := testdata.CharDir()
+	ffxiDir := t.TempDir()
+	userDir := filepath.Join(ffxiDir, "USER")
+	if err := os.Mkdir(userDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range []string{"a1b2c3d4", "e5f6a7b8"} {
+		charDir := filepath.Join(userDir, id)
+		if err := os.Mkdir(charDir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		// Copy testdata .dat/.ttl files.
+		entries, _ := os.ReadDir(src)
+		for _, e := range entries {
+			if e.IsDir() {
+				continue
+			}
+			data, _ := os.ReadFile(filepath.Join(src, e.Name()))
+			_ = os.WriteFile(filepath.Join(charDir, e.Name()), data, 0o644)
+		}
+		// Testdata has no mcr.dat; write a valid empty one so the char dir
+		// is discoverable and the parser accepts it.
+		_ = os.WriteFile(filepath.Join(charDir, "mcr.dat"), dat.EncodeMacroSet(dat.MacroSet{}), 0o644)
+	}
+
+	dir := t.TempDir()
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(wd) })
+
+	args := []string{"--ffxi-path", ffxiDir, "--all"}
+	if got := runExport(args); got != 0 {
+		t.Fatalf("runExport(--all) = %d, want 0", got)
+	}
+	entries, _ := os.ReadDir(dir)
+	var ymlFiles []string
+	for _, e := range entries {
+		if strings.HasSuffix(e.Name(), ".yml") {
+			ymlFiles = append(ymlFiles, e.Name())
+		}
+	}
+	if len(ymlFiles) != 2 {
+		t.Errorf("expected 2 YAML files, got %v", ymlFiles)
+	}
+}
+
+func TestRunExport_AllWithOutputErrors(t *testing.T) {
+	ffxiDir, _, _ := makeFFXITree(t, "a1b2c3d4", "e5f6a7b8")
+	args := []string{"--ffxi-path", ffxiDir, "--all", "--output", "out.yml"}
+	if got := runExport(args); got != 1 {
+		t.Errorf("runExport(--all --output) = %d, want 1", got)
 	}
 }
 

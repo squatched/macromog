@@ -118,6 +118,39 @@ func TestRunImport_CharFlag(t *testing.T) {
 	}
 }
 
+func TestRunImport_AllFlag(t *testing.T) {
+	ffxiDir, _, _ := makeFFXITree(t, "a1b2c3d4", "e5f6a7b8")
+
+	// Build a valid YAML from real testdata.
+	src := testdata.CharDir()
+	doc, err := export.FromCharacterDir(export.Options{CharacterDir: src, Character: "char"})
+	if err != nil {
+		t.Fatalf("export: %v", err)
+	}
+	data, _ := export.MarshalYAML(doc)
+	tmp := t.TempDir()
+	yamlPath := filepath.Join(tmp, "macros.yml")
+	_ = os.WriteFile(yamlPath, data, 0o644)
+
+	// Seed each char dir with .dat files so backup/import has something to work with.
+	for _, id := range []string{"a1b2c3d4", "e5f6a7b8"} {
+		charDir := filepath.Join(ffxiDir, "USER", id)
+		entries, _ := os.ReadDir(src)
+		for _, e := range entries {
+			if e.IsDir() {
+				continue
+			}
+			srcData, _ := os.ReadFile(filepath.Join(src, e.Name()))
+			_ = os.WriteFile(filepath.Join(charDir, e.Name()), srcData, 0o644)
+		}
+	}
+
+	args := []string{"--ffxi-path", ffxiDir, "--all", "--no-backup", yamlPath}
+	if got := runImport(args); got != 0 {
+		t.Errorf("runImport(--all) = %d, want 0", got)
+	}
+}
+
 func writeImportTemp(t *testing.T, dir, name, content string) string {
 	t.Helper()
 	path := filepath.Join(dir, name)
