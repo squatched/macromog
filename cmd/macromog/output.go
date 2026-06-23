@@ -45,12 +45,15 @@ func (p *Printer) JSON(v any) {
 	}
 }
 
-// extractOutputFormat scans args for a global --output flag that appears
-// before the first non-flag argument (the subcommand). It strips the flag
-// from the slice and returns the chosen format and the cleaned arg list.
+// extractOutputFormat scans args for --output text|json and strips it from
+// the arg list, returning the chosen format. The flag may appear anywhere —
+// before or after the subcommand name — so that both
+// "macromog --output json list" and "macromog list --output json" work.
 //
-// Only pre-subcommand flags are consumed so that subcommand-specific flags
-// (e.g. export's --output <file>) are left untouched.
+// Unknown --output values are an error when seen before the subcommand (where
+// there is no other command to interpret them), but are passed through
+// unchanged when seen after the subcommand so that subcommand-specific
+// --output flags (e.g. export's --output <file>) are left untouched.
 func extractOutputFormat(args []string) (OutputFormat, []string, error) {
 	if len(args) == 0 {
 		return FormatText, args, nil
@@ -60,30 +63,42 @@ func extractOutputFormat(args []string) (OutputFormat, []string, error) {
 	result := make([]string, 0, len(args))
 	result = append(result, args[0]) // program name
 
+	seenSubcommand := false
 	i := 1
 	for i < len(args) {
 		a := args[i]
-		if !strings.HasPrefix(a, "-") || a == "--" {
-			// First non-flag token is the subcommand; pass everything from here unchanged.
-			result = append(result, args[i:]...)
-			break
+		if !seenSubcommand && (a == "--" || !strings.HasPrefix(a, "-")) {
+			seenSubcommand = true
 		}
+
 		if a == "--output" {
 			if i+1 >= len(args) {
-				return "", nil, fmt.Errorf("macromog: --output requires a value (text, json)")
+				if !seenSubcommand {
+					return "", nil, fmt.Errorf("macromog: --output requires a value (text, json)")
+				}
+				// Post-subcommand with no value: pass through for the subcommand to handle.
+				result = append(result, a)
+				i++
+				continue
 			}
 			val := args[i+1]
 			switch val {
 			case "text":
 				format = FormatText
+				i += 2
 			case "json":
 				format = FormatJSON
+				i += 2
 			default:
-				return "", nil, fmt.Errorf("macromog: --output: unknown format %q (valid: text, json)", val)
+				if !seenSubcommand {
+					return "", nil, fmt.Errorf("macromog: --output: unknown format %q (valid: text, json)", val)
+				}
+				// Post-subcommand with non-format value (e.g. --output file.yml):
+				// pass through unchanged for the subcommand to handle.
+				result = append(result, a)
+				i++
 			}
-			i += 2
 		} else {
-			// Unknown pre-subcommand flag — keep it so the dispatcher or help handler sees it.
 			result = append(result, a)
 			i++
 		}
