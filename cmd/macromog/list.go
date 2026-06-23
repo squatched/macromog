@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/squatched/macromog/internal/aliases"
 	"github.com/squatched/macromog/internal/lister"
 )
 
@@ -14,19 +15,20 @@ const listUsage = `Usage: macromog list [flags]
 
 List detected FFXI characters and their macro books.
 
-Without --char, scans the FFXI USER directory (auto-detected or via
---ffxi-path) and lists every detected character with a populated-book count.
-
-With --char, lists the macro books for that specific character directory.
+Without --char-dir or --char-name, scans the FFXI USER directory and lists
+every detected character with a populated-book count. Set a friendly name
+with 'macromog alias' to display it alongside the folder ID.
 
 Flags:
-  --ffxi-path <path>  FFXI install root (auto-detected if omitted)
-  --char <path>       character USER directory; lists books for that character
+  --ffxi-path <path>    FFXI install root (auto-detected if omitted)
+  --char-dir <path>     character USER directory; lists books for that character
+  --char-name <name>    character alias; lists books for that character
 
 Examples:
   macromog list
   macromog list --ffxi-path "/path/to/FINAL FANTASY XI"
-  macromog list --char /path/to/USER/a1b2c3d4
+  macromog list --char-dir /path/to/USER/a1b2c3d4
+  macromog list --char-name Squatched
 `
 
 func runList(args []string, p *Printer) int {
@@ -38,20 +40,27 @@ func runList(args []string, p *Printer) int {
 	fs := flag.NewFlagSet("list", flag.ContinueOnError)
 	fs.SetOutput(os.Stderr)
 	ffxiPath := fs.String("ffxi-path", "", "FFXI install root")
-	charDir := fs.String("char", "", "character USER directory")
+	charDir := fs.String("char-dir", "", "character USER directory")
+	charName := fs.String("char-name", "", "character alias")
 
 	if err := fs.Parse(args); err != nil {
 		return 1
 	}
 
-	if *charDir != "" {
-		return runListChar(*charDir, p)
+	if *charDir != "" || *charName != "" {
+		dir, err := resolveCharDir(*charDir, *charName, *ffxiPath)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "macromog list: %v\n", err)
+			return 1
+		}
+		return runListChar(dir, *ffxiPath, p)
 	}
 	return runListAll(*ffxiPath, p)
 }
 
 type listCharResult struct {
 	Character string          `json:"character"`
+	Name      string          `json:"name,omitempty"`
 	Books     []listBookEntry `json:"books"`
 }
 
@@ -68,10 +77,11 @@ type listAllResult struct {
 
 type listCharEntry struct {
 	ID        string `json:"id"`
+	Name      string `json:"name,omitempty"`
 	BookCount int    `json:"book_count"`
 }
 
-func runListChar(charDir string, p *Printer) int {
+func runListChar(charDir, ffxiPath string, p *Printer) int {
 	charDirAbs, err := filepath.Abs(charDir)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "macromog list: %v\n", err)
@@ -89,9 +99,16 @@ func runListChar(charDir string, p *Printer) int {
 	}
 
 	charID := filepath.Base(charDirAbs)
+	userDir := filepath.Dir(charDirAbs)
+	aliasDoc, _ := aliases.Load(userDir)
+	displayName := aliases.LookupName(aliasDoc, charID)
 
 	p.Text(func(w io.Writer) {
-		fmt.Fprintf(w, "Character: %s\n\n", charID)
+		if displayName != charID {
+			fmt.Fprintf(w, "Character: %s (%s)\n\n", displayName, charID)
+		} else {
+			fmt.Fprintf(w, "Character: %s\n\n", charID)
+		}
 		if len(books) == 0 {
 			fmt.Fprintln(w, "  (no macros found)")
 			return
@@ -113,7 +130,11 @@ func runListChar(charDir string, p *Printer) int {
 	for i, b := range books {
 		entries[i] = listBookEntry{Index: b.Index, Name: b.Name, SetCount: b.SetCount}
 	}
-	p.JSON(listCharResult{Character: charID, Books: entries})
+	result := listCharResult{Character: charID, Books: entries}
+	if displayName != charID {
+		result.Name = displayName
+	}
+	p.JSON(result)
 
 	return 0
 }
@@ -141,6 +162,8 @@ func runListAll(ffxiPath string, p *Printer) int {
 		return 1
 	}
 
+	aliasDoc, _ := aliases.Load(userDir)
+
 	p.Text(func(w io.Writer) {
 		fmt.Fprintf(w, "FFXI USER: %s\n\n", userDir)
 		if len(chars) == 0 {
@@ -148,20 +171,29 @@ func runListAll(ffxiPath string, p *Printer) int {
 			return
 		}
 		for _, c := range chars {
+			displayName := aliases.LookupName(aliasDoc, c.ID)
+			label := c.ID
+			if displayName != c.ID {
+				label = fmt.Sprintf("%s (%s)", displayName, c.ID)
+			}
 			switch c.BookCount {
 			case 0:
-				fmt.Fprintf(w, "  %-12s  (no macros)\n", c.ID)
+				fmt.Fprintf(w, "  %-28s  (no macros)\n", label)
 			case 1:
-				fmt.Fprintf(w, "  %-12s  1 book\n", c.ID)
+				fmt.Fprintf(w, "  %-28s  1 book\n", label)
 			default:
-				fmt.Fprintf(w, "  %-12s  %d books\n", c.ID, c.BookCount)
+				fmt.Fprintf(w, "  %-28s  %d books\n", label, c.BookCount)
 			}
 		}
 	})
 
 	entries := make([]listCharEntry, len(chars))
 	for i, c := range chars {
-		entries[i] = listCharEntry{ID: c.ID, BookCount: c.BookCount}
+		entry := listCharEntry{ID: c.ID, BookCount: c.BookCount}
+		if name := aliases.LookupName(aliasDoc, c.ID); name != c.ID {
+			entry.Name = name
+		}
+		entries[i] = entry
 	}
 	p.JSON(listAllResult{UserDir: userDir, Characters: entries})
 

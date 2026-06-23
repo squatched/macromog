@@ -36,7 +36,7 @@ func DiscoverCharacters(userDir string) ([]CharacterInfo, error) {
 			continue
 		}
 		dir := filepath.Join(userDir, e.Name())
-		if !isCharacterDir(dir) {
+		if !IsCharacterDir(dir) {
 			continue
 		}
 		books, err := BooksForCharacter(dir)
@@ -53,9 +53,9 @@ func DiscoverCharacters(userDir string) ([]CharacterInfo, error) {
 	return chars, nil
 }
 
-// isCharacterDir reports whether dir contains mcr.dat, the sentinel for an
+// IsCharacterDir reports whether dir contains mcr.dat, the sentinel for an
 // FFXI character USER directory.
-func isCharacterDir(dir string) bool {
+func IsCharacterDir(dir string) bool {
 	_, err := os.Stat(filepath.Join(dir, "mcr.dat"))
 	return err == nil
 }
