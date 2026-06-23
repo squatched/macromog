@@ -63,8 +63,3 @@ func run(args []string) int {
 		return 1
 	}
 }
-
-func unimplemented(cmd string) int {
-	fmt.Fprintf(os.Stderr, "macromog %s: not yet implemented\n", cmd)
-	return 1
-}
