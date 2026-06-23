@@ -82,6 +82,14 @@ func TestResolveCharDirs_Explicit(t *testing.T) {
 	}
 }
 
+func TestResolveCharDirs_CharAndAllMutuallyExclusive(t *testing.T) {
+	dir := t.TempDir()
+	_, err := resolveCharDirs(dir, "", true)
+	if err == nil {
+		t.Error("expected error when --char and --all are both set, got nil")
+	}
+}
+
 func TestResolveCharDirs_All(t *testing.T) {
 	ffxiDir, _, _ := makeFFXITree(t, "a1b2c3d4", "e5f6a7b8")
 

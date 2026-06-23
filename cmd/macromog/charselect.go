@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"strings"
 
+	"golang.org/x/term"
+
 	"github.com/squatched/macromog/internal/lister"
 )
 
@@ -16,9 +18,14 @@ import (
 // If charDir is non-empty, it is validated and returned as the only result,
 // bypassing discovery and prompting (for scripted/plugin use).
 // If all is true, every discovered character is returned without prompting.
+// --char and --all are mutually exclusive; passing both is an error.
 // Otherwise the USER directory is scanned; if more than one character is found
 // and stdin is a terminal, the user is prompted to pick one or more.
 func resolveCharDirs(charDir, ffxiPath string, all bool) ([]string, error) {
+	if charDir != "" && all {
+		return nil, fmt.Errorf("--char and --all are mutually exclusive")
+	}
+
 	if charDir != "" {
 		abs, err := filepath.Abs(charDir)
 		if err != nil {
@@ -161,9 +168,5 @@ func parseSelection(input string, max int) ([]int, error) {
 }
 
 func stdinIsTerminal() bool {
-	fi, err := os.Stdin.Stat()
-	if err != nil {
-		return false
-	}
-	return (fi.Mode() & os.ModeCharDevice) != 0
+	return term.IsTerminal(int(os.Stdin.Fd()))
 }
