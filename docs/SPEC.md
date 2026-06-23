@@ -163,7 +163,6 @@ The CLI (`macromog`) is a standalone binary for offline-first macro management.
 
 - Auto-detect FFXI install path on Windows from common installation locations.
 - Friendly, descriptive error messages with corrective suggestions.
-- Progress output for large exports.
 - Colorized terminal output.
 
 ---
