@@ -11,13 +11,13 @@ import (
 )
 
 func TestRunImport_Help(t *testing.T) {
-	if got := runImport([]string{"--help"}); got != 0 {
+	if got := runImport([]string{"--help"}, newTextPrinter()); got != 0 {
 		t.Errorf("runImport(--help) = %d, want 0", got)
 	}
 }
 
 func TestRunImport_NoArgs(t *testing.T) {
-	if got := runImport(nil); got != 1 {
+	if got := runImport(nil, newTextPrinter()); got != 1 {
 		t.Errorf("runImport(nil) = %d, want 1", got)
 	}
 }
@@ -25,7 +25,7 @@ func TestRunImport_NoArgs(t *testing.T) {
 func TestRunImport_MissingFile(t *testing.T) {
 	dir := t.TempDir()
 	args := []string{"/nonexistent/macros.yml", dir}
-	if got := runImport(args); got != 1 {
+	if got := runImport(args, newTextPrinter()); got != 1 {
 		t.Errorf("runImport(missing file) = %d, want 1", got)
 	}
 }
@@ -33,7 +33,7 @@ func TestRunImport_MissingFile(t *testing.T) {
 func TestRunImport_MissingCharDir(t *testing.T) {
 	dir := t.TempDir()
 	f := writeImportTemp(t, dir, "v.yml", "version: 1\nbooks: {}\n")
-	if got := runImport([]string{f}); got != 1 {
+	if got := runImport([]string{f}, newTextPrinter()); got != 1 {
 		t.Errorf("runImport(no char dir) = %d, want 1", got)
 	}
 }
@@ -41,7 +41,7 @@ func TestRunImport_MissingCharDir(t *testing.T) {
 func TestRunImport_BadCharDir(t *testing.T) {
 	dir := t.TempDir()
 	f := writeImportTemp(t, dir, "v.yml", "version: 1\nbooks: {}\n")
-	if got := runImport([]string{f, "/nonexistent/char"}); got != 1 {
+	if got := runImport([]string{f, "/nonexistent/char"}, newTextPrinter()); got != 1 {
 		t.Errorf("runImport(bad char dir) = %d, want 1", got)
 	}
 }
@@ -49,7 +49,7 @@ func TestRunImport_BadCharDir(t *testing.T) {
 func TestRunImport_ValidationFails(t *testing.T) {
 	dir := t.TempDir()
 	f := writeImportTemp(t, dir, "bad.yml", "version: 99\nbooks: {}\n")
-	if got := runImport([]string{f, dir}); got != 1 {
+	if got := runImport([]string{f, dir}, newTextPrinter()); got != 1 {
 		t.Errorf("runImport(invalid YAML) = %d, want 1", got)
 	}
 }
@@ -64,7 +64,7 @@ func TestRunImport_DryRun(t *testing.T) {
 	_ = os.WriteFile(yamlPath, data, 0o644)
 
 	destDir := t.TempDir()
-	if got := runImport([]string{"--dry-run", "--no-backup", yamlPath, destDir}); got != 0 {
+	if got := runImport([]string{"--dry-run", "--no-backup", yamlPath, destDir}, newTextPrinter()); got != 0 {
 		t.Errorf("runImport(--dry-run) = %d, want 0", got)
 	}
 	entries, _ := os.ReadDir(destDir)
@@ -87,7 +87,7 @@ func TestRunImport_Success(t *testing.T) {
 
 	destDir := t.TempDir()
 	args := []string{"--no-backup", yamlPath, destDir}
-	if got := runImport(args); got != 0 {
+	if got := runImport(args, newTextPrinter()); got != 0 {
 		t.Fatalf("runImport = %d, want 0", got)
 	}
 
@@ -113,7 +113,7 @@ func TestRunImport_CharFlag(t *testing.T) {
 
 	destDir := t.TempDir()
 	args := []string{"--no-backup", "--char", destDir, yamlPath}
-	if got := runImport(args); got != 0 {
+	if got := runImport(args, newTextPrinter()); got != 0 {
 		t.Errorf("runImport(--char) = %d, want 0", got)
 	}
 }
@@ -146,7 +146,7 @@ func TestRunImport_AllFlag(t *testing.T) {
 	}
 
 	args := []string{"--ffxi-path", ffxiDir, "--all", "--no-backup", yamlPath}
-	if got := runImport(args); got != 0 {
+	if got := runImport(args, newTextPrinter()); got != 0 {
 		t.Errorf("runImport(--all) = %d, want 0", got)
 	}
 }

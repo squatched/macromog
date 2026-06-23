@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -35,7 +36,14 @@ Examples:
   macromog export --char /path/to/USER/a1b2c3d4 -o macros.yml
 `
 
-func runExport(args []string) int {
+type exportEntry struct {
+	Character string `json:"character"`
+	Path      string `json:"path,omitempty"`
+	OK        bool   `json:"ok"`
+	Error     string `json:"error,omitempty"`
+}
+
+func runExport(args []string, p *Printer) int {
 	if len(args) > 0 && (args[0] == "--help" || args[0] == "-h") {
 		fmt.Fprint(os.Stdout, exportUsage)
 		return 0
@@ -85,10 +93,13 @@ func runExport(args []string) int {
 	stamp := time.Now().UTC().Format("20060102_150405")
 	multi := len(charDirs) > 1
 	failed := false
+	var results []exportEntry
+
 	for _, dir := range charDirs {
+		charID := filepath.Base(dir)
 		name := *charName
 		if name == "" {
-			name = filepath.Base(dir)
+			name = charID
 		}
 
 		outPath := *output
@@ -97,21 +108,43 @@ func runExport(args []string) int {
 		}
 
 		if err := export.WriteFile(dir, outPath, name); err != nil {
-			if multi {
-				fmt.Fprintf(os.Stderr, "macromog export: %s: %v\n", filepath.Base(dir), err)
-			} else {
-				fmt.Fprintf(os.Stderr, "macromog export: %v\n", err)
+			if !p.IsJSON() {
+				if multi {
+					fmt.Fprintf(os.Stderr, "macromog export: %s: %v\n", charID, err)
+				} else {
+					fmt.Fprintf(os.Stderr, "macromog export: %v\n", err)
+				}
 			}
+			results = append(results, exportEntry{Character: charID, OK: false, Error: err.Error()})
 			failed = true
 			continue
 		}
 
+		p.Text(func(w io.Writer) {
+			if multi {
+				fmt.Fprintf(w, "[%s] exported macros to %s\n", charID, outPath)
+			} else {
+				fmt.Fprintf(w, "exported macros to %s\n", outPath)
+			}
+		})
+		results = append(results, exportEntry{Character: charID, Path: outPath, OK: true})
+	}
+
+	if p.IsJSON() {
 		if multi {
-			fmt.Printf("[%s] exported macros to %s\n", filepath.Base(dir), outPath)
-		} else {
-			fmt.Printf("exported macros to %s\n", outPath)
+			p.JSON(results)
+		} else if len(results) == 1 {
+			p.JSON(results[0])
+		}
+		if failed {
+			for _, r := range results {
+				if !r.OK {
+					fmt.Fprintf(os.Stderr, "macromog export: %s: %s\n", r.Character, r.Error)
+				}
+			}
 		}
 	}
+
 	if failed {
 		return 1
 	}

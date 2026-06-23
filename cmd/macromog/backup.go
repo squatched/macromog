@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 
@@ -31,7 +32,14 @@ Examples:
   macromog backup --char /path/to/USER/a1b2c3d4 --out ~/macro-backups
 `
 
-func runBackup(args []string) int {
+type backupEntry struct {
+	Character string `json:"character"`
+	Path      string `json:"path,omitempty"`
+	OK        bool   `json:"ok"`
+	Error     string `json:"error,omitempty"`
+}
+
+func runBackup(args []string, p *Printer) int {
 	if len(args) > 0 && (args[0] == "--help" || args[0] == "-h") {
 		fmt.Fprint(os.Stdout, backupUsage)
 		return 0
@@ -83,27 +91,54 @@ func runBackup(args []string) int {
 
 	multi := len(charDirs) > 1
 	failed := false
+	var results []backupEntry
+
 	for _, dir := range charDirs {
+		charID := filepath.Base(dir)
 		destDir := baseDestDir
 		if *inPlace {
 			destDir = filepath.Join(dir, "backups")
 		}
-		backupDir, err := backup.Backup(dir, destDir)
-		if err != nil {
-			if multi {
-				fmt.Fprintf(os.Stderr, "macromog backup: %s: %v\n", filepath.Base(dir), err)
-			} else {
-				fmt.Fprintf(os.Stderr, "macromog backup: %v\n", err)
+		backupDir, berr := backup.Backup(dir, destDir)
+		if berr != nil {
+			if !p.IsJSON() {
+				if multi {
+					fmt.Fprintf(os.Stderr, "macromog backup: %s: %v\n", charID, berr)
+				} else {
+					fmt.Fprintf(os.Stderr, "macromog backup: %v\n", berr)
+				}
 			}
+			results = append(results, backupEntry{Character: charID, OK: false, Error: berr.Error()})
 			failed = true
 			continue
 		}
+
+		p.Text(func(w io.Writer) {
+			if multi {
+				fmt.Fprintf(w, "[%s] backed up to %s\n", charID, backupDir)
+			} else {
+				fmt.Fprintf(w, "backed up to %s\n", backupDir)
+			}
+		})
+		results = append(results, backupEntry{Character: charID, Path: backupDir, OK: true})
+	}
+
+	if p.IsJSON() {
 		if multi {
-			fmt.Printf("[%s] backed up to %s\n", filepath.Base(dir), backupDir)
-		} else {
-			fmt.Printf("backed up to %s\n", backupDir)
+			p.JSON(results)
+		} else if len(results) == 1 {
+			p.JSON(results[0])
+		}
+		if failed {
+			// Print errors to stderr in JSON mode so stdout stays valid JSON.
+			for _, r := range results {
+				if !r.OK {
+					fmt.Fprintf(os.Stderr, "macromog backup: %s: %s\n", r.Character, r.Error)
+				}
+			}
 		}
 	}
+
 	if failed {
 		return 1
 	}
