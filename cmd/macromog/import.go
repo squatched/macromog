@@ -17,21 +17,23 @@ A timestamped backup of current macros is created before writing (use
 --no-backup to skip).
 
 Arguments:
-  <file>              YAML file to import (required)
-  [<char-dir>]        character USER directory (auto-detected if omitted)
+  <file>                YAML file to import (required)
+  [<char-dir>]          character USER directory (auto-detected if omitted)
 
 Flags:
-  --ffxi-path <path>  FFXI install root (auto-detected if omitted)
-  --char <path>       character USER directory; bypasses selection
-  --all               import into all discovered characters without prompting
-  --no-backup         skip the automatic backup before writing
-  --dry-run           validate and show what would be written, without writing
+  --ffxi-path <path>    FFXI install root (auto-detected if omitted)
+  --char-dir <path>     character USER directory; bypasses selection
+  --char-name <name>    character alias; bypasses selection
+  --all                 import into all discovered characters without prompting
+  --no-backup           skip the automatic backup before writing
+  --dry-run             validate and show what would be written, without writing
 
 Examples:
   macromog import mymacros.yml
   macromog import mymacros.yml /path/to/USER/a1b2c3d4
   macromog import --all mymacros.yml
-  macromog import --char /path/to/USER/a1b2c3d4 mymacros.yml
+  macromog import --char-dir /path/to/USER/a1b2c3d4 mymacros.yml
+  macromog import --char-name Squatched mymacros.yml
   macromog import --dry-run mymacros.yml /path/to/USER/a1b2c3d4
 `
 
@@ -61,7 +63,8 @@ func runImport(args []string, p *Printer) int {
 	fs := flag.NewFlagSet("import", flag.ContinueOnError)
 	fs.SetOutput(os.Stderr)
 	ffxiPath := fs.String("ffxi-path", "", "FFXI install root")
-	charDir := fs.String("char", "", "character USER directory")
+	charDir := fs.String("char-dir", "", "character USER directory")
+	charName := fs.String("char-name", "", "character alias")
 	all := fs.Bool("all", false, "import into all discovered characters")
 	noBackup := fs.Bool("no-backup", false, "skip automatic backup")
 	dryRun := fs.Bool("dry-run", false, "show what would be written without writing")
@@ -76,7 +79,7 @@ func runImport(args []string, p *Printer) int {
 		yamlPath = remaining[0]
 		remaining = remaining[1:]
 	}
-	if *charDir == "" && len(remaining) > 0 {
+	if *charDir == "" && *charName == "" && len(remaining) > 0 {
 		*charDir = remaining[0]
 	}
 
@@ -86,7 +89,7 @@ func runImport(args []string, p *Printer) int {
 		return 1
 	}
 
-	charDirs, err := resolveCharDirs(*charDir, *ffxiPath, *all)
+	charDirs, err := resolveCharDirs(*charDir, *charName, *ffxiPath, *all)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "macromog import: %v\n", err)
 		return 1

@@ -16,20 +16,22 @@ Create a timestamped backup of all macro .dat files for a character.
 The backup directory is named <char-id>_YYYYMMDD_HHMMSS.
 
 Arguments:
-  [<char-dir>]        character USER directory (auto-detected if omitted)
+  [<char-dir>]          character USER directory (auto-detected if omitted)
 
 Flags:
-  --ffxi-path <path>  FFXI install root (auto-detected if omitted)
-  --char <path>       character USER directory; bypasses selection
-  --all               back up all discovered characters without prompting
-  --out <path>        directory to write the backup into (default: current directory)
-  --in-place          write the backup into <char-dir>/backups/
+  --ffxi-path <path>    FFXI install root (auto-detected if omitted)
+  --char-dir <path>     character USER directory; bypasses selection
+  --char-name <name>    character alias; bypasses selection
+  --all                 back up all discovered characters without prompting
+  --out <path>          directory to write the backup into (default: current directory)
+  --in-place            write the backup into <char-dir>/backups/
 
 Examples:
   macromog backup
   macromog backup /path/to/USER/a1b2c3d4
   macromog backup --all --in-place
-  macromog backup --char /path/to/USER/a1b2c3d4 --out ~/macro-backups
+  macromog backup --char-dir /path/to/USER/a1b2c3d4 --out ~/macro-backups
+  macromog backup --char-name Squatched --out ~/macro-backups
 `
 
 type backupEntry struct {
@@ -48,7 +50,8 @@ func runBackup(args []string, p *Printer) int {
 	fs := flag.NewFlagSet("backup", flag.ContinueOnError)
 	fs.SetOutput(os.Stderr)
 	ffxiPath := fs.String("ffxi-path", "", "FFXI install root")
-	charDir := fs.String("char", "", "character USER directory")
+	charDir := fs.String("char-dir", "", "character USER directory")
+	charName := fs.String("char-name", "", "character alias")
 	all := fs.Bool("all", false, "back up all discovered characters")
 	outDir := fs.String("out", "", "directory to write the backup into")
 	inPlace := fs.Bool("in-place", false, "write backup into <char-dir>/backups/")
@@ -57,7 +60,7 @@ func runBackup(args []string, p *Printer) int {
 		return 1
 	}
 
-	if *charDir == "" && len(fs.Args()) > 0 {
+	if *charDir == "" && *charName == "" && len(fs.Args()) > 0 {
 		*charDir = fs.Args()[0]
 	}
 
@@ -66,7 +69,7 @@ func runBackup(args []string, p *Printer) int {
 		return 1
 	}
 
-	charDirs, err := resolveCharDirs(*charDir, *ffxiPath, *all)
+	charDirs, err := resolveCharDirs(*charDir, *charName, *ffxiPath, *all)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "macromog backup: %v\n", err)
 		return 1
@@ -130,7 +133,6 @@ func runBackup(args []string, p *Printer) int {
 			p.JSON(results[0])
 		}
 		if failed {
-			// Print errors to stderr in JSON mode so stdout stays valid JSON.
 			for _, r := range results {
 				if !r.OK {
 					fmt.Fprintf(os.Stderr, "macromog backup: %s: %s\n", r.Character, r.Error)

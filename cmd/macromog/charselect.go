@@ -11,19 +11,29 @@ import (
 
 	"golang.org/x/term"
 
+	"github.com/squatched/macromog/internal/aliases"
 	"github.com/squatched/macromog/internal/lister"
 )
 
 // resolveCharDirs returns character USER directory paths to operate on.
-// If charDir is non-empty, it is validated and returned as the only result,
-// bypassing discovery and prompting (for scripted/plugin use).
-// If all is true, every discovered character is returned without prompting.
-// --char and --all are mutually exclusive; passing both is an error.
+//
+// charDir and charName are mutually exclusive; passing both is an error.
+// charDir, if non-empty, is validated as an existing directory and returned
+// directly, bypassing discovery and prompting.
+// charName, if non-empty, is resolved via USER/characters.yml to a hex ID.
+// all returns every discovered character without prompting; it is incompatible
+// with both charDir and charName.
 // Otherwise the USER directory is scanned; if more than one character is found
 // and stdin is a terminal, the user is prompted to pick one or more.
-func resolveCharDirs(charDir, ffxiPath string, all bool) ([]string, error) {
+func resolveCharDirs(charDir, charName, ffxiPath string, all bool) ([]string, error) {
+	if charDir != "" && charName != "" {
+		return nil, fmt.Errorf("--char-dir and --char-name are mutually exclusive")
+	}
 	if charDir != "" && all {
-		return nil, fmt.Errorf("--char and --all are mutually exclusive")
+		return nil, fmt.Errorf("--char-dir and --all are mutually exclusive")
+	}
+	if charName != "" && all {
+		return nil, fmt.Errorf("--char-name and --all are mutually exclusive")
 	}
 
 	if charDir != "" {
@@ -42,12 +52,30 @@ func resolveCharDirs(charDir, ffxiPath string, all bool) ([]string, error) {
 		return nil, err
 	}
 
+	if charName != "" {
+		doc, err := aliases.Load(userDir)
+		if aliases.IsFutureVersion(err) {
+			fmt.Fprintf(os.Stderr, "warning: %v\n", err)
+		} else if err != nil {
+			return nil, fmt.Errorf("loading aliases: %w", err)
+		}
+		hexID, err := aliases.Resolve(doc, charName)
+		if err != nil {
+			return nil, err
+		}
+		charDirPath := filepath.Join(userDir, hexID)
+		if st, err := os.Stat(charDirPath); err != nil || !st.IsDir() {
+			return nil, fmt.Errorf("character directory not found for %q: %s", charName, charDirPath)
+		}
+		return []string{charDirPath}, nil
+	}
+
 	chars, err := lister.DiscoverCharacters(userDir)
 	if err != nil {
 		return nil, fmt.Errorf("scanning %s: %w", userDir, err)
 	}
 	if len(chars) == 0 {
-		return nil, fmt.Errorf("no character directories found in %s; use --char to specify one", userDir)
+		return nil, fmt.Errorf("no character directories found in %s; use --char-dir to specify one", userDir)
 	}
 	if all {
 		dirs := make([]string, len(chars))
@@ -60,13 +88,13 @@ func resolveCharDirs(charDir, ffxiPath string, all bool) ([]string, error) {
 		fmt.Fprintf(os.Stderr, "using character: %s\n", chars[0].ID)
 		return []string{chars[0].Dir}, nil
 	}
-	return promptCharSelect(chars)
+	return promptCharSelect(chars, userDir)
 }
 
 // resolveCharDir is a single-character convenience wrapper around
 // resolveCharDirs for commands that always operate on exactly one character.
-func resolveCharDir(charDir, ffxiPath string) (string, error) {
-	dirs, err := resolveCharDirs(charDir, ffxiPath, false)
+func resolveCharDir(charDir, charName, ffxiPath string) (string, error) {
+	dirs, err := resolveCharDirs(charDir, charName, ffxiPath, false)
 	if err != nil {
 		return "", err
 	}
@@ -84,12 +112,19 @@ func resolveUserDir(ffxiPath string) (string, error) {
 	return lister.DetectUserDir()
 }
 
-func promptCharSelect(chars []lister.CharacterInfo) ([]string, error) {
+func promptCharSelect(chars []lister.CharacterInfo, userDir string) ([]string, error) {
+	aliasDoc, _ := aliases.Load(userDir)
+
 	if !stdinIsTerminal() {
 		var sb strings.Builder
-		fmt.Fprint(&sb, "multiple characters found; use --char or --all to specify:")
+		fmt.Fprint(&sb, "multiple characters found; use --char-dir or --all to specify:")
 		for _, c := range chars {
-			fmt.Fprintf(&sb, "\n  %s", c.ID)
+			name := aliases.LookupName(aliasDoc, c.ID)
+			if name != c.ID {
+				fmt.Fprintf(&sb, "\n  %s (%s)", name, c.ID)
+			} else {
+				fmt.Fprintf(&sb, "\n  %s", c.ID)
+			}
 		}
 		return nil, fmt.Errorf("%s", sb.String())
 	}
@@ -100,7 +135,12 @@ func promptCharSelect(chars []lister.CharacterInfo) ([]string, error) {
 		if c.BookCount == 1 {
 			suffix = "book"
 		}
-		fmt.Fprintf(os.Stderr, "  [%d] %s (%d %s)\n", i+1, c.ID, c.BookCount, suffix)
+		name := aliases.LookupName(aliasDoc, c.ID)
+		if name != c.ID {
+			fmt.Fprintf(os.Stderr, "  [%d] %s (%s) (%d %s)\n", i+1, name, c.ID, c.BookCount, suffix)
+		} else {
+			fmt.Fprintf(os.Stderr, "  [%d] %s (%d %s)\n", i+1, c.ID, c.BookCount, suffix)
+		}
 	}
 	fmt.Fprintf(os.Stderr, "Enter numbers (e.g. 1, 1,3, 1-%d, all): ", len(chars))
 
@@ -115,7 +155,7 @@ func promptCharSelect(chars []lister.CharacterInfo) ([]string, error) {
 			return dirs, nil
 		}
 	}
-	return nil, fmt.Errorf("invalid selection; use --char or --all to specify")
+	return nil, fmt.Errorf("invalid selection; use --char-dir or --all to specify")
 }
 
 // parseSelection parses a user selection string into 0-based indices.

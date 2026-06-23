@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/squatched/macromog/internal/aliases"
 	"github.com/squatched/macromog/internal/export"
 )
 
@@ -17,23 +18,25 @@ const exportUsage = `Usage: macromog export [flags] [<char-dir>] [output]
 Export macros from FFXI .dat files to YAML.
 
 Arguments:
-  [<char-dir>]        character USER directory (auto-detected if omitted)
-  [output]            output file; default: <character>_macros_<timestamp>.yml
-                      not valid when multiple characters are selected
+  [<char-dir>]          character USER directory (auto-detected if omitted)
+  [output]              output file; default: <character>_macros_<timestamp>.yml
+                        not valid when multiple characters are selected
 
 Flags:
-  --ffxi-path <path>  FFXI install root (auto-detected if omitted)
-  --char <path>       character USER directory; bypasses selection
-  --all               export all discovered characters without prompting
-  --output <file>     output YAML file (-o shorthand); requires one character
-  --name <name>       character name for YAML metadata; requires one character
+  --ffxi-path <path>    FFXI install root (auto-detected if omitted)
+  --char-dir <path>     character USER directory; bypasses selection
+  --char-name <name>    character alias; bypasses selection
+  --all                 export all discovered characters without prompting
+  --output <file>       output YAML file (-o shorthand); requires one character
+  --name <name>         character name for YAML metadata; requires one character
 
 Examples:
   macromog export
   macromog export --all
   macromog export /path/to/USER/a1b2c3d4
   macromog export /path/to/USER/a1b2c3d4 macros.yml
-  macromog export --char /path/to/USER/a1b2c3d4 -o macros.yml
+  macromog export --char-dir /path/to/USER/a1b2c3d4 -o macros.yml
+  macromog export --char-name Squatched -o macros.yml
 `
 
 type exportEntry struct {
@@ -52,18 +55,19 @@ func runExport(args []string, p *Printer) int {
 	fs := flag.NewFlagSet("export", flag.ContinueOnError)
 	fs.SetOutput(os.Stderr)
 	ffxiPath := fs.String("ffxi-path", "", "FFXI install root")
-	charDir := fs.String("char", "", "character USER directory")
+	charDir := fs.String("char-dir", "", "character USER directory")
+	charName := fs.String("char-name", "", "character alias")
 	all := fs.Bool("all", false, "export all discovered characters")
 	output := fs.String("output", "", "output YAML file")
 	shortOut := fs.String("o", "", "output YAML file (shorthand)")
-	charName := fs.String("name", "", "character name for YAML metadata")
+	metaName := fs.String("name", "", "character name for YAML metadata")
 
 	if err := fs.Parse(args); err != nil {
 		return 1
 	}
 
 	remaining := fs.Args()
-	if *charDir == "" && len(remaining) > 0 {
+	if *charDir == "" && *charName == "" && len(remaining) > 0 {
 		*charDir = remaining[0]
 		remaining = remaining[1:]
 	}
@@ -75,18 +79,18 @@ func runExport(args []string, p *Printer) int {
 		*output = remaining[0]
 	}
 
-	charDirs, err := resolveCharDirs(*charDir, *ffxiPath, *all)
+	charDirs, err := resolveCharDirs(*charDir, *charName, *ffxiPath, *all)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "macromog export: %v\n", err)
 		return 1
 	}
 
 	if len(charDirs) > 1 && *output != "" {
-		fmt.Fprintln(os.Stderr, "macromog export: --output requires exactly one character; use --char or remove --all")
+		fmt.Fprintln(os.Stderr, "macromog export: --output requires exactly one character; use --char-dir or remove --all")
 		return 1
 	}
-	if len(charDirs) > 1 && *charName != "" {
-		fmt.Fprintln(os.Stderr, "macromog export: --name requires exactly one character; use --char or remove --all")
+	if len(charDirs) > 1 && *metaName != "" {
+		fmt.Fprintln(os.Stderr, "macromog export: --name requires exactly one character; use --char-dir or remove --all")
 		return 1
 	}
 
@@ -97,9 +101,12 @@ func runExport(args []string, p *Printer) int {
 
 	for _, dir := range charDirs {
 		charID := filepath.Base(dir)
-		name := *charName
+
+		name := *metaName
 		if name == "" {
-			name = charID
+			userDir := filepath.Dir(dir)
+			aliasDoc, _ := aliases.Load(userDir)
+			name = aliases.LookupName(aliasDoc, charID)
 		}
 
 		outPath := *output
