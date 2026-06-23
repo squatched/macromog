@@ -94,29 +94,29 @@ func TestRunList_CharDir_NoMacros(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "mcr.dat"), blankDatBytes(), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if got := runList([]string{"--char", dir}, newTextPrinter()); got != 0 {
-		t.Errorf("runList(--char empty) = %d, want 0", got)
+	if got := runList([]string{"--char-dir", dir}, newTextPrinter()); got != 0 {
+		t.Errorf("runList(--char-dir empty) = %d, want 0", got)
 	}
 }
 
 func TestRunList_CharDir_WithMacros(t *testing.T) {
 	// Use the existing test fixture which has macros in book 33.
-	if got := runList([]string{"--char", testdata.CharDir()}, newTextPrinter()); got != 0 {
-		t.Errorf("runList(--char testdata) = %d, want 0", got)
+	if got := runList([]string{"--char-dir", testdata.CharDir()}, newTextPrinter()); got != 0 {
+		t.Errorf("runList(--char-dir testdata) = %d, want 0", got)
 	}
 }
 
 func TestRunList_CharDir_NotFound(t *testing.T) {
-	if got := runList([]string{"--char", "/nonexistent/char"}, newTextPrinter()); got != 1 {
-		t.Errorf("runList(--char missing) = %d, want 1", got)
+	if got := runList([]string{"--char-dir", "/nonexistent/char"}, newTextPrinter()); got != 1 {
+		t.Errorf("runList(--char-dir missing) = %d, want 1", got)
 	}
 }
 
 func TestRunList_CharDir_ShowsBookIndex(t *testing.T) {
 	// Book 33 set 1 is present in the testdata fixture.
 	// We just verify the exit code and that the logic doesn't crash.
-	if got := run([]string{"macromog", "list", "--char", testdata.CharDir()}); got != 0 {
-		t.Errorf("run(list --char testdata) = %d, want 0", got)
+	if got := run([]string{"macromog", "list", "--char-dir", testdata.CharDir()}); got != 0 {
+		t.Errorf("run(list --char-dir testdata) = %d, want 0", got)
 	}
 }
 
@@ -161,7 +161,7 @@ func TestRunList_CharDir_BookName(t *testing.T) {
 
 	var buf bytes.Buffer
 	p := NewPrinter(&buf, FormatText)
-	code := runList([]string{"--char", dir}, p)
+	code := runList([]string{"--char-dir", dir}, p)
 
 	if code != 0 {
 		t.Fatalf("runList = %d, want 0", code)

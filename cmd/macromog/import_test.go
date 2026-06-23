@@ -112,9 +112,9 @@ func TestRunImport_CharFlag(t *testing.T) {
 	_ = os.WriteFile(yamlPath, data, 0o644)
 
 	destDir := t.TempDir()
-	args := []string{"--no-backup", "--char", destDir, yamlPath}
+	args := []string{"--no-backup", "--char-dir", destDir, yamlPath}
 	if got := runImport(args, newTextPrinter()); got != 0 {
-		t.Errorf("runImport(--char) = %d, want 0", got)
+		t.Errorf("runImport(--char-dir flag) = %d, want 0", got)
 	}
 }
 

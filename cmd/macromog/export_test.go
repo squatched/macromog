@@ -23,7 +23,7 @@ func TestRunExport_Help(t *testing.T) {
 }
 
 func TestRunExport_BadCharDir(t *testing.T) {
-	if got := runExport([]string{"--char", "/nonexistent/char"}, newTextPrinter()); got != 1 {
+	if got := runExport([]string{"--char-dir", "/nonexistent/char"}, newTextPrinter()); got != 1 {
 		t.Errorf("runExport(bad char) = %d, want 1", got)
 	}
 }
@@ -31,7 +31,7 @@ func TestRunExport_BadCharDir(t *testing.T) {
 func TestRunExport_Book33(t *testing.T) {
 	dir := t.TempDir()
 	out := filepath.Join(dir, "book33.yml")
-	args := []string{"--char", testdata.CharDir(), "-o", out}
+	args := []string{"--char-dir", testdata.CharDir(), "-o", out}
 	if got := runExport(args, newTextPrinter()); got != 0 {
 		t.Errorf("runExport = %d, want 0", got)
 	}
@@ -131,7 +131,7 @@ func TestRunExport_DefaultOutputName(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = os.Chdir(wd) })
 
-	if got := runExport([]string{"--char", testdata.CharDir()}, newTextPrinter()); got != 0 {
+	if got := runExport([]string{"--char-dir", testdata.CharDir()}, newTextPrinter()); got != 0 {
 		t.Fatalf("runExport = %d, want 0", got)
 	}
 	entries, err := os.ReadDir(dir)

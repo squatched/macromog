@@ -36,7 +36,7 @@ func TestRunBackup_BadCharDir(t *testing.T) {
 func TestRunBackup_OutAndInPlaceMutuallyExclusive(t *testing.T) {
 	tmp := prepBackupCharDir(t)
 	out := t.TempDir()
-	args := []string{"--char", tmp, "--out", out, "--in-place"}
+	args := []string{"--char-dir", tmp, "--out", out, "--in-place"}
 	if got := runBackup(args, newTextPrinter()); got != 1 {
 		t.Errorf("runBackup(--out + --in-place) = %d, want 1", got)
 	}
@@ -45,7 +45,7 @@ func TestRunBackup_OutAndInPlaceMutuallyExclusive(t *testing.T) {
 func TestRunBackup_DefaultDestIsCWD(t *testing.T) {
 	tmp := prepBackupCharDir(t)
 	cwd, _ := os.Getwd()
-	if got := runBackup([]string{"--char", tmp}, newTextPrinter()); got != 0 {
+	if got := runBackup([]string{"--char-dir", tmp}, newTextPrinter()); got != 0 {
 		t.Fatalf("runBackup(default dest) = %d, want 0", got)
 	}
 	assertBackupUnder(t, cwd, filepath.Base(tmp))
@@ -70,15 +70,15 @@ func TestRunBackup_Success_Positional(t *testing.T) {
 func TestRunBackup_Success_CharFlag(t *testing.T) {
 	tmp := prepBackupCharDir(t)
 	dest := t.TempDir()
-	if got := runBackup([]string{"--char", tmp, "--out", dest}, newTextPrinter()); got != 0 {
-		t.Errorf("runBackup(--char) = %d, want 0", got)
+	if got := runBackup([]string{"--char-dir", tmp, "--out", dest}, newTextPrinter()); got != 0 {
+		t.Errorf("runBackup(--char-dir flag) = %d, want 0", got)
 	}
 	assertBackupUnder(t, dest, filepath.Base(tmp))
 }
 
 func TestRunBackup_InPlace(t *testing.T) {
 	tmp := prepBackupCharDir(t)
-	if got := runBackup([]string{"--char", tmp, "--in-place"}, newTextPrinter()); got != 0 {
+	if got := runBackup([]string{"--char-dir", tmp, "--in-place"}, newTextPrinter()); got != 0 {
 		t.Errorf("runBackup(--in-place) = %d, want 0", got)
 	}
 	assertBackupUnder(t, filepath.Join(tmp, "backups"), filepath.Base(tmp))
