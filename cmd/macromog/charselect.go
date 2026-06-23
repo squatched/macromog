@@ -85,7 +85,8 @@ func resolveCharDirs(charDir, charName, ffxiPath string, all bool) ([]string, er
 		return dirs, nil
 	}
 	if len(chars) == 1 {
-		fmt.Fprintf(os.Stderr, "using character: %s\n", chars[0].ID)
+		ew := newErrWriter()
+		fmt.Fprintf(ew, "using character: %s\n", ew.Highlight(chars[0].ID))
 		return []string{chars[0].Dir}, nil
 	}
 	return promptCharSelect(chars, userDir)
@@ -129,20 +130,23 @@ func promptCharSelect(chars []lister.CharacterInfo, userDir string) ([]string, e
 		return nil, fmt.Errorf("%s", sb.String())
 	}
 
-	fmt.Fprintln(os.Stderr, "Multiple characters found. Select characters:")
+	ew := newErrWriter()
+	fmt.Fprintln(ew, ew.Bold("Multiple characters found. Select characters:"))
 	for i, c := range chars {
 		suffix := "books"
 		if c.BookCount == 1 {
 			suffix = "book"
 		}
 		name := aliases.LookupName(aliasDoc, c.ID)
+		index := ew.Muted(fmt.Sprintf("[%d]", i+1))
+		bookCount := ew.Muted(fmt.Sprintf("(%d %s)", c.BookCount, suffix))
 		if name != c.ID {
-			fmt.Fprintf(os.Stderr, "  [%d] %s (%s) (%d %s)\n", i+1, name, c.ID, c.BookCount, suffix)
+			fmt.Fprintf(ew, "  %s %s %s %s\n", index, ew.Bold(name), ew.Muted("("+c.ID+")"), bookCount)
 		} else {
-			fmt.Fprintf(os.Stderr, "  [%d] %s (%d %s)\n", i+1, c.ID, c.BookCount, suffix)
+			fmt.Fprintf(ew, "  %s %s %s\n", index, ew.Highlight(c.ID), bookCount)
 		}
 	}
-	fmt.Fprintf(os.Stderr, "Enter numbers (e.g. 1, 1,3, 1-%d, all): ", len(chars))
+	fmt.Fprintf(ew, "Enter numbers (e.g. 1, 1,3, 1-%d, all): ", len(chars))
 
 	scanner := bufio.NewScanner(os.Stdin)
 	if scanner.Scan() {

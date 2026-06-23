@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -114,8 +113,8 @@ func runAliasSet(userDir, charID, name string, p *Printer) int {
 		return 1
 	}
 
-	p.Text(func(w io.Writer) {
-		fmt.Fprintf(w, "alias set: %s → %s\n", charID, name)
+	p.Text(func(tw *TextWriter) {
+		fmt.Fprintf(tw, "alias set: %s → %s\n", tw.Highlight(charID), tw.Success(name))
 	})
 	p.JSON(aliasSetResult{CharID: charID, Name: name})
 	return 0
@@ -144,8 +143,8 @@ func runAliasRemove(userDir, charID string, p *Printer) int {
 		return 1
 	}
 
-	p.Text(func(w io.Writer) {
-		fmt.Fprintf(w, "alias removed: %s\n", charID)
+	p.Text(func(tw *TextWriter) {
+		fmt.Fprintf(tw, "alias removed: %s\n", tw.Highlight(charID))
 	})
 	p.JSON(aliasRemoveResult{CharID: charID, Removed: true})
 	return 0

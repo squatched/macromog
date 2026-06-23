@@ -266,6 +266,46 @@ func writeAliasFile(t *testing.T, userDir, charID, name string) error {
 	return os.WriteFile(filepath.Join(userDir, "characters.yml"), []byte(content), 0o644)
 }
 
+func TestRunList_WideCharAlignment(t *testing.T) {
+	// A Japanese alias (wide chars, 2 display cols each) and a plain ASCII ID
+	// must produce "(no macros)" at the same terminal display column.
+	parent := t.TempDir()
+	userDir := filepath.Join(parent, "USER")
+	for _, id := range []string{"aabbcc", "ddeeff"} {
+		dir := filepath.Join(userDir, id)
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, "mcr.dat"), blankDatBytes(), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// 玄白侍士: 4 wide chars = 8 display columns
+	if err := writeAliasFile(t, userDir, "aabbcc", "玄白侍士"); err != nil {
+		t.Fatal(err)
+	}
+
+	var buf bytes.Buffer
+	p := NewPrinter(&buf, FormatText)
+	if got := runList([]string{"--ffxi-path", parent}, p); got != 0 {
+		t.Fatalf("runList = %d, want 0", got)
+	}
+
+	// Collect the display-column position of "(no macros)" on each character line.
+	var cols []int
+	for _, line := range strings.Split(buf.String(), "\n") {
+		if idx := strings.Index(line, "(no macros)"); idx != -1 {
+			cols = append(cols, visibleWidth(line[:idx]))
+		}
+	}
+	if len(cols) != 2 {
+		t.Fatalf("expected 2 lines with '(no macros)', got %d:\n%s", len(cols), buf.String())
+	}
+	if cols[0] != cols[1] {
+		t.Errorf("'(no macros)' at display cols %v — wide chars broke alignment:\n%s", cols, buf.String())
+	}
+}
+
 func TestRunList_CharDir_BookName(t *testing.T) {
 	dir := t.TempDir()
 

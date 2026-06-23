@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 
@@ -103,26 +102,29 @@ func runListChar(charDir, ffxiPath string, p *Printer) int {
 	aliasDoc, _ := aliases.Load(userDir)
 	displayName := aliases.LookupName(aliasDoc, charID)
 
-	p.Text(func(w io.Writer) {
+	p.Text(func(tw *TextWriter) {
 		if displayName != charID {
-			fmt.Fprintf(w, "Character: %s (%s)\n\n", displayName, charID)
+			fmt.Fprintf(tw, "Character: %s %s\n\n", tw.Bold(displayName), tw.Muted("("+charID+")"))
 		} else {
-			fmt.Fprintf(w, "Character: %s\n\n", charID)
+			fmt.Fprintf(tw, "Character: %s\n\n", tw.Highlight(charID))
 		}
 		if len(books) == 0 {
-			fmt.Fprintln(w, "  (no macros found)")
+			fmt.Fprintln(tw, tw.Muted("  (no macros found)"))
 			return
 		}
 		for _, b := range books {
 			name := b.Name
+			var coloredName string
 			if name == "" {
-				name = "(unnamed)"
+				coloredName = tw.PadRight(tw.Muted("(unnamed)"), 16)
+			} else {
+				coloredName = tw.PadRight(tw.Cyan(name), 16)
 			}
 			sets := "sets"
 			if b.SetCount == 1 {
 				sets = "set"
 			}
-			fmt.Fprintf(w, "  Book %2d  %-16s  %d %s\n", b.Index, name, b.SetCount, sets)
+			fmt.Fprintf(tw, "  Book %s  %s  %d %s\n", tw.Muted(fmt.Sprintf("%2d", b.Index)), coloredName, b.SetCount, sets)
 		}
 	})
 
@@ -164,25 +166,30 @@ func runListAll(ffxiPath string, p *Printer) int {
 
 	aliasDoc, _ := aliases.Load(userDir)
 
-	p.Text(func(w io.Writer) {
-		fmt.Fprintf(w, "FFXI USER: %s\n\n", userDir)
+	p.Text(func(tw *TextWriter) {
+		fmt.Fprintf(tw, "FFXI USER: %s\n\n", tw.Highlight(userDir))
 		if len(chars) == 0 {
-			fmt.Fprintln(w, "  (no character directories found)")
+			fmt.Fprintln(tw, tw.Muted("  (no character directories found)"))
 			return
 		}
 		for _, c := range chars {
 			displayName := aliases.LookupName(aliasDoc, c.ID)
-			label := c.ID
+			var label string
 			if displayName != c.ID {
-				label = fmt.Sprintf("%s (%s)", displayName, c.ID)
+				label = tw.PadRight(
+					fmt.Sprintf("%s %s", tw.Bold(displayName), tw.Muted("("+c.ID+")")),
+					28,
+				)
+			} else {
+				label = tw.PadRight(tw.Highlight(c.ID), 28)
 			}
 			switch c.BookCount {
 			case 0:
-				fmt.Fprintf(w, "  %-28s  (no macros)\n", label)
+				fmt.Fprintf(tw, "  %s  %s\n", label, tw.Muted("(no macros)"))
 			case 1:
-				fmt.Fprintf(w, "  %-28s  1 book\n", label)
+				fmt.Fprintf(tw, "  %s  1 book\n", label)
 			default:
-				fmt.Fprintf(w, "  %-28s  %d books\n", label, c.BookCount)
+				fmt.Fprintf(tw, "  %s  %d books\n", label, c.BookCount)
 			}
 		}
 	})

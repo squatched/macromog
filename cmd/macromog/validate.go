@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"io"
 	"os"
 
 	"github.com/squatched/macromog/internal/validate"
@@ -40,8 +39,8 @@ func runValidate(args []string, p *Printer) int {
 	errs := validate.Validate(data)
 
 	if len(errs) == 0 {
-		p.Text(func(w io.Writer) {
-			fmt.Fprintf(w, "%s: OK\n", filename)
+		p.Text(func(tw *TextWriter) {
+			fmt.Fprintf(tw, "%s: %s\n", tw.Highlight(filename), tw.Success("OK"))
 		})
 		p.JSON(validateResult{File: filename, Valid: true})
 		return 0
@@ -55,9 +54,10 @@ func runValidate(args []string, p *Printer) int {
 	// In text mode print details to stderr; in JSON mode the errors array
 	// in the output carries them so stderr stays clean.
 	if !p.IsJSON() {
-		fmt.Fprintf(os.Stderr, "%s: %d validation error(s):\n", filename, len(errs))
+		ew := p.Err()
+		fmt.Fprintf(ew, "%s: %d validation error(s):\n", ew.Highlight(filename), len(errs))
 		for _, e := range errs {
-			fmt.Fprintf(os.Stderr, "  %s\n", e)
+			fmt.Fprintf(ew, "  %s\n", ew.Error(e.Error()))
 		}
 	}
 	p.JSON(validateResult{File: filename, Valid: false, Errors: errStrs})

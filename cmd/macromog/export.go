@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -116,10 +115,11 @@ func runExport(args []string, p *Printer) int {
 
 		if err := export.WriteFile(dir, outPath, name); err != nil {
 			if !p.IsJSON() {
+				ew := p.Err()
 				if multi {
-					fmt.Fprintf(os.Stderr, "macromog export: %s: %v\n", charID, err)
+					fmt.Fprintf(ew, "macromog export: %s: %v\n", ew.Highlight(charID), err)
 				} else {
-					fmt.Fprintf(os.Stderr, "macromog export: %v\n", err)
+					fmt.Fprintf(ew, "macromog export: %v\n", err)
 				}
 			}
 			results = append(results, exportEntry{Character: charID, OK: false, Error: err.Error()})
@@ -127,11 +127,11 @@ func runExport(args []string, p *Printer) int {
 			continue
 		}
 
-		p.Text(func(w io.Writer) {
+		p.Text(func(tw *TextWriter) {
 			if multi {
-				fmt.Fprintf(w, "[%s] exported macros to %s\n", charID, outPath)
+				fmt.Fprintf(tw, "[%s] exported macros to %s\n", tw.Highlight(charID), tw.Success(outPath))
 			} else {
-				fmt.Fprintf(w, "exported macros to %s\n", outPath)
+				fmt.Fprintf(tw, "exported macros to %s\n", tw.Success(outPath))
 			}
 		})
 		results = append(results, exportEntry{Character: charID, Path: outPath, OK: true})

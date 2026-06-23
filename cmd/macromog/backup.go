@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 
@@ -105,10 +104,11 @@ func runBackup(args []string, p *Printer) int {
 		backupDir, berr := backup.Backup(dir, destDir)
 		if berr != nil {
 			if !p.IsJSON() {
+				ew := p.Err()
 				if multi {
-					fmt.Fprintf(os.Stderr, "macromog backup: %s: %v\n", charID, berr)
+					fmt.Fprintf(ew, "macromog backup: %s: %v\n", ew.Highlight(charID), berr)
 				} else {
-					fmt.Fprintf(os.Stderr, "macromog backup: %v\n", berr)
+					fmt.Fprintf(ew, "macromog backup: %v\n", berr)
 				}
 			}
 			results = append(results, backupEntry{Character: charID, OK: false, Error: berr.Error()})
@@ -116,11 +116,11 @@ func runBackup(args []string, p *Printer) int {
 			continue
 		}
 
-		p.Text(func(w io.Writer) {
+		p.Text(func(tw *TextWriter) {
 			if multi {
-				fmt.Fprintf(w, "[%s] backed up to %s\n", charID, backupDir)
+				fmt.Fprintf(tw, "[%s] backed up to %s\n", tw.Highlight(charID), tw.Success(backupDir))
 			} else {
-				fmt.Fprintf(w, "backed up to %s\n", backupDir)
+				fmt.Fprintf(tw, "backed up to %s\n", tw.Success(backupDir))
 			}
 		})
 		results = append(results, backupEntry{Character: charID, Path: backupDir, OK: true})
