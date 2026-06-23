@@ -19,10 +19,11 @@ The CLI is the source of truth for all conversion and validation logic. The plug
 
 Both the plugin and CLI support the following operations:
 
-1. **Export** — Reads all current in-game macros (including custom book names) from `.dat` files and outputs a sparse `<character_name>_macros.yml`.
-2. **Import** — Reads and validates a YAML file, automatically creates a timestamped backup of current macros, then writes validated data back into the game.
-3. **Validation** — Full schema validation against FFXI constraints. Sparse format support (only defined entries are stored).
-4. **Backup** — Creates a timestamped backup of all macro `.dat` files without importing.
+1. **Export** — Reads current in-game macros from `.dat` files and outputs a sparse YAML file. Scope can be narrowed to specific books, sets, or individual macros.
+2. **Import** — Reads and validates a YAML file, automatically creates a timestamped backup, then writes validated data back into the game. Respects the scope embedded in the YAML, clearing any in-scope entries absent from the file.
+3. **Template** — Generates a blank YAML file pre-structured for a given scope, ready for the adventurer to fill in.
+4. **Validation** — Full schema validation against FFXI constraints. Sparse format support (only defined entries are stored).
+5. **Backup** — Creates a timestamped backup of all macro `.dat` files without importing.
 
 ---
 
@@ -41,15 +42,22 @@ The YAML file is the shared data format for both the plugin and CLI. It is **spa
 
 ```yaml
 version: 1                        # Schema version for future compatibility
-character: "squatched"            # Optional metadata
-exported_at: "2026-06-20T03:30:00Z"
+character: "squatched"            # Optional: character name (convenience metadata)
+exported_at: "2026-06-20T03:30:00Z"  # Optional: ISO 8601 timestamp; omitted in templates
+
+scope:                            # Always present (see "Scoped Export and Import")
+  level: full                     # full | book | set | macro
+  selections:                     # Present for book/set/macro levels; omitted for full
+    - {book: 1}                   # book scope entry
+    # - {book: 1, set: 2}         # set scope entry
+    # - {book: 1, set: 3, type: ctrl, key: 1}  # macro scope entry
 
 books:
   1:                              # Book index (1–40)
     name: "WHM75NIN"              # Custom book name (max 15 chars, alphanumeric only)
     sets:
       1:                          # Set index (1–10)
-        header_unknown: 1234567890  # Optional; bytes 4–7 of DAT header (purpose unclear); preserved from original DAT file; defaults to 0 when generated
+        header_unknown: 1234567890  # Optional; bytes 4–7 of DAT header; preserved on round-trip; 0 when generated
         ctrl:
           1:                      # Key index (1–9, then 0)
             name: "Cure"          # Macro button title (max 8 chars, any printable)
@@ -142,9 +150,10 @@ The CLI (`macromog`) is a standalone binary for offline-first macro management.
 | Command | Description | Example |
 |---------|-------------|---------|
 | `export` | Export macros from `.dat` files to YAML | `macromog export /path/to/USER/a1b2c3d4` |
-| `import` | Import from YAML into `.dat` files (auto-backups first) | `macromog import mymacros.yml --char 0x12345678` |
+| `import` | Import from YAML into `.dat` files (auto-backups first) | `macromog import mymacros.yml` |
+| `template` | Generate a blank YAML template for a given scope | `macromog template out.yml --scope B1S3` |
 | `validate` | Validate a YAML file against FFXI constraints | `macromog validate mymacros.yml` |
-| `backup` | Create a timestamped backup of all macro `.dat` files | `macromog backup --char 0x12345678` |
+| `backup` | Create a timestamped backup of all macro `.dat` files | `macromog backup` |
 | `list` | List detected characters and macro books | `macromog list` |
 
 ### Flags
@@ -152,11 +161,12 @@ The CLI (`macromog`) is a standalone binary for offline-first macro management.
 | Flag | Description |
 |------|-------------|
 | `--ffxi-path <path>` | Path to FFXI install (auto-detected if possible) |
-| `<char-dir>` | Character USER directory (positional; same as `--char`) |
-| `--char <id>` | Character folder (hex ID or path) |
+| `<char-dir>` | Character USER directory (positional) |
+| `--char-dir <path>` | Character USER directory; bypasses selection |
+| `--char-name <name>` | Character alias (set with `macromog alias`) |
 | `--output <file>` / `-o` | Output file for export |
-| `--backup` | Auto-backup before import (default: true) |
-| `--force` | Overwrite without confirmation |
+| `--scope <selector>` | Scope selector (repeatable; see "Scoped Export and Import") |
+| `--no-backup` | Skip auto-backup before import |
 | `--dry-run` | Show what would happen without writing files |
 
 ### UX Notes
@@ -171,18 +181,169 @@ The CLI (`macromog`) is a standalone binary for offline-first macro management.
 
 - Macros are stored per-character in `mcr*.dat` files under the character's USER folder. See [DAT-FORMAT.md](DAT-FORMAT.md) for the on-disk binary layout.
 
-## Future Improvements
+## Scoped Export and Import
 
-### Scoped export and import
+The scope system controls which portion of a character's macro library a YAML file has authority over. The scope is embedded in the YAML at export time. On import, the embedded scope tells macromog exactly what territory it may alter — and equally important, what it must leave alone.
 
-Partial exports with explicit authority boundaries are deferred. The intended model uses granularity levels — full, book, set, macro — where each level defines what YAML entries pull entities into scope and omissions within that scope imply clearing:
+### Scope Levels
 
-| Granularity | Example scope | Import behavior |
-|-------------|---------------|-----------------|
-| Full | Entire character | Books not in YAML are cleared |
-| Book | Book 1 and Book 5 | Other books untouched; within scoped books, unlisted sets cleared |
-| Set | Book 1 Set 2, Book 5 Set 6 | Other sets untouched; within scoped sets, unlisted macros cleared |
-| Macro | Two specific macros | Only those macros updated; nothing deleted |
+| Level | Authority | Within scope | Outside scope |
+|-------|-----------|--------------|---------------|
+| `full` | All 40 books | Content written; absent books deleted | — (nothing is outside) |
+| `book` | Specified books only | Content written; absent sets deleted; empty books' `.dat` files deleted | Other books untouched |
+| `set` | Specified (book, set) pairs | Entire set overwritten; absent macro slots zeroed | Other sets untouched |
+| `macro` | Specified individual slots | Only those slots updated | Everything else untouched; nothing deleted |
 
-CLI flags like `--book` and `--set` would shape exports; `export_scope` metadata (or equivalent) would tell import which rules apply. Not implemented yet — current export is always a sparse full-character dump of non-empty macros.
+**Empty book handling**: When a book is within scope but has no content in the YAML, all of its `mcr*.dat` files are deleted and its title is cleared from the `.ttl` file. This matches FFXI's own behavior — the client does not create `.dat` files for empty books.
+
+### Scope Selector Syntax
+
+Both `export` and `import` accept one or more `--scope` flags using this selector syntax:
+
+```
+--scope <selector>[,<selector>...]
+```
+
+A selector is built left-to-right from these components:
+
+| Component | Meaning | Example |
+|-----------|---------|---------|
+| `B<n>` | Book n (1–40) | `B1`, `B5` |
+| `S<n>` | Set n (1–10) within the current book | `B1S3` |
+| `C<n>` | Ctrl key n (0–9) within the current set | `B1S3C2` |
+| `A<n>` | Alt key n (0–9) within the current set | `B1S3A1` |
+| `<n>-<m>` | Range at the current component level | `B1-5`, `B1S2-4` |
+| `*` | All valid values at the current level | `B*`, `B1S*`, `B1S3C*` |
+
+**Comma siblings**: A comma within a selector creates a sibling at the same level. A bare number after a comma inherits the previous component type:
+
+```
+B1,3,5       → books 1, 3, and 5
+B1S2,4       → book 1, sets 2 and 4
+B1S3A1,3     → book 1, set 3, alt keys 1 and 3
+B1S3A1,C2    → book 1, set 3, alt+1 and ctrl+2
+```
+
+Multiple `--scope` flags are combined for disjoint selectors:
+
+```
+--scope B1S3A1 --scope B5S2C4
+```
+
+Mixing levels across `--scope` flags (e.g., `--scope B1` with `--scope B2S3`) is an error.
+
+**Scope level inference**: The level is determined by the deepest component present in any selector.
+
+| Deepest component | Inferred scope level |
+|-------------------|---------------------|
+| `C` or `A` | macro |
+| `S` (no `C`/`A`) | set |
+| `B` (no `S`/`C`/`A`) | book |
+| `*` alone, or `B*` without further qualification | full |
+
+### Export with `--scope`
+
+```sh
+macromog export --scope B1,5        # books 1 and 5 only
+macromog export --scope B1S3        # book 1, set 3 only
+macromog export --scope B1S3C1 --scope B5S2A3   # two specific macros
+macromog export                     # no flag → full scope
+```
+
+Only content within the scope is written to the YAML. The `scope` field is always embedded in the output, reflecting what was exported.
+
+**Default (no `--scope`)**: Full scope — all non-empty macros are exported, and `scope: {level: full}` is written. This is the standard workflow.
+
+### Import Scope Behavior
+
+Import reads the `scope` field from the YAML and applies clearing within that scope only.
+
+**No `--scope` flag on import** (standard workflow):
+
+| YAML `scope` field | Import behavior |
+|-------------------|-----------------|
+| `level: full` | Full clearing — absent books deleted, standard workflow |
+| `level: book` | Only scoped books touched; others untouched |
+| `level: set` | Only scoped sets touched; others untouched |
+| `level: macro` | Only scoped slots updated; nothing deleted |
+| Absent (legacy file) | Write-only — files are written but nothing is deleted (backward compatible) |
+
+**`--scope` flag on import** overrides the YAML's embedded scope:
+
+```sh
+macromog import macros.yml --scope B1   # import only book 1, even from a full-scope YAML
+macromog import macros.yml --scope *    # force full scope on a legacy or narrow YAML
+```
+
+If the import `--scope` **exceeds** the YAML's embedded scope — claiming authority over books, sets, or macros that have no content in the YAML — a confirmation prompt is required:
+
+```
+Warning: scope override expands authority to book 4, which has no content in
+this YAML — book 4 will be cleared. Proceed? [y/N]
+```
+
+If the import `--scope` is a **subset or equal** of the YAML's embedded scope, no confirmation is needed; the narrower scope is applied silently.
+
+### The Standard Workflow (Full Scope)
+
+```sh
+macromog export                    # → squatched_macros_20260620_033000.yml
+#   (edit the YAML — add, change, remove macros as desired)
+macromog import squatched_macros_20260620_033000.yml
+```
+
+Because the export embedded `scope: {level: full}`, import has authority over all 40 books. Books removed from the YAML have their `.dat` files deleted. No warnings, no prompts.
+
+---
+
+## Template Command
+
+`macromog template` generates a blank YAML file pre-structured for a given scope. Every macro slot within scope is present with an empty `name` and six empty `contents` lines, ready for the adventurer to fill in and remove what they don't need.
+
+```sh
+macromog template out.yml                  # full template: all 40 books, 10 sets, 20 macros
+macromog template out.yml --scope B1S3     # only book 1, set 3
+macromog template out.yml --scope B1S3A1,C2    # only those two macro slots
+macromog template out.yml --char-name Squatched  # embed character name in template
+```
+
+Template files include `version` and `scope`. They do **not** include `exported_at` (templates are not exports). The `character` field is included only when `--char-name` is provided.
+
+### Template Structure Example
+
+`macromog template out.yml --scope B1S3A1,C2`:
+
+```yaml
+version: 1
+scope:
+  level: macro
+  selections:
+    - {book: 1, set: 3, type: alt, key: 1}
+    - {book: 1, set: 3, type: ctrl, key: 2}
+books:
+  1:
+    name: ""
+    sets:
+      3:
+        alt:
+          1:
+            name: ""
+            contents:
+              - ""
+              - ""
+              - ""
+              - ""
+              - ""
+              - ""
+        ctrl:
+          2:
+            name: ""
+            contents:
+              - ""
+              - ""
+              - ""
+              - ""
+              - ""
+              - ""
+```
 
