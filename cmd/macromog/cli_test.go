@@ -69,6 +69,18 @@ func TestRunValidate_InvalidFile(t *testing.T) {
 	}
 }
 
+func TestRun_InvalidOutputFormat(t *testing.T) {
+	if got := run([]string{"macromog", "--output", "xml", "list"}); got != 1 {
+		t.Errorf("run(--output xml) = %d, want 1", got)
+	}
+}
+
+func TestRun_MissingOutputValue(t *testing.T) {
+	if got := run([]string{"macromog", "--output"}); got != 1 {
+		t.Errorf("run(--output with no value) = %d, want 1", got)
+	}
+}
+
 func writeTemp(t *testing.T, content string) string {
 	t.Helper()
 	f, err := os.CreateTemp(t.TempDir(), "*.yaml")

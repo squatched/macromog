@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"strings"
@@ -249,6 +250,103 @@ func TestConfirmScopeOverride_FileNotFound(t *testing.T) {
 	_, err := confirmScopeOverride("/nonexistent/file.yml", sc, nil)
 	if err == nil {
 		t.Error("expected error for missing file")
+	}
+}
+
+func TestRunImport_JSON_Success(t *testing.T) {
+	src := testdata.CharDir()
+	tmp := t.TempDir()
+
+	doc, err := export.FromCharacterDir(export.Options{CharacterDir: src, Character: "char"})
+	if err != nil {
+		t.Fatalf("export: %v", err)
+	}
+	data, _ := export.MarshalYAML(doc)
+	yamlPath := filepath.Join(tmp, "macros.yml")
+	_ = os.WriteFile(yamlPath, data, 0o644)
+
+	destDir := t.TempDir()
+	var buf bytes.Buffer
+	p := NewPrinter(&buf, FormatJSON)
+	if got := runImport([]string{"--no-backup", yamlPath, destDir}, p); got != 0 {
+		t.Fatalf("runImport(JSON) = %d, want 0", got)
+	}
+	s := buf.String()
+	if !strings.Contains(s, `"ok"`) {
+		t.Errorf("JSON output missing ok field:\n%s", s)
+	}
+	if !strings.Contains(s, `"sets"`) {
+		t.Errorf("JSON output missing sets field:\n%s", s)
+	}
+}
+
+func TestRunImport_JSON_DryRun(t *testing.T) {
+	src := testdata.CharDir()
+	tmp := t.TempDir()
+
+	doc, _ := export.FromCharacterDir(export.Options{CharacterDir: src, Character: "char"})
+	data, _ := export.MarshalYAML(doc)
+	yamlPath := filepath.Join(tmp, "macros.yml")
+	_ = os.WriteFile(yamlPath, data, 0o644)
+
+	destDir := t.TempDir()
+	var buf bytes.Buffer
+	p := NewPrinter(&buf, FormatJSON)
+	if got := runImport([]string{"--dry-run", "--no-backup", yamlPath, destDir}, p); got != 0 {
+		t.Fatalf("runImport(JSON dry-run) = %d, want 0", got)
+	}
+	s := buf.String()
+	if !strings.Contains(s, `"dry_run"`) {
+		t.Errorf("JSON output missing dry_run field:\n%s", s)
+	}
+	if !strings.Contains(s, `"dry_run_sets"`) {
+		t.Errorf("JSON output missing dry_run_sets field:\n%s", s)
+	}
+}
+
+func TestRunImport_DryRun_All(t *testing.T) {
+	ffxiDir, _, _ := makeFFXITree(t, "a1b2c3d4", "e5f6a7b8")
+
+	src := testdata.CharDir()
+	doc, err := export.FromCharacterDir(export.Options{CharacterDir: src, Character: "char"})
+	if err != nil {
+		t.Fatalf("export: %v", err)
+	}
+	data, _ := export.MarshalYAML(doc)
+	tmp := t.TempDir()
+	yamlPath := filepath.Join(tmp, "macros.yml")
+	_ = os.WriteFile(yamlPath, data, 0o644)
+
+	args := []string{"--ffxi-path", ffxiDir, "--all", "--dry-run", "--no-backup", yamlPath}
+	if got := runImport(args, newTextPrinter()); got != 0 {
+		t.Errorf("runImport(--dry-run --all) = %d, want 0", got)
+	}
+	// Neither char dir should have any new .dat files written.
+	for _, id := range []string{"a1b2c3d4", "e5f6a7b8"} {
+		charDir := filepath.Join(ffxiDir, "USER", id)
+		entries, _ := os.ReadDir(charDir)
+		var datCount int
+		for _, e := range entries {
+			if strings.HasSuffix(e.Name(), ".dat") {
+				datCount++
+			}
+		}
+		// makeFFXITree writes exactly one mcr.dat per char; dry-run must not add more.
+		if datCount > 1 {
+			t.Errorf("dry-run wrote .dat files in %s (found %d)", id, datCount)
+		}
+	}
+}
+
+func TestConfirmScopeOverride_InvalidYAML(t *testing.T) {
+	tmp := t.TempDir()
+	path := filepath.Join(tmp, "bad.yml")
+	_ = os.WriteFile(path, []byte(":\tnot valid yaml at all"), 0o644)
+
+	sc := scope.Scope{Level: scope.LevelFull}
+	_, err := confirmScopeOverride(path, sc, nil)
+	if err == nil {
+		t.Error("expected error for invalid YAML, got nil")
 	}
 }
 

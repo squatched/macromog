@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"strings"
@@ -265,5 +266,31 @@ func TestRunExport_DefaultOutputName(t *testing.T) {
 	}
 	if !strings.Contains(string(data), "B33S1") {
 		t.Errorf("missing B33S1 in default output: %s", data)
+	}
+}
+
+func TestRunExport_JSON_Success(t *testing.T) {
+	dir := t.TempDir()
+	out := filepath.Join(dir, "out.yml")
+	var buf bytes.Buffer
+	p := NewPrinter(&buf, FormatJSON)
+	args := []string{"--char-dir", testdata.CharDir(), "-o", out}
+	if got := runExport(args, p); got != 0 {
+		t.Fatalf("runExport(JSON) = %d, want 0", got)
+	}
+	s := buf.String()
+	if !strings.Contains(s, `"ok"`) {
+		t.Errorf("JSON output missing ok field:\n%s", s)
+	}
+	if !strings.Contains(s, `"path"`) {
+		t.Errorf("JSON output missing path field:\n%s", s)
+	}
+}
+
+func TestRunExport_AllWithNameError(t *testing.T) {
+	ffxiDir, _, _ := makeFFXITree(t, "a1b2c3d4", "e5f6a7b8")
+	args := []string{"--ffxi-path", ffxiDir, "--all", "--name", "Squatched"}
+	if got := runExport(args, newTextPrinter()); got != 1 {
+		t.Errorf("runExport(--all --name) = %d, want 1", got)
 	}
 }

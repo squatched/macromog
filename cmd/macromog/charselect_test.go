@@ -299,6 +299,44 @@ func TestParseSelection_NonNumeric(t *testing.T) {
 	}
 }
 
+func TestParseSelection_EmptyString(t *testing.T) {
+	got, err := parseSelection("", 3)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(got) != 0 {
+		t.Errorf("empty input: got %v, want []", got)
+	}
+}
+
+func TestParseSelection_OnlyCommas(t *testing.T) {
+	got, err := parseSelection(",,,", 3)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(got) != 0 {
+		t.Errorf("only commas: got %v, want []", got)
+	}
+}
+
+func TestParseSelection_ExactlyMax(t *testing.T) {
+	got, err := parseSelection("3", 3)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	want := []int{2}
+	if !equalInts(got, want) {
+		t.Errorf("got %v, want %v", got, want)
+	}
+}
+
+func TestParseSelection_Zero(t *testing.T) {
+	_, err := parseSelection("0", 3)
+	if err == nil {
+		t.Error("expected error for 0 (below min 1), got nil")
+	}
+}
+
 func TestParseSelection_Whitespace(t *testing.T) {
 	got, err := parseSelection(" 1 , 2 ", 3)
 	if err != nil {

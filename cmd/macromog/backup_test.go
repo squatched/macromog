@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"strings"
@@ -135,6 +136,40 @@ func TestRunBackup_AllInPlace(t *testing.T) {
 	}
 	assertBackupUnder(t, filepath.Join(ffxiDir, "USER", "a1b2c3d4", "backups"), "a1b2c3d4")
 	assertBackupUnder(t, filepath.Join(ffxiDir, "USER", "e5f6a7b8", "backups"), "e5f6a7b8")
+}
+
+func TestRunBackup_JSON(t *testing.T) {
+	tmp := prepBackupCharDir(t)
+	dest := t.TempDir()
+	var buf bytes.Buffer
+	p := NewPrinter(&buf, FormatJSON)
+	if got := runBackup([]string{"--char-dir", tmp, "--out", dest}, p); got != 0 {
+		t.Fatalf("runBackup(JSON) = %d, want 0", got)
+	}
+	s := buf.String()
+	if !strings.Contains(s, `"ok"`) {
+		t.Errorf("JSON output missing ok field:\n%s", s)
+	}
+	if !strings.Contains(s, `"path"`) {
+		t.Errorf("JSON output missing path field:\n%s", s)
+	}
+}
+
+func TestRunBackup_OutBadPath(t *testing.T) {
+	tmp := prepBackupCharDir(t)
+	args := []string{"--char-dir", tmp, "--out", "/nonexistent/cannot/create"}
+	if got := runBackup(args, newTextPrinter()); got != 1 {
+		t.Errorf("runBackup(bad --out path) = %d, want 1", got)
+	}
+}
+
+func TestRunBackup_EmptyCharDir(t *testing.T) {
+	// A char dir with no .dat files at all — backup succeeds but copies nothing.
+	dir := t.TempDir()
+	dest := t.TempDir()
+	if got := runBackup([]string{"--char-dir", dir, "--out", dest}, newTextPrinter()); got != 0 {
+		t.Errorf("runBackup(empty char dir) = %d, want 0", got)
+	}
 }
 
 func prepBackupCharDir(t *testing.T) string {

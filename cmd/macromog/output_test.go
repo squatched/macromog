@@ -104,6 +104,41 @@ func TestExtractOutputFormat(t *testing.T) {
 	}
 }
 
+func TestExtractOutputFormat_PostSubcommandNoValue(t *testing.T) {
+	// --output with no value after subcommand should pass through unchanged.
+	format, args, err := extractOutputFormat([]string{"macromog", "export", "--output"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if format != FormatText {
+		t.Errorf("format = %q, want text", format)
+	}
+	if len(args) < 3 || args[len(args)-1] != "--output" {
+		t.Errorf("--output should pass through unchanged, args = %v", args)
+	}
+}
+
+func TestExtractOutputFormat_RepeatedFlag(t *testing.T) {
+	// When --output appears twice before the subcommand, the last value wins.
+	format, args, err := extractOutputFormat([]string{"macromog", "--output", "text", "--output", "json", "list"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if format != FormatJSON {
+		t.Errorf("format = %q, want json", format)
+	}
+	want := []string{"macromog", "list"}
+	if len(args) != len(want) {
+		t.Errorf("args = %v, want %v", args, want)
+		return
+	}
+	for i := range args {
+		if args[i] != want[i] {
+			t.Errorf("args[%d] = %q, want %q", i, args[i], want[i])
+		}
+	}
+}
+
 func TestRun_OutputJSON_PostSubcommand(t *testing.T) {
 	// Verify the full dispatch path: --output json placed after the subcommand.
 	if got := run([]string{"macromog", "validate", "--output", "json", writeTemp(t, "version: 1\nbooks: {}\n")}); got != 0 {

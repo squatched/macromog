@@ -106,6 +106,36 @@ func TestRunTemplate_CharName(t *testing.T) {
 	}
 }
 
+func TestRunTemplate_SetScope(t *testing.T) {
+	dir := t.TempDir()
+	out := filepath.Join(dir, "set.yml")
+	if got := runTemplate([]string{"--scope", "B1S3", out}, newTextPrinter()); got != 0 {
+		t.Errorf("runTemplate(set scope) = %d, want 0", got)
+	}
+	data, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := string(data)
+	if !strings.Contains(s, "level: set") {
+		t.Errorf("expected set scope in output: %s", s)
+	}
+	// Only book 1 / set 3 should be present.
+	if !strings.Contains(s, "books:") {
+		t.Errorf("template missing books section: %s", s)
+	}
+	if !strings.Contains(s, "sets:") {
+		t.Errorf("template missing sets section: %s", s)
+	}
+	// Scope selections must reference book 1, set 3.
+	if !strings.Contains(s, "book: 1") {
+		t.Errorf("template missing book 1 selection: %s", s)
+	}
+	if !strings.Contains(s, "set: 3") {
+		t.Errorf("template missing set 3 selection: %s", s)
+	}
+}
+
 func TestRunTemplate_WriteFails(t *testing.T) {
 	// Point output at a non-existent directory.
 	out := "/nonexistent/dir/out.yml"
