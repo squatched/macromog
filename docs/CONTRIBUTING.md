@@ -132,10 +132,9 @@ Other platforms: [github.com/JohnnyMorganz/StyLua/releases](https://github.com/J
 
 Not required on native Windows — use the `.exe` directly.
 
-The macromog CLI is a Go binary, not .NET. If Wine prompts for **wine-mono**
-when you run the `.exe` manually, you can ignore it — `make validate-wine-smoke`
-disables that stub. Install `wine-mono` (Arch: `sudo pacman -S wine-mono`) only
-if you want to silence the dialog globally for other Windows apps.
+The macromog CLI is a Go binary, not .NET. If Wine prompts to install a .NET
+runtime when you run the `.exe` manually, cancel it — the CLI does not need it.
+`make validate-wine-smoke` disables that stub automatically.
 
 ## Releases
 
