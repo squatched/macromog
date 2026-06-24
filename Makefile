@@ -30,8 +30,9 @@ RELEASE_BINS     := \
 .DEFAULT_GOAL := help
 
 .PHONY: help \
-        validate validate-plugin validate-cli \
+        validate validate-trailing-ws validate-plugin validate-cli \
         validate-plugin-lint validate-plugin-format \
+        fix-trailing-ws \
         validate-plugin-test validate-plugin-coverage validate-plugin-package validate-wine-smoke \
         validate-cli-lint validate-cli-format validate-cli-tidy validate-cli-test validate-cli-coverage \
         fix fix-plugin-format fix-cli-format fix-cli-tidy \
@@ -43,7 +44,17 @@ help: ## Show available targets
 	  /^[a-zA-Z_-]+:.*?##/ {printf "  %-28s %s\n", $$1, $$2}' \
 	  $(MAKEFILE_LIST)
 
-validate: validate-plugin validate-cli ## Run all validation checks across plugin (Lua) and CLI (Go)
+validate: validate-trailing-ws validate-plugin validate-cli ## Run all validation checks across plugin (Lua) and CLI (Go)
+
+# ── Repository-wide ───────────────────────────────────────────────────────────
+
+validate-trailing-ws: ## Fail on trailing whitespace or missing EOF newlines
+	@chmod +x scripts/clean-trailing-ws.sh
+	scripts/clean-trailing-ws.sh --check
+
+fix-trailing-ws: ## Strip trailing whitespace and normalize EOF newlines in place
+	@chmod +x scripts/clean-trailing-ws.sh
+	scripts/clean-trailing-ws.sh
 
 # ── Plugin (Lua / Windower addon) ────────────────────────────────────────────
 
@@ -166,7 +177,7 @@ package-plugin: build-plugin ## Create dist/macromog-<version>.zip from the stag
 
 # ── Umbrella fix targets ──────────────────────────────────────────────────────
 
-fix: fix-plugin-format fix-cli-format fix-cli-tidy ## Auto-fix all issues that can be fixed automatically
+fix: fix-trailing-ws fix-plugin-format fix-cli-format fix-cli-tidy ## Auto-fix all issues that can be fixed automatically
 
 # ── Housekeeping ─────────────────────────────────────────────────────────────
 

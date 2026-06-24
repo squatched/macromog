@@ -52,7 +52,9 @@ Optional checks (see below) are not required for PRs.
 
 | Target | What it does |
 |--------|-------------|
-| `make validate` | Runs all plugin and CLI checks below |
+| `make validate` | Runs all checks below (trailing WS, plugin, CLI) |
+| `make validate-trailing-ws` | Fails on trailing whitespace or bad EOF newlines in tracked text files |
+| `make fix-trailing-ws` | Auto-fixes trailing whitespace and EOF newlines |
 | `make validate-plugin` | Lint, format, coverage, and package layout for the Lua addon |
 | `make validate-plugin-lint` | Static analysis via luacheck |
 | `make validate-plugin-format` | Format check via StyLua |
