@@ -52,7 +52,7 @@ func runList(args []string, p *Printer) int {
 			fmt.Fprintf(os.Stderr, "macromog list: %v\n", err)
 			return 1
 		}
-		return runListChar(dir, *ffxiPath, p)
+		return runListChar(dir, p)
 	}
 	return runListAll(*ffxiPath, p)
 }
@@ -80,7 +80,7 @@ type listCharEntry struct {
 	BookCount int    `json:"book_count"`
 }
 
-func runListChar(charDir, ffxiPath string, p *Printer) int {
+func runListChar(charDir string, p *Printer) int {
 	charDirAbs, err := filepath.Abs(charDir)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "macromog list: %v\n", err)

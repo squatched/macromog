@@ -149,6 +149,31 @@ func visibleWidth(s string) int {
 	return runewidth.StringWidth(ansiEscape.ReplaceAllString(s, ""))
 }
 
+// emitJSONResults writes JSON output for commands that may operate on multiple
+// characters. For a single character it emits results[0]; for multiple it emits
+// the full slice. Errors from partially-failed runs are written to stderr.
+func emitJSONResults[T interface {
+	ok() bool
+	character() string
+	errMsg() string
+}](p *Printer, results []T, multi bool, failed bool, cmd string) {
+	if !p.IsJSON() {
+		return
+	}
+	if multi {
+		p.JSON(results)
+	} else if len(results) == 1 {
+		p.JSON(results[0])
+	}
+	if failed {
+		for _, r := range results {
+			if !r.ok() {
+				fmt.Fprintf(os.Stderr, "macromog %s: %s: %s\n", cmd, r.character(), r.errMsg())
+			}
+		}
+	}
+}
+
 // extractOutputFormat scans args for --output text|json and strips it from
 // the arg list, returning the chosen format. The flag may appear anywhere —
 // before or after the subcommand name — so that both

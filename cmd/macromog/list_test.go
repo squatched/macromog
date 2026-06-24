@@ -306,6 +306,60 @@ func TestRunList_WideCharAlignment(t *testing.T) {
 	}
 }
 
+func TestRunList_JSON_All(t *testing.T) {
+	userDir := makeTestUserDir(t)
+	parent := t.TempDir()
+	renamedUser := filepath.Join(parent, "USER")
+	if err := os.Rename(userDir, renamedUser); err != nil {
+		t.Fatal(err)
+	}
+
+	var buf bytes.Buffer
+	p := NewPrinter(&buf, FormatJSON)
+	if got := runList([]string{"--ffxi-path", parent}, p); got != 0 {
+		t.Fatalf("runList(JSON all) = %d, want 0", got)
+	}
+	s := buf.String()
+	if !strings.Contains(s, `"user_dir"`) {
+		t.Errorf("JSON output missing user_dir field:\n%s", s)
+	}
+	if !strings.Contains(s, `"characters"`) {
+		t.Errorf("JSON output missing characters field:\n%s", s)
+	}
+}
+
+func TestRunList_JSON_SingleChar(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "mcr.dat"), blankDatBytes(), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	var buf bytes.Buffer
+	p := NewPrinter(&buf, FormatJSON)
+	if got := runList([]string{"--char-dir", dir}, p); got != 0 {
+		t.Fatalf("runList(JSON single) = %d, want 0", got)
+	}
+	s := buf.String()
+	if !strings.Contains(s, `"character"`) {
+		t.Errorf("JSON output missing character field:\n%s", s)
+	}
+	if !strings.Contains(s, `"books"`) {
+		t.Errorf("JSON output missing books field:\n%s", s)
+	}
+}
+
+func TestRunList_CharDir_NotADir(t *testing.T) {
+	// --char-dir pointing at a file rather than a directory must fail.
+	f, err := os.CreateTemp(t.TempDir(), "notadir")
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.Close()
+	if got := runList([]string{"--char-dir", f.Name()}, newTextPrinter()); got != 1 {
+		t.Errorf("runList(--char-dir file) = %d, want 1", got)
+	}
+}
+
 func TestRunList_CharDir_BookName(t *testing.T) {
 	dir := t.TempDir()
 

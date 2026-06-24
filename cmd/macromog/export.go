@@ -48,6 +48,10 @@ type exportEntry struct {
 	Error     string `json:"error,omitempty"`
 }
 
+func (r exportEntry) ok() bool          { return r.OK }
+func (r exportEntry) character() string { return r.Character }
+func (r exportEntry) errMsg() string    { return r.Error }
+
 func runExport(args []string, p *Printer) int {
 	if len(args) > 0 && (args[0] == "--help" || args[0] == "-h") {
 		fmt.Fprint(os.Stdout, exportUsage)
@@ -148,20 +152,7 @@ func runExport(args []string, p *Printer) int {
 		results = append(results, exportEntry{Character: charID, Path: outPath, OK: true})
 	}
 
-	if p.IsJSON() {
-		if multi {
-			p.JSON(results)
-		} else if len(results) == 1 {
-			p.JSON(results[0])
-		}
-		if failed {
-			for _, r := range results {
-				if !r.OK {
-					fmt.Fprintf(os.Stderr, "macromog export: %s: %s\n", r.Character, r.Error)
-				}
-			}
-		}
-	}
+	emitJSONResults(p, results, multi, failed, "export")
 
 	if failed {
 		return 1

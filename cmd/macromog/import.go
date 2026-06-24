@@ -56,6 +56,10 @@ type importEntry struct {
 	Error      string          `json:"error,omitempty"`
 }
 
+func (r importEntry) ok() bool          { return r.OK }
+func (r importEntry) character() string { return r.Character }
+func (r importEntry) errMsg() string    { return r.Error }
+
 type importSetInfo struct {
 	FileName string `json:"file"`
 	Book     int    `json:"book"`
@@ -210,20 +214,7 @@ func runImport(args []string, p *Printer) int {
 		results = append(results, entry)
 	}
 
-	if p.IsJSON() {
-		if multi {
-			p.JSON(results)
-		} else if len(results) == 1 {
-			p.JSON(results[0])
-		}
-		if failed {
-			for _, r := range results {
-				if !r.OK {
-					fmt.Fprintf(os.Stderr, "macromog import: %s: %s\n", r.Character, r.Error)
-				}
-			}
-		}
-	}
+	emitJSONResults(p, results, multi, failed, "import")
 
 	if failed {
 		return 1

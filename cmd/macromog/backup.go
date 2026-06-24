@@ -40,6 +40,10 @@ type backupEntry struct {
 	Error     string `json:"error,omitempty"`
 }
 
+func (r backupEntry) ok() bool          { return r.OK }
+func (r backupEntry) character() string { return r.Character }
+func (r backupEntry) errMsg() string    { return r.Error }
+
 func runBackup(args []string, p *Printer) int {
 	if len(args) > 0 && (args[0] == "--help" || args[0] == "-h") {
 		fmt.Fprint(os.Stdout, backupUsage)
@@ -126,20 +130,7 @@ func runBackup(args []string, p *Printer) int {
 		results = append(results, backupEntry{Character: charID, Path: backupDir, OK: true})
 	}
 
-	if p.IsJSON() {
-		if multi {
-			p.JSON(results)
-		} else if len(results) == 1 {
-			p.JSON(results[0])
-		}
-		if failed {
-			for _, r := range results {
-				if !r.OK {
-					fmt.Fprintf(os.Stderr, "macromog backup: %s: %s\n", r.Character, r.Error)
-				}
-			}
-		}
-	}
+	emitJSONResults(p, results, multi, failed, "backup")
 
 	if failed {
 		return 1

@@ -251,6 +251,64 @@ func TestRunAlias_FutureVersion_BlocksSet(t *testing.T) {
 	}
 }
 
+func TestRunAlias_Set_WhitespaceName(t *testing.T) {
+	ffxiDir := t.TempDir()
+	userDir := filepath.Join(ffxiDir, "USER")
+	charDir := filepath.Join(userDir, "abc123")
+	for _, d := range []string{userDir, charDir} {
+		if err := os.Mkdir(d, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(charDir, "mcr.dat"), []byte{}, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	args := []string{"--ffxi-path", ffxiDir, "abc123", "   "}
+	if got := runAlias(args, newTextPrinter()); got != 1 {
+		t.Errorf("runAlias(whitespace name) = %d, want 1", got)
+	}
+}
+
+func TestRunAlias_Remove_ExtraArgs(t *testing.T) {
+	ffxiDir := t.TempDir()
+	userDir := filepath.Join(ffxiDir, "USER")
+	if err := os.Mkdir(userDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	args := []string{"--ffxi-path", ffxiDir, "--remove", "abc123", "extra"}
+	if got := runAlias(args, newTextPrinter()); got != 1 {
+		t.Errorf("runAlias(--remove with extra arg) = %d, want 1", got)
+	}
+}
+
+func TestRunAlias_JSON_Remove(t *testing.T) {
+	ffxiDir := t.TempDir()
+	userDir := filepath.Join(ffxiDir, "USER")
+	if err := os.Mkdir(userDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	doc := aliases.Document{Version: 1, Chars: map[string]aliases.Entry{"abc123": {Name: "Squatched"}}}
+	if err := aliases.Save(userDir, doc); err != nil {
+		t.Fatal(err)
+	}
+
+	var buf bytes.Buffer
+	p := NewPrinter(&buf, FormatJSON)
+	args := []string{"--ffxi-path", ffxiDir, "--remove", "abc123"}
+	if got := runAlias(args, p); got != 0 {
+		t.Fatalf("runAlias(JSON remove) = %d, want 0", got)
+	}
+	if !strings.Contains(buf.String(), `"removed"`) {
+		t.Errorf("JSON output missing removed field:\n%s", buf.String())
+	}
+	if !strings.Contains(buf.String(), "abc123") {
+		t.Errorf("JSON output missing char_id:\n%s", buf.String())
+	}
+}
+
 func TestRunAlias_FutureVersion_BlocksRemove(t *testing.T) {
 	ffxiDir := t.TempDir()
 	userDir := filepath.Join(ffxiDir, "USER")

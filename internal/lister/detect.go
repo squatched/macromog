@@ -40,10 +40,15 @@ func userDirCandidates() []string {
 }
 
 func windowsCandidates() []string {
-	const rel = `PlayOnline\SquareEnix\FINAL FANTASY XI\USER`
+	const playOnlineRel = `PlayOnline\SquareEnix\FINAL FANTASY XI\USER`
+	const steamGameRel = `steamapps\common\FINAL FANTASY XI Online\USER`
 	return []string{
-		filepath.Join(`C:\Program Files (x86)`, rel),
-		filepath.Join(`C:\Program Files`, rel),
+		// Standard PlayOnline install locations (native and Steam via PlayOnline).
+		filepath.Join(`C:\Program Files (x86)`, playOnlineRel),
+		filepath.Join(`C:\Program Files`, playOnlineRel),
+		// Steam native install locations (default Steam folder on 64-bit and 32-bit Windows).
+		filepath.Join(`C:\Program Files (x86)\Steam`, steamGameRel),
+		filepath.Join(`C:\Program Files\Steam`, steamGameRel),
 	}
 }
 
