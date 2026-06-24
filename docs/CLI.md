@@ -32,7 +32,7 @@ macromog export
 macromog import squatched_macros_20260620_033000.yml
 ```
 
-macromog auto-detects your FFXI install on Windows and Linux. Register installs and character aliases once with [`config`](#configuration) so you rarely need `--ffxi-path` or hex folder IDs. If detection fails, supply `--ffxi-path` pointing at your FFXI root (the folder that contains `USER`).
+macromog auto-detects your FFXI install on Windows and Linux. Register installs and give your characters real names with [`config`](#configuration) — much nicer than memorizing those cryptic letter-and-number folder IDs in USER. If detection fails, supply `--ffxi-path` pointing at your FFXI root (the folder that contains `USER`).
 
 ---
 
@@ -60,13 +60,13 @@ These flags work with all commands:
 | `--ffxi-path <path>` | Path to your FFXI install root (raw path only). See [Install resolution](#install-resolution). |
 | `--install <name>` | Named FFXI install from config (e.g. `steam`, `lutris`). See [Install resolution](#install-resolution). |
 | `--char-dir <path>` | Path to a character's folder inside USER (e.g. `/path/to/USER/a1b2c3d4`). Bypasses character selection entirely. |
-| `--char-name <name>` | Character alias from config. Bypasses selection. |
+| `--char-name <name>` | Friendly character name from config — the sort you'd actually remember. Bypasses selection. |
 
 ---
 
 ## Configuration
 
-macromog stores CLI preferences in a YAML config file. The file is created automatically on first use and updated as you register installs and aliases.
+macromog keeps your CLI preferences in a YAML config file, kupo — installs, character names, and a few habits so you don't have to re-type them every command. The file is created automatically on first use and updated as you go.
 
 ### Config file location
 
@@ -92,7 +92,7 @@ default_install: steam      # optional; omitted when unset
 installs:
   steam:
     path: /home/adventurer/.steam/steamapps/compatdata/230330/pfx/drive_c/Program Files (x86)/PlayOnline/SquareEnix/FINAL FANTASY XI
-    default_character: a1b2c3d4    # optional; hex folder ID
+    default_character: a1b2c3d4    # optional; folder ID as FFXI stores it
     characters:                     # optional; omitted when empty
       a1b2c3d4:
         name: Squatched
@@ -109,7 +109,7 @@ installs:
 
 **Named installs** — register each FFXI root (Steam Proton prefix, Lutris bottle, native Windows install, etc.) under a short name. Use `--install <name>` to select one without typing the full path.
 
-**Character aliases** — scoped per install. The same alias name on different installs can refer to different hex folder IDs.
+**Character aliases** — FFXI stashes each character in USER under an opaque folder ID (those baffling strings like `a1b2c3d4`). Aliases map a real name you'll recognize to that ID. Scoped per install: the same friendly name on Steam and Lutris can point at different folders.
 
 **Defaults** — the first install you register becomes `default_install`; the first alias on an install becomes `default_character` for that install. Later additions do not change an existing default unless you pass `--set-default` or run an explicit set-default command. When a default is removed, the key is omitted from the file rather than left empty.
 
@@ -136,7 +136,7 @@ Within the active install, macromog picks the character in this order:
 1. **`--char-dir <path>`** — use this folder directly.
 2. **`--char-name <name>`** — resolve alias from config for the active install.
 3. **`--all`** — every character in the USER folder.
-4. **`default_character`** — hex ID stored for the active install, if present.
+4. **`default_character`** — folder ID stored for the active install, if present (macromog shows the alias in messages when you have one).
 5. **Single configured alias** — if exactly one character is listed in config for this install, use it.
 6. **USER scan** — discover characters from the filesystem:
    - One character found: use it (prints a notice).
@@ -243,15 +243,17 @@ macromog config <subcommand> [args]
 | `remove-install <name>` | Remove an install and its aliases |
 | `set-default-install <name>` | Set `default_install` |
 | `remove-default-install` | Remove `default_install` |
-| `set-alias <char-id> <name> [--install <name>] [--set-default]` | Add or update a character alias |
+| `set-alias <char-id> <name> [--install <name>] [--set-default]` | Give a character a friendly name |
 | `remove-alias <char-id> [--install <name>]` | Remove an alias |
-| `set-default-character <char-id> [--install <name>]` | Set `default_character` (hex ID) |
+| `set-default-character <char-id> [--install <name>]` | Set `default_character` by folder ID |
 | `remove-default-character [--install <name>]` | Remove `default_character` for an install |
 | `default-offering <true\|false>` | Enable or disable default-setting tips |
 
 `--install` on config subcommands selects which install to affect; omitted flags use `default_install`.
 
 **Examples:**
+
+You'll need a character's folder ID once to create an alias — run `macromog list` if you don't have it handy. After that, `--char-name` is all you need day to day.
 
 ```sh
 # Show where config lives
@@ -260,7 +262,7 @@ macromog config path
 # Register a Steam Proton prefix
 macromog config add-install steam "/home/adventurer/.steam/steamapps/compatdata/230330/pfx/drive_c/Program Files (x86)/PlayOnline/SquareEnix/FINAL FANTASY XI"
 
-# Alias a character on the default install
+# Turn a1b2c3d4 into a name you'll recognize
 macromog config set-alias a1b2c3d4 Squatched
 
 # Alias on a specific install
