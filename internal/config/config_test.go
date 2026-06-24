@@ -257,7 +257,8 @@ func TestValidate(t *testing.T) {
 					},
 				},
 			},
-			wantErr: `duplicate alias "SQUATCHED"`,
+			// Map iteration order is undefined; either casing may appear in the message.
+			wantErr: `duplicate alias "`,
 		},
 		{
 			name: "valid full config",
