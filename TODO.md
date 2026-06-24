@@ -12,6 +12,8 @@ Ultimately, we should have 5 things available in this release:
 - When exporting densely, we need to _NOT_ include double quotes by default around everything I think. Will that create malformed YAML? The reasoning is that in general, we don't want that because it creates the expectation that it should be there and users will mess themselves up by using single quotes inside of the double quotes we provide when double quotes are what's needed around spell names in macros.
 - Add a `--dense` flag to export. Whatever scope is exported, all macros should exist in the output yaml whether they're empty or not.
 - Support flags of the form `<flag>=<value>` so `--output=json`.
+- Enable `-` as an output file (stdout naturally)
+- BUG: `bin/macromog template out.yml --scope B1S3A1-5` outputs a yaml that includes FAR more. Also positionals and flags may never be interleaved. SOLUTION: Migrate to pflags or cobra. I'm leaning towards cobra which is a pretty big refactor but will give us tons of flexibility.
 - Implement configuration system (specified in `docs/CLI.md` — Configuration): named installs, per-install character aliases, defaults, `default-offering` preference, config file in appdata / `~/.config`. Remove `macromog alias` and `USER/characters.yml`.
 - Currently, the bins are not available as releases. We should change that and make the bins available!
 
