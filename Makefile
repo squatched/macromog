@@ -122,7 +122,7 @@ build-cli-all: ## Cross-compile the CLI for all release platforms (compilation c
 	    os=$$(printf '%s' "$$target" | cut -d/ -f1); \
 	    arch=$$(printf '%s' "$$target" | cut -d/ -f2); \
 	    printf "  %-24s" "$$os/$$arch"; \
-	    GOOS=$$os GOARCH=$$arch $(GO) build ./cmd/... && printf "OK\n" || exit 1; \
+	    GOOS=$$os GOARCH=$$arch $(GO) build -o /dev/null ./cmd/... && printf "OK\n" || exit 1; \
 	done
 	@printf "All platforms: OK\n"
 
