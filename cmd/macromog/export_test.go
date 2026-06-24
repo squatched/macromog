@@ -287,3 +287,25 @@ func TestRunExport_AllWithNameError(t *testing.T) {
 		t.Errorf("runExport(--all --name) = %d, want 1", got)
 	}
 }
+
+func TestRunExport_DenseFlag(t *testing.T) {
+	dir := t.TempDir()
+	out := filepath.Join(dir, "dense.yml")
+	args := []string{"--char-dir", testdata.CharDir(), "--dense", "--scope", "B1S1", "-o", out}
+	if got := runExport(args, newTextPrinter()); got != 0 {
+		t.Fatalf("runExport(--dense) = %d, want 0", got)
+	}
+	data, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := string(data)
+	// All 10 ctrl and 10 alt slots of B1S1 should appear.
+	if !strings.Contains(s, "ctrl:") || !strings.Contains(s, "alt:") {
+		t.Errorf("dense export missing ctrl or alt section:\n%s", s)
+	}
+	// Empty slots must use comment placeholders, not double-quoted empty strings.
+	if !strings.Contains(s, "# Macro Line 1") {
+		t.Errorf("dense export should use comment placeholders for empty slots:\n%s", s)
+	}
+}

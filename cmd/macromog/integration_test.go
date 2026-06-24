@@ -70,6 +70,17 @@ func TestIntegration_TemplateIsValidYAML(t *testing.T) {
 	if got := runValidate([]string{tmplPath}, newTextPrinter()); got != 0 {
 		t.Fatalf("validate(template): exit %d — template output is not valid YAML", got)
 	}
+	data, err := os.ReadFile(tmplPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := string(data)
+	if !strings.Contains(s, "# Macro Line 1") {
+		t.Errorf("template output must use comment placeholders, not raw empty strings:\n%s", s)
+	}
+	if strings.Contains(s, `- ""`) {
+		t.Errorf("template output must not contain raw empty-string items:\n%s", s)
+	}
 }
 
 // TestIntegration_AllMultiCharRoundTrip exports and imports for multiple

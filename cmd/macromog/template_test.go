@@ -136,6 +136,29 @@ func TestRunTemplate_SetScope(t *testing.T) {
 	}
 }
 
+func TestRunTemplate_ScopeAfterOutputPath(t *testing.T) {
+	// Flags placed after the positional output path must be parsed correctly.
+	// Go's flag package stops at the first non-flag arg, so a second parse
+	// pass is required to catch trailing flags.
+	dir := t.TempDir()
+	out := filepath.Join(dir, "out.yml")
+	args := []string{out, "--scope", "B1S3A1-5"}
+	if got := runTemplate(args, newTextPrinter()); got != 0 {
+		t.Fatalf("runTemplate(scope after path) = %d, want 0", got)
+	}
+	data, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := string(data)
+	if !strings.Contains(s, "level: macro") {
+		t.Errorf("scope after positional: expected macro scope, got:\n%s", s)
+	}
+	if strings.Contains(s, "level: full") {
+		t.Errorf("scope after positional: scope was ignored (level: full):\n%s", s)
+	}
+}
+
 func TestRunTemplate_WriteFails(t *testing.T) {
 	// Point output at a non-existent directory.
 	out := "/nonexistent/dir/out.yml"

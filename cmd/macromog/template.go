@@ -46,6 +46,9 @@ func runTemplate(args []string, p *Printer) int {
 		return 1
 	}
 
+	// Go's flag package stops at the first non-flag argument, so flags that
+	// follow the output path are not parsed. Re-parse the tail so users can
+	// place flags and the output file in any order.
 	remaining := fs.Args()
 	if len(remaining) == 0 {
 		fmt.Fprint(os.Stderr, templateUsage)
@@ -53,6 +56,11 @@ func runTemplate(args []string, p *Printer) int {
 		return 1
 	}
 	outPath := remaining[0]
+	if len(remaining) > 1 {
+		if err := fs.Parse(remaining[1:]); err != nil {
+			return 1
+		}
+	}
 
 	sc, err := scope.ParseSelectors([]string(scopeSel))
 	if err != nil {
@@ -61,7 +69,7 @@ func runTemplate(args []string, p *Printer) int {
 	}
 
 	doc := tmpl.Generate(sc, *charName)
-	data, err := export.MarshalYAML(doc)
+	data, err := export.MarshalYAMLWithPlaceholders(doc)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "macromog template: %v\n", err)
 		return 1
