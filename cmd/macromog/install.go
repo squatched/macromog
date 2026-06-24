@@ -1,0 +1,182 @@
+package main
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+
+	"github.com/squatched/macromog/internal/config"
+	"github.com/squatched/macromog/internal/lister"
+)
+
+// installContext is the resolved FFXI install for the current command.
+type installContext struct {
+	ffxiPath    string
+	installName string
+	install     *config.Install
+}
+
+type installOpts struct {
+	ffxiPath    string
+	installName string
+}
+
+func resolveInstall(session *configSession, opts installOpts) (installContext, error) {
+	if opts.ffxiPath != "" && opts.installName != "" {
+		return installContext{}, fmt.Errorf("--ffxi-path and --install are mutually exclusive")
+	}
+
+	if opts.ffxiPath != "" {
+		return resolveExplicitPath(session, opts.ffxiPath)
+	}
+	if opts.installName != "" {
+		return resolveNamedInstall(session, opts.installName)
+	}
+	if session.cfg.DefaultInstall != "" {
+		return installFromName(session, session.cfg.DefaultInstall)
+	}
+	if names := config.InstallNames(&session.cfg); len(names) == 1 {
+		return installFromName(session, names[0])
+	}
+
+	detected, err := lister.DetectUserDir()
+	if err == nil {
+		ffxiPath := filepath.Dir(detected)
+		ctx, err := resolveExplicitPath(session, ffxiPath)
+		if err != nil {
+			return installContext{}, err
+		}
+		if ctx.install != nil {
+			return ctx, nil
+		}
+		return maybeRegisterInstall(session, ffxiPath)
+	}
+
+	names := config.InstallNames(&session.cfg)
+	if len(names) > 1 {
+		return promptInstallSelect(session, names)
+	}
+
+	return installContext{}, fmt.Errorf("FFXI install not found; run 'macromog config add-install' or use --ffxi-path")
+}
+
+func resolveExplicitPath(session *configSession, rawPath string) (installContext, error) {
+	norm, err := config.NormalizePath(rawPath)
+	if err != nil {
+		return installContext{}, err
+	}
+	userDir := lister.UserDirFromFFXIPath(norm)
+	if st, err := os.Stat(userDir); err != nil || !st.IsDir() {
+		return installContext{}, fmt.Errorf("USER directory not found under %s", norm)
+	}
+	name, inst, err := config.FindInstallByPath(&session.cfg, norm)
+	if err != nil {
+		return installContext{}, err
+	}
+	if inst != nil {
+		return installContext{ffxiPath: norm, installName: name, install: inst}, nil
+	}
+	return maybeRegisterInstall(session, norm)
+}
+
+func resolveNamedInstall(session *configSession, name string) (installContext, error) {
+	inst, ok := session.cfg.Installs[name]
+	if !ok {
+		return installContext{}, fmt.Errorf("install %q not found in config", name)
+	}
+	return installContext{ffxiPath: inst.Path, installName: name, install: &inst}, nil
+}
+
+func installFromName(session *configSession, name string) (installContext, error) {
+	inst, ok := session.cfg.Installs[name]
+	if !ok {
+		return installContext{}, fmt.Errorf("default install %q not found in config", name)
+	}
+	return installContext{ffxiPath: inst.Path, installName: name, install: &inst}, nil
+}
+
+func maybeRegisterInstall(session *configSession, ffxiPath string) (installContext, error) {
+	if !stdinIsTerminal() {
+		return installContext{ffxiPath: ffxiPath}, nil
+	}
+	ew := newErrWriter()
+	fmt.Fprint(ew, "Path not in config. Register as install? [Y/n] ")
+	answerLine, ok := readStdinLine()
+	if !ok {
+		return installContext{ffxiPath: ffxiPath}, nil
+	}
+	answer := strings.ToLower(strings.TrimSpace(answerLine))
+	if answer == "n" || answer == "no" {
+		return installContext{ffxiPath: ffxiPath}, nil
+	}
+
+	suggested := config.SuggestInstallName(&session.cfg, ffxiPath)
+	fmt.Fprintf(ew, "Name [%s]: ", suggested)
+	name := suggested
+	if nameLine, ok := readStdinLine(); ok {
+		if typed := strings.TrimSpace(nameLine); typed != "" {
+			name = typed
+		}
+	}
+	if err := addInstallToConfig(session, name, ffxiPath); err != nil {
+		return installContext{}, err
+	}
+	inst := session.cfg.Installs[name]
+	return installContext{ffxiPath: ffxiPath, installName: name, install: &inst}, nil
+}
+
+func addInstallToConfig(session *configSession, name, rawPath string) error {
+	norm, err := config.NormalizePath(rawPath)
+	if err != nil {
+		return err
+	}
+	if session.cfg.Installs == nil {
+		session.cfg.Installs = make(map[string]config.Install)
+	}
+	if _, exists := session.cfg.Installs[name]; exists {
+		return fmt.Errorf("install %q already exists", name)
+	}
+	wasFirst := len(session.cfg.Installs) == 0
+	session.cfg.Installs[name] = config.Install{Path: norm}
+	if wasFirst {
+		session.cfg.DefaultInstall = name
+	}
+	if err := session.save(); err != nil {
+		return err
+	}
+	ew := newErrWriter()
+	if wasFirst {
+		fmt.Fprintf(ew, "Added install %q as default.\n", name)
+	} else {
+		fmt.Fprintf(ew, "Added install %q. Default install is still %q. Use 'macromog config set-default-install %s' to change.\n",
+			name, session.cfg.DefaultInstall, name)
+	}
+	return nil
+}
+
+func promptInstallSelect(session *configSession, names []string) (installContext, error) {
+	if !stdinIsTerminal() {
+		return installContext{}, fmt.Errorf("multiple installs configured; use --install to specify one")
+	}
+	ew := newErrWriter()
+	fmt.Fprintln(ew, ew.Bold("Multiple installs configured. Which install for this command?"))
+	for i, name := range names {
+		fmt.Fprintf(ew, "  %s %s\n", ew.Muted(fmt.Sprintf("[%d]", i+1)), ew.Bold(name))
+	}
+	fmt.Fprint(ew, "Enter number: ")
+
+	line, ok := readStdinLine()
+	if !ok {
+		return installContext{}, fmt.Errorf("invalid selection; use --install to specify one")
+	}
+	indices, err := parseSelection(line, len(names))
+	if err != nil || len(indices) != 1 {
+		return installContext{}, fmt.Errorf("invalid selection; use --install to specify one")
+	}
+	selected := names[indices[0]]
+	if config.DefaultOffering(&session.cfg) && session.cfg.DefaultInstall == "" {
+		fmt.Fprintf(ew, "\nTip: macromog config set-default-install %s skips this prompt.\n", selected)
+	}
+	return installFromName(session, selected)
+}

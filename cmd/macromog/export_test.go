@@ -144,11 +144,7 @@ func TestRunExport_AliasAutoPopulatesName(t *testing.T) {
 	}
 	_ = os.WriteFile(filepath.Join(charDir, "mcr.dat"), dat.EncodeMacroSet(dat.MacroSet{}), 0o644)
 
-	// Write alias.
-	aliasContent := "version: 1\nchars:\n  " + charID + ":\n    name: Squatched\n"
-	if err := os.WriteFile(filepath.Join(userDir, "characters.yml"), []byte(aliasContent), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	setTestConfig(t, ffxiDir, map[string]string{charID: "Squatched"})
 
 	out := filepath.Join(t.TempDir(), "out.yml")
 	args := []string{"--char-dir", charDir, "-o", out}
@@ -185,10 +181,7 @@ func TestRunExport_CharName(t *testing.T) {
 	}
 	_ = os.WriteFile(filepath.Join(charDir, "mcr.dat"), dat.EncodeMacroSet(dat.MacroSet{}), 0o644)
 
-	aliasContent := "version: 1\nchars:\n  " + charID + ":\n    name: Squatched\n"
-	if err := os.WriteFile(filepath.Join(userDir, "characters.yml"), []byte(aliasContent), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	setTestConfig(t, ffxiDir, map[string]string{charID: "Squatched"})
 
 	out := filepath.Join(t.TempDir(), "out.yml")
 	args := []string{"--ffxi-path", ffxiDir, "--char-name", "Squatched", "-o", out}

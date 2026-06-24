@@ -19,8 +19,9 @@ Arguments:
 
 Flags:
   --ffxi-path <path>    FFXI install root (auto-detected if omitted)
+  --install <name>      named FFXI install from config
   --char-dir <path>     character USER directory; bypasses selection
-  --char-name <name>    character alias; bypasses selection
+  --char-name <name>    friendly character name from config; bypasses selection
   --all                 back up all discovered characters without prompting
   --out <path>          directory to write the backup into (default: current directory)
   --in-place            write the backup into <char-dir>/backups/
@@ -53,8 +54,9 @@ func runBackup(args []string, p *Printer) int {
 	fs := flag.NewFlagSet("backup", flag.ContinueOnError)
 	fs.SetOutput(os.Stderr)
 	ffxiPath := fs.String("ffxi-path", "", "FFXI install root")
+	installName := fs.String("install", "", "named FFXI install from config")
 	charDir := fs.String("char-dir", "", "character USER directory")
-	charName := fs.String("char-name", "", "character alias")
+	charName := fs.String("char-name", "", "friendly character name from config")
 	all := fs.Bool("all", false, "back up all discovered characters")
 	outDir := fs.String("out", "", "directory to write the backup into")
 	inPlace := fs.Bool("in-place", false, "write backup into <char-dir>/backups/")
@@ -72,7 +74,10 @@ func runBackup(args []string, p *Printer) int {
 		return 1
 	}
 
-	charDirs, err := resolveCharDirs(*charDir, *charName, *ffxiPath, *all)
+	charDirs, err := resolveCharDirs(charSelectOpts{
+		charDir: *charDir, charName: *charName, ffxiPath: *ffxiPath,
+		installName: *installName, all: *all,
+	})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "macromog backup: %v\n", err)
 		return 1

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -9,35 +8,32 @@ import (
 	"strconv"
 	"strings"
 
-	"golang.org/x/term"
-
-	"github.com/squatched/macromog/internal/aliases"
+	"github.com/squatched/macromog/internal/config"
 	"github.com/squatched/macromog/internal/lister"
 )
 
+type charSelectOpts struct {
+	charDir     string
+	charName    string
+	ffxiPath    string
+	installName string
+	all         bool
+}
+
 // resolveCharDirs returns character USER directory paths to operate on.
-//
-// charDir and charName are mutually exclusive; passing both is an error.
-// charDir, if non-empty, is validated as an existing directory and returned
-// directly, bypassing discovery and prompting.
-// charName, if non-empty, is resolved via USER/characters.yml to a hex ID.
-// all returns every discovered character without prompting; it is incompatible
-// with both charDir and charName.
-// Otherwise the USER directory is scanned; if more than one character is found
-// and stdin is a terminal, the user is prompted to pick one or more.
-func resolveCharDirs(charDir, charName, ffxiPath string, all bool) ([]string, error) {
-	if charDir != "" && charName != "" {
+func resolveCharDirs(opts charSelectOpts) ([]string, error) {
+	if opts.charDir != "" && opts.charName != "" {
 		return nil, fmt.Errorf("--char-dir and --char-name are mutually exclusive")
 	}
-	if charDir != "" && all {
+	if opts.charDir != "" && opts.all {
 		return nil, fmt.Errorf("--char-dir and --all are mutually exclusive")
 	}
-	if charName != "" && all {
+	if opts.charName != "" && opts.all {
 		return nil, fmt.Errorf("--char-name and --all are mutually exclusive")
 	}
 
-	if charDir != "" {
-		abs, err := filepath.Abs(charDir)
+	if opts.charDir != "" {
+		abs, err := filepath.Abs(opts.charDir)
 		if err != nil {
 			return nil, err
 		}
@@ -47,25 +43,30 @@ func resolveCharDirs(charDir, charName, ffxiPath string, all bool) ([]string, er
 		return []string{abs}, nil
 	}
 
-	userDir, err := resolveUserDir(ffxiPath)
+	session, err := openConfig()
 	if err != nil {
 		return nil, err
 	}
+	instCtx, err := resolveInstall(session, installOpts{
+		ffxiPath:    opts.ffxiPath,
+		installName: opts.installName,
+	})
+	if err != nil {
+		return nil, err
+	}
+	userDir := lister.UserDirFromFFXIPath(instCtx.ffxiPath)
 
-	if charName != "" {
-		doc, err := aliases.Load(userDir)
-		if aliases.IsFutureVersion(err) {
-			fmt.Fprintf(os.Stderr, "warning: %v\n", err)
-		} else if err != nil {
-			return nil, fmt.Errorf("loading aliases: %w", err)
+	if opts.charName != "" {
+		if instCtx.install == nil {
+			return nil, fmt.Errorf("no character found with name %q", opts.charName)
 		}
-		hexID, err := aliases.Resolve(doc, charName)
+		hexID, err := config.ResolveAlias(instCtx.install, opts.charName)
 		if err != nil {
 			return nil, err
 		}
 		charDirPath := filepath.Join(userDir, hexID)
 		if st, err := os.Stat(charDirPath); err != nil || !st.IsDir() {
-			return nil, fmt.Errorf("character directory not found for %q: %s", charName, charDirPath)
+			return nil, fmt.Errorf("character directory not found for %q: %s", opts.charName, charDirPath)
 		}
 		return []string{charDirPath}, nil
 	}
@@ -74,53 +75,96 @@ func resolveCharDirs(charDir, charName, ffxiPath string, all bool) ([]string, er
 	if err != nil {
 		return nil, fmt.Errorf("scanning %s: %w", userDir, err)
 	}
-	if len(chars) == 0 {
-		return nil, fmt.Errorf("no character directories found in %s; use --char-dir to specify one", userDir)
-	}
-	if all {
+	if opts.all {
+		if len(chars) == 0 {
+			return nil, fmt.Errorf("no character directories found in %s; use --char-dir to specify one", userDir)
+		}
 		dirs := make([]string, len(chars))
 		for i, c := range chars {
 			dirs[i] = c.Dir
 		}
 		return dirs, nil
 	}
+
+	if instCtx.install != nil && instCtx.install.DefaultCharacter != "" {
+		id := instCtx.install.DefaultCharacter
+		charDirPath := filepath.Join(userDir, id)
+		if st, err := os.Stat(charDirPath); err == nil && st.IsDir() {
+			display := config.LookupName(instCtx.install, id)
+			ew := newErrWriter()
+			if display != id {
+				fmt.Fprintf(ew, "using character: %s %s\n", ew.Bold(display), ew.Muted("("+id+")"))
+			} else {
+				fmt.Fprintf(ew, "using character: %s\n", ew.Highlight(id))
+			}
+			return []string{charDirPath}, nil
+		}
+	}
+
+	if instCtx.install != nil && len(instCtx.install.Characters) == 1 {
+		for id := range instCtx.install.Characters {
+			charDirPath := filepath.Join(userDir, id)
+			if st, err := os.Stat(charDirPath); err == nil && st.IsDir() {
+				display := config.LookupName(instCtx.install, id)
+				ew := newErrWriter()
+				if display != id {
+					fmt.Fprintf(ew, "using character: %s %s\n", ew.Bold(display), ew.Muted("("+id+")"))
+				} else {
+					fmt.Fprintf(ew, "using character: %s\n", ew.Highlight(id))
+				}
+				return []string{charDirPath}, nil
+			}
+		}
+	}
+
+	if len(chars) == 0 {
+		if instCtx.install != nil && len(instCtx.install.Characters) > 1 {
+			return promptConfiguredCharSelect(instCtx.install, userDir, session)
+		}
+		return nil, fmt.Errorf("no character directories found in %s; use --char-dir to specify one", userDir)
+	}
 	if len(chars) == 1 {
 		ew := newErrWriter()
-		fmt.Fprintf(ew, "using character: %s\n", ew.Highlight(chars[0].ID))
+		display := config.LookupName(instCtx.install, chars[0].ID)
+		if display != chars[0].ID {
+			fmt.Fprintf(ew, "using character: %s %s\n", ew.Bold(display), ew.Muted("("+chars[0].ID+")"))
+		} else {
+			fmt.Fprintf(ew, "using character: %s\n", ew.Highlight(chars[0].ID))
+		}
 		return []string{chars[0].Dir}, nil
 	}
-	return promptCharSelect(chars, userDir)
+	return promptCharSelect(chars, instCtx.install, instCtx.installName, session)
 }
 
-// resolveCharDir is a single-character convenience wrapper around
-// resolveCharDirs for commands that always operate on exactly one character.
-func resolveCharDir(charDir, charName, ffxiPath string) (string, error) {
-	dirs, err := resolveCharDirs(charDir, charName, ffxiPath, false)
+// resolveCharDir is a single-character convenience wrapper around resolveCharDirs.
+func resolveCharDir(opts charSelectOpts) (string, error) {
+	opts.all = false
+	dirs, err := resolveCharDirs(opts)
 	if err != nil {
 		return "", err
 	}
 	return dirs[0], nil
 }
 
-func resolveUserDir(ffxiPath string) (string, error) {
-	if ffxiPath != "" {
-		userDir := lister.UserDirFromFFXIPath(ffxiPath)
-		if st, err := os.Stat(userDir); err != nil || !st.IsDir() {
-			return "", fmt.Errorf("USER directory not found under %s", ffxiPath)
-		}
-		return userDir, nil
+// resolveUserDirForList returns the USER directory using install resolution.
+func resolveUserDirForList(ffxiPath, installName string) (string, *config.Install, error) {
+	session, err := openConfig()
+	if err != nil {
+		return "", nil, err
 	}
-	return lister.DetectUserDir()
+	instCtx, err := resolveInstall(session, installOpts{ffxiPath: ffxiPath, installName: installName})
+	if err != nil {
+		return "", nil, err
+	}
+	return lister.UserDirFromFFXIPath(instCtx.ffxiPath), instCtx.install, nil
 }
 
-func promptCharSelect(chars []lister.CharacterInfo, userDir string) ([]string, error) {
-	aliasDoc, _ := aliases.Load(userDir)
-
+func promptCharSelect(chars []lister.CharacterInfo, inst *config.Install, installName string, session *configSession) ([]string, error) {
 	if !stdinIsTerminal() {
 		var sb strings.Builder
 		fmt.Fprint(&sb, "multiple characters found; use --char-dir or --all to specify:")
 		for _, c := range chars {
-			name := aliases.LookupName(aliasDoc, c.ID)
+			name := config.LookupName(inst, c.ID)
 			if name != c.ID {
 				fmt.Fprintf(&sb, "\n  %s (%s)", name, c.ID)
 			} else {
@@ -131,13 +175,13 @@ func promptCharSelect(chars []lister.CharacterInfo, userDir string) ([]string, e
 	}
 
 	ew := newErrWriter()
-	fmt.Fprintln(ew, ew.Bold("Multiple characters found. Select characters:"))
+	fmt.Fprintln(ew, ew.Bold("Which character for this command?"))
 	for i, c := range chars {
 		suffix := "books"
 		if c.BookCount == 1 {
 			suffix = "book"
 		}
-		name := aliases.LookupName(aliasDoc, c.ID)
+		name := config.LookupName(inst, c.ID)
 		index := ew.Muted(fmt.Sprintf("[%d]", i+1))
 		bookCount := ew.Muted(fmt.Sprintf("(%d %s)", c.BookCount, suffix))
 		if name != c.ID {
@@ -148,10 +192,16 @@ func promptCharSelect(chars []lister.CharacterInfo, userDir string) ([]string, e
 	}
 	fmt.Fprintf(ew, "Enter numbers (e.g. 1, 1,3, 1-%d, all): ", len(chars))
 
-	scanner := bufio.NewScanner(os.Stdin)
-	if scanner.Scan() {
-		indices, err := parseSelection(scanner.Text(), len(chars))
+	if line, ok := readStdinLine(); ok {
+		indices, err := parseSelection(line, len(chars))
 		if err == nil && len(indices) > 0 {
+			if config.DefaultOffering(&session.cfg) && inst != nil && inst.DefaultCharacter == "" && len(inst.Characters) > 0 {
+				tip := fmt.Sprintf("\nTip: macromog config set-default-character %s", chars[indices[0]].ID)
+				if installName != "" {
+					tip += fmt.Sprintf(" --install %s", installName)
+				}
+				fmt.Fprintln(ew, tip+" skips this prompt.")
+			}
 			dirs := make([]string, len(indices))
 			for i, idx := range indices {
 				dirs[i] = chars[idx].Dir
@@ -162,9 +212,46 @@ func promptCharSelect(chars []lister.CharacterInfo, userDir string) ([]string, e
 	return nil, fmt.Errorf("invalid selection; use --char-dir or --all to specify")
 }
 
+func promptConfiguredCharSelect(inst *config.Install, userDir string, session *configSession) ([]string, error) {
+	type entry struct {
+		id   string
+		name string
+		dir  string
+	}
+	var entries []entry
+	for id, ch := range inst.Characters {
+		dir := filepath.Join(userDir, id)
+		if st, err := os.Stat(dir); err != nil || !st.IsDir() {
+			continue
+		}
+		entries = append(entries, entry{id: id, name: ch.Name, dir: dir})
+	}
+	if len(entries) == 0 {
+		return nil, fmt.Errorf("no character directories found in %s; use --char-dir to specify one", userDir)
+	}
+	sort.Slice(entries, func(i, j int) bool { return entries[i].name < entries[j].name })
+
+	if !stdinIsTerminal() {
+		return nil, fmt.Errorf("multiple characters configured; use --char-dir, --char-name, or --all to specify")
+	}
+
+	ew := newErrWriter()
+	fmt.Fprintln(ew, ew.Bold("Which character for this command?"))
+	for i, e := range entries {
+		fmt.Fprintf(ew, "  %s %s %s\n", ew.Muted(fmt.Sprintf("[%d]", i+1)), ew.Bold(e.name), ew.Muted("("+e.id+")"))
+	}
+	fmt.Fprint(ew, "Enter number: ")
+
+	if line, ok := readStdinLine(); ok {
+		indices, err := parseSelection(line, len(entries))
+		if err == nil && len(indices) == 1 {
+			return []string{entries[indices[0]].dir}, nil
+		}
+	}
+	return nil, fmt.Errorf("invalid selection; use --char-dir or --char-name to specify")
+}
+
 // parseSelection parses a user selection string into 0-based indices.
-// Supports: single numbers ("2"), comma-separated ("1,3"), ranges ("1-3"),
-// and "all" to select everything up to max. Duplicates are silently dropped.
 func parseSelection(input string, max int) ([]int, error) {
 	input = strings.TrimSpace(input)
 	if input == "all" {
@@ -211,6 +298,12 @@ func parseSelection(input string, max int) ([]int, error) {
 	return result, nil
 }
 
-func stdinIsTerminal() bool {
-	return term.IsTerminal(int(os.Stdin.Fd()))
+func lookupCharName(userDir, charID string) string {
+	session, err := openConfig()
+	if err != nil {
+		return charID
+	}
+	ffxiPath := filepath.Dir(userDir)
+	_, inst, _ := config.FindInstallByPath(&session.cfg, ffxiPath)
+	return config.LookupName(inst, charID)
 }
