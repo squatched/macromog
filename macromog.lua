@@ -6,9 +6,8 @@ _addon.author = 'Caleb McCombs'
 _addon.version = '0.1.0'
 _addon.commands = { 'macromog', 'mmog' }
 
-local macros = require('lib/macros')
-local yaml = require('lib/yaml')
-local validate = require('lib/validate')
+local cli = require('lib/cli')
+local setup = require('lib/setup')
 
 local CHAT_COLOR = 207 -- moogle purple
 
@@ -20,43 +19,44 @@ local function usage()
     log('Commands: export | import <file> | validate <file> | backup | help')
 end
 
+local function require_ready()
+    local msg = setup.ready_message()
+    if msg then
+        log(msg)
+        return false
+    end
+    return true
+end
+
+local function char_name()
+    local player = windower.ffxi.get_player()
+    return player and player.name
+end
+
 local handlers = {}
 
 function handlers.export(filename)
-    local char = windower.ffxi.get_player().name
+    if not require_ready() then
+        return
+    end
+    local name = char_name()
     if not filename then
         local timestamp = os.date('%Y%m%d_%H%M%S')
-        filename = char .. '_macros_' .. timestamp .. '.yml'
+        filename = name .. '_macros_' .. timestamp .. '.yml'
     end
     local path = windower.addon_path .. 'data/' .. filename
-
-    local data = macros.read()
-    if not data then
-        log('Failed to read macros from DAT files, kupo!')
+    local code, out = cli.export(path, name)
+    if code ~= 0 then
+        log('Export failed: ' .. (out or ''))
         return
     end
-
-    data.version = 1
-    data.character = char
-    data.exported_at = os.date('!%Y-%m-%dT%H:%M:%SZ')
-
-    local ok, err = validate.macros(data)
-    if not ok then
-        log('Validation error: ' .. err)
-        return
-    end
-
-    local f = io.open(path, 'w')
-    if not f then
-        log('Could not open for writing: ' .. path)
-        return
-    end
-    f:write(yaml.dump(data))
-    f:close()
     log('Exported to ' .. filename .. ', kupo!')
 end
 
 function handlers.import(filename)
+    if not require_ready() then
+        return
+    end
     if not filename then
         log('Usage: //mmog import <filename>')
         return
@@ -68,31 +68,20 @@ function handlers.import(filename)
         log('File not found: ' .. filename)
         return
     end
-    local content = f:read('*a')
     f:close()
 
-    local data, err = yaml.parse(content)
-    if not data then
-        log('YAML parse error: ' .. (err or 'unknown'))
+    local code, out = cli.import(path, char_name())
+    if code ~= 0 then
+        log('Import failed: ' .. (out or ''))
         return
     end
-
-    local ok, verr = validate.macros(data)
-    if not ok then
-        log('Validation failed: ' .. verr)
-        return
-    end
-
-    if not macros.backup() then
-        log('Backup failed — aborting import for safety, kupo!')
-        return
-    end
-
-    macros.write(data)
     log('Imported ' .. filename .. ' successfully, kupo!')
 end
 
 function handlers.validate(filename)
+    if not require_ready() then
+        return
+    end
     if not filename then
         log('Usage: //mmog validate <filename>')
         return
@@ -104,27 +93,26 @@ function handlers.validate(filename)
         log('File not found: ' .. filename)
         return
     end
-    local content = f:read('*a')
     f:close()
 
-    local data, err = yaml.parse(content)
-    if not data then
-        log('YAML parse error: ' .. (err or 'unknown'))
-        return
-    end
-
-    local ok, verr = validate.macros(data)
-    if ok then
+    local code, out = cli.validate(path)
+    if code == 0 then
         log('Validation passed, kupo!')
     else
-        log('Validation failed: ' .. verr)
+        log('Validation failed: ' .. (out or ''))
     end
 end
 
 function handlers.backup()
-    if macros.backup() then
-        log('Backup complete, kupo!')
+    if not require_ready() then
+        return
     end
+    local code, out = cli.backup(char_name())
+    if code ~= 0 then
+        log('Backup failed: ' .. (out or ''))
+        return
+    end
+    log('Backup complete, kupo!')
 end
 
 windower.register_event('addon command', function(cmd, ...)
@@ -148,5 +136,16 @@ windower.register_event('addon command', function(cmd, ...)
 end)
 
 windower.register_event('load', function()
+    setup.on_load()
     log('Kupomog at your service, kupo! Type //mmog help for commands.')
+end)
+
+windower.register_event('login', function()
+    setup.on_login()
+end)
+
+windower.register_event('incoming chunk', function(id)
+    if id == 0x0A and not setup.zoned_since_load then
+        setup.on_zone()
+    end
 end)
