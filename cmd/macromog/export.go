@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/squatched/macromog/internal/aliases"
 	"github.com/squatched/macromog/internal/export"
 	"github.com/squatched/macromog/internal/scope"
 )
@@ -24,8 +23,9 @@ Arguments:
 
 Flags:
   --ffxi-path <path>    FFXI install root (auto-detected if omitted)
+  --install <name>      named FFXI install from config
   --char-dir <path>     character USER directory; bypasses selection
-  --char-name <name>    character alias; bypasses selection
+  --char-name <name>    friendly character name from config; bypasses selection
   --all                 export all discovered characters without prompting
   --output <file>       output YAML file (-o shorthand); requires one character
   --name <name>         character name for YAML metadata; requires one character
@@ -61,6 +61,7 @@ func runExport(args []string, p *Printer) int {
 	fs := flag.NewFlagSet("export", flag.ContinueOnError)
 	fs.SetOutput(os.Stderr)
 	ffxiPath := fs.String("ffxi-path", "", "FFXI install root")
+	installName := fs.String("install", "", "named FFXI install from config")
 	charDir := fs.String("char-dir", "", "character USER directory")
 	charName := fs.String("char-name", "", "character alias")
 	all := fs.Bool("all", false, "export all discovered characters")
@@ -93,7 +94,10 @@ func runExport(args []string, p *Printer) int {
 		*output = remaining[0]
 	}
 
-	charDirs, err := resolveCharDirs(*charDir, *charName, *ffxiPath, *all)
+	charDirs, err := resolveCharDirs(charSelectOpts{
+		charDir: *charDir, charName: *charName, ffxiPath: *ffxiPath,
+		installName: *installName, all: *all,
+	})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "macromog export: %v\n", err)
 		return 1
@@ -118,9 +122,7 @@ func runExport(args []string, p *Printer) int {
 
 		name := *metaName
 		if name == "" {
-			userDir := filepath.Dir(dir)
-			aliasDoc, _ := aliases.Load(userDir)
-			name = aliases.LookupName(aliasDoc, charID)
+			name = lookupCharName(filepath.Dir(dir), charID)
 		}
 
 		outPath := *output

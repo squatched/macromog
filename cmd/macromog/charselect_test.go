@@ -5,12 +5,12 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/squatched/macromog/internal/aliases"
+	"github.com/squatched/macromog/internal/config"
 )
 
 func TestResolveCharDir_Explicit(t *testing.T) {
 	dir := t.TempDir()
-	got, err := resolveCharDir(dir, "", "")
+	got, err := resolveCharDir(charSelectOpts{charDir: dir})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -21,20 +21,19 @@ func TestResolveCharDir_Explicit(t *testing.T) {
 }
 
 func TestResolveCharDir_ExplicitBadPath(t *testing.T) {
-	_, err := resolveCharDir("/nonexistent/char", "", "")
+	_, err := resolveCharDir(charSelectOpts{charDir: "/nonexistent/char"})
 	if err == nil {
 		t.Error("expected error for nonexistent path, got nil")
 	}
 }
 
 func TestResolveCharDir_SingleChar(t *testing.T) {
-	ffxiDir, userDir, charDir := makeFFXITree(t, "a1b2c3d4")
+	ffxiDir, _, charDir := makeFFXITree(t, "a1b2c3d4")
 
-	got, err := resolveCharDir("", "", ffxiDir)
+	got, err := resolveCharDir(charSelectOpts{ffxiPath: ffxiDir})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	_ = userDir
 	abs, _ := filepath.Abs(charDir)
 	if got != abs {
 		t.Errorf("got %q, want %q", got, abs)
@@ -44,7 +43,7 @@ func TestResolveCharDir_SingleChar(t *testing.T) {
 func TestResolveCharDir_MultipleChars_NonTTY(t *testing.T) {
 	ffxiDir, _, _ := makeFFXITree(t, "a1b2c3d4", "e5f6a7b8")
 
-	_, err := resolveCharDir("", "", ffxiDir)
+	_, err := resolveCharDir(charSelectOpts{ffxiPath: ffxiDir})
 	if err == nil {
 		t.Fatal("expected error for multiple chars on non-TTY stdin, got nil")
 	}
@@ -56,14 +55,14 @@ func TestResolveCharDir_NoChars(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, err := resolveCharDir("", "", ffxiDir)
+	_, err := resolveCharDir(charSelectOpts{ffxiPath: ffxiDir})
 	if err == nil {
 		t.Fatal("expected error for empty USER dir, got nil")
 	}
 }
 
 func TestResolveCharDir_BadFFXIPath(t *testing.T) {
-	_, err := resolveCharDir("", "", "/nonexistent/ffxi")
+	_, err := resolveCharDir(charSelectOpts{ffxiPath: "/nonexistent/ffxi"})
 	if err == nil {
 		t.Fatal("expected error for nonexistent ffxi path, got nil")
 	}
@@ -71,7 +70,7 @@ func TestResolveCharDir_BadFFXIPath(t *testing.T) {
 
 func TestResolveCharDirs_Explicit(t *testing.T) {
 	dir := t.TempDir()
-	dirs, err := resolveCharDirs(dir, "", "", false)
+	dirs, err := resolveCharDirs(charSelectOpts{charDir: dir})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -86,7 +85,7 @@ func TestResolveCharDirs_Explicit(t *testing.T) {
 
 func TestResolveCharDirs_CharAndAllMutuallyExclusive(t *testing.T) {
 	dir := t.TempDir()
-	_, err := resolveCharDirs(dir, "", "", true)
+	_, err := resolveCharDirs(charSelectOpts{charDir: dir, all: true})
 	if err == nil {
 		t.Error("expected error when --char-dir and --all are both set, got nil")
 	}
@@ -95,7 +94,7 @@ func TestResolveCharDirs_CharAndAllMutuallyExclusive(t *testing.T) {
 func TestResolveCharDirs_All(t *testing.T) {
 	ffxiDir, _, _ := makeFFXITree(t, "a1b2c3d4", "e5f6a7b8")
 
-	dirs, err := resolveCharDirs("", "", ffxiDir, true)
+	dirs, err := resolveCharDirs(charSelectOpts{ffxiPath: ffxiDir, all: true})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -110,21 +109,17 @@ func TestResolveCharDirs_AllEmpty(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, err := resolveCharDirs("", "", ffxiDir, true)
+	_, err := resolveCharDirs(charSelectOpts{ffxiPath: ffxiDir, all: true})
 	if err == nil {
 		t.Fatal("expected error for empty USER dir with --all, got nil")
 	}
 }
 
 func TestResolveCharDir_ByName(t *testing.T) {
-	ffxiDir, userDir, charDir := makeFFXITree(t, "a1b2c3d4")
+	ffxiDir, _, charDir := makeFFXITree(t, "a1b2c3d4")
+	setTestConfig(t, ffxiDir, map[string]string{"a1b2c3d4": "Squatched"})
 
-	doc := aliases.Document{Version: 1, Chars: map[string]aliases.Entry{"a1b2c3d4": {Name: "Squatched"}}}
-	if err := aliases.Save(userDir, doc); err != nil {
-		t.Fatal(err)
-	}
-
-	got, err := resolveCharDir("", "Squatched", ffxiDir)
+	got, err := resolveCharDir(charSelectOpts{ffxiPath: ffxiDir, charName: "Squatched"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -135,57 +130,56 @@ func TestResolveCharDir_ByName(t *testing.T) {
 }
 
 func TestResolveCharDir_ByName_CaseInsensitive(t *testing.T) {
-	ffxiDir, userDir, _ := makeFFXITree(t, "a1b2c3d4")
+	ffxiDir, _, _ := makeFFXITree(t, "a1b2c3d4")
+	setTestConfig(t, ffxiDir, map[string]string{"a1b2c3d4": "Squatched"})
 
-	doc := aliases.Document{Version: 1, Chars: map[string]aliases.Entry{"a1b2c3d4": {Name: "Squatched"}}}
-	if err := aliases.Save(userDir, doc); err != nil {
-		t.Fatal(err)
-	}
-
-	if _, err := resolveCharDir("", "squatched", ffxiDir); err != nil {
+	if _, err := resolveCharDir(charSelectOpts{ffxiPath: ffxiDir, charName: "squatched"}); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
 func TestResolveCharDir_ByName_NotFound(t *testing.T) {
 	ffxiDir, _, _ := makeFFXITree(t, "a1b2c3d4")
+	setTestConfig(t, ffxiDir, map[string]string{"a1b2c3d4": "Squatched"})
 
-	if _, err := resolveCharDir("", "Nobody", ffxiDir); err == nil {
+	if _, err := resolveCharDir(charSelectOpts{ffxiPath: ffxiDir, charName: "Nobody"}); err == nil {
 		t.Error("expected error for unknown name, got nil")
 	}
 }
 
 func TestResolveCharDirs_CharDirAndCharNameMutuallyExclusive(t *testing.T) {
 	dir := t.TempDir()
-	if _, err := resolveCharDirs(dir, "Squatched", "", false); err == nil {
+	if _, err := resolveCharDirs(charSelectOpts{charDir: dir, charName: "Squatched"}); err == nil {
 		t.Error("expected error when --char-dir and --char-name are both set, got nil")
 	}
 }
 
 func TestResolveCharDirs_CharNameAndAllMutuallyExclusive(t *testing.T) {
-	ffxiDir, userDir, _ := makeFFXITree(t, "a1b2c3d4")
+	ffxiDir, _, _ := makeFFXITree(t, "a1b2c3d4")
+	setTestConfig(t, ffxiDir, map[string]string{"a1b2c3d4": "Squatched"})
 
-	doc := aliases.Document{Version: 1, Chars: map[string]aliases.Entry{"a1b2c3d4": {Name: "Squatched"}}}
-	if err := aliases.Save(userDir, doc); err != nil {
-		t.Fatal(err)
-	}
-
-	if _, err := resolveCharDirs("", "Squatched", ffxiDir, true); err == nil {
+	if _, err := resolveCharDirs(charSelectOpts{ffxiPath: ffxiDir, charName: "Squatched", all: true}); err == nil {
 		t.Error("expected error when --char-name and --all are both set, got nil")
 	}
 }
 
-func TestResolveCharDir_ByName_FutureVersion(t *testing.T) {
-	ffxiDir, userDir, charDir := makeFFXITree(t, "a1b2c3d4")
-
-	// Write a future-version characters.yml that still has the alias we need.
-	content := "version: 99\nchars:\n  a1b2c3d4:\n    name: Squatched\n    future_field: something\n"
-	if err := os.WriteFile(filepath.Join(userDir, "characters.yml"), []byte(content), 0o644); err != nil {
+func TestResolveCharDir_ByName_DirMissing(t *testing.T) {
+	ffxiDir, userDir, _ := makeFFXITree(t, "a1b2c3d4")
+	setTestConfig(t, ffxiDir, map[string]string{"a1b2c3d4": "Squatched"})
+	if err := os.RemoveAll(filepath.Join(userDir, "a1b2c3d4")); err != nil {
 		t.Fatal(err)
 	}
 
-	// Should warn but still resolve successfully.
-	got, err := resolveCharDir("", "Squatched", ffxiDir)
+	if _, err := resolveCharDir(charSelectOpts{ffxiPath: ffxiDir, charName: "Squatched"}); err == nil {
+		t.Error("expected error when aliased directory is missing, got nil")
+	}
+}
+
+func TestResolveCharDir_ByInstallFlag(t *testing.T) {
+	ffxiDir, _, charDir := makeFFXITree(t, "a1b2c3d4")
+	setTestConfig(t, ffxiDir, map[string]string{"a1b2c3d4": "Squatched"})
+
+	got, err := resolveCharDir(charSelectOpts{installName: "test"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -195,20 +189,65 @@ func TestResolveCharDir_ByName_FutureVersion(t *testing.T) {
 	}
 }
 
-func TestResolveCharDir_ByName_DirMissing(t *testing.T) {
+func TestResolveCharDir_SingleConfiguredAlias(t *testing.T) {
+	// One alias in config, two chars on disk — config wins over USER scan.
+	ffxiDir, _, charDir := makeFFXITree(t, "a1b2c3d4", "e5f6a7b8")
+	setTestConfig(t, ffxiDir, map[string]string{"a1b2c3d4": "Squatched"})
+
+	got, err := resolveCharDir(charSelectOpts{ffxiPath: ffxiDir})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	abs, _ := filepath.Abs(charDir)
+	if got != abs {
+		t.Errorf("got %q, want %q (configured single alias)", got, abs)
+	}
+}
+
+func TestResolveCharDir_CharNameWithoutRegisteredInstall(t *testing.T) {
+	ffxiDir, _, _ := makeFFXITree(t, "a1b2c3d4")
+	// No config entry for this path — char-name cannot resolve.
+	if _, err := resolveCharDir(charSelectOpts{ffxiPath: ffxiDir, charName: "Squatched"}); err == nil {
+		t.Error("expected error resolving char-name on unregistered install")
+	}
+}
+
+func TestLookupCharName(t *testing.T) {
 	ffxiDir, userDir, _ := makeFFXITree(t, "a1b2c3d4")
+	setTestConfig(t, ffxiDir, map[string]string{"a1b2c3d4": "Squatched"})
 
-	// Alias points to a real char ID, but then we delete the directory.
-	doc := aliases.Document{Version: 1, Chars: map[string]aliases.Entry{"a1b2c3d4": {Name: "Squatched"}}}
-	if err := aliases.Save(userDir, doc); err != nil {
+	if got := lookupCharName(userDir, "a1b2c3d4"); got != "Squatched" {
+		t.Errorf("got %q, want Squatched", got)
+	}
+	if got := lookupCharName(userDir, "unknown"); got != "unknown" {
+		t.Errorf("got %q, want unknown", got)
+	}
+}
+
+func TestResolveCharDir_DefaultCharacter(t *testing.T) {
+	ffxiDir, _, charDir := makeFFXITree(t, "a1b2c3d4", "e5f6a7b8")
+	path := setTestConfig(t, ffxiDir, map[string]string{
+		"a1b2c3d4": "Squatched",
+		"e5f6a7b8": "AltMule",
+	})
+	cfg, err := config.Load(path)
+	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.RemoveAll(filepath.Join(userDir, "a1b2c3d4")); err != nil {
+	inst := cfg.Installs["test"]
+	inst.DefaultCharacter = "a1b2c3d4"
+	cfg.Installs["test"] = inst
+	if err := config.Save(path, cfg); err != nil {
 		t.Fatal(err)
 	}
 
-	if _, err := resolveCharDir("", "Squatched", ffxiDir); err == nil {
-		t.Error("expected error when aliased directory is missing, got nil")
+	got, err := resolveCharDir(charSelectOpts{ffxiPath: ffxiDir})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	abs, _ := filepath.Abs(charDir)
+	if got != abs {
+		t.Errorf("got %q, want %q", got, abs)
 	}
 }
 
@@ -360,8 +399,6 @@ func equalInts(a, b []int) bool {
 	return true
 }
 
-// makeFFXITree creates a minimal fake FFXI install directory tree with the
-// given character IDs and returns (ffxiDir, userDir, firstCharDir).
 func makeFFXITree(t *testing.T, charIDs ...string) (ffxiDir, userDir, firstCharDir string) {
 	t.Helper()
 	ffxiDir = t.TempDir()

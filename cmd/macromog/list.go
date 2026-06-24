@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/squatched/macromog/internal/aliases"
+	"github.com/squatched/macromog/internal/config"
 	"github.com/squatched/macromog/internal/lister"
 )
 
@@ -15,17 +15,18 @@ const listUsage = `Usage: macromog list [flags]
 List detected FFXI characters and their macro books.
 
 Without --char-dir or --char-name, scans the FFXI USER directory and lists
-every detected character with a populated-book count. Set a friendly name
-with 'macromog alias' to display it alongside the folder ID.
+every detected character with a populated-book count. Register character
+aliases with 'macromog config set-alias' to display friendly names.
 
 Flags:
   --ffxi-path <path>    FFXI install root (auto-detected if omitted)
+  --install <name>      named FFXI install from config
   --char-dir <path>     character USER directory; lists books for that character
-  --char-name <name>    character alias; lists books for that character
+  --char-name <name>    friendly character name from config; lists books for that character
 
 Examples:
   macromog list
-  macromog list --ffxi-path "/path/to/FINAL FANTASY XI"
+  macromog list --install steam
   macromog list --char-dir /path/to/USER/a1b2c3d4
   macromog list --char-name Squatched
 `
@@ -39,22 +40,25 @@ func runList(args []string, p *Printer) int {
 	fs := flag.NewFlagSet("list", flag.ContinueOnError)
 	fs.SetOutput(os.Stderr)
 	ffxiPath := fs.String("ffxi-path", "", "FFXI install root")
+	installName := fs.String("install", "", "named FFXI install from config")
 	charDir := fs.String("char-dir", "", "character USER directory")
-	charName := fs.String("char-name", "", "character alias")
+	charName := fs.String("char-name", "", "friendly character name from config")
 
 	if err := fs.Parse(args); err != nil {
 		return 1
 	}
 
 	if *charDir != "" || *charName != "" {
-		dir, err := resolveCharDir(*charDir, *charName, *ffxiPath)
+		dir, err := resolveCharDir(charSelectOpts{
+			charDir: *charDir, charName: *charName, ffxiPath: *ffxiPath, installName: *installName,
+		})
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "macromog list: %v\n", err)
 			return 1
 		}
 		return runListChar(dir, p)
 	}
-	return runListAll(*ffxiPath, p)
+	return runListAll(*ffxiPath, *installName, p)
 }
 
 type listCharResult struct {
@@ -98,9 +102,7 @@ func runListChar(charDir string, p *Printer) int {
 	}
 
 	charID := filepath.Base(charDirAbs)
-	userDir := filepath.Dir(charDirAbs)
-	aliasDoc, _ := aliases.Load(userDir)
-	displayName := aliases.LookupName(aliasDoc, charID)
+	displayName := lookupCharName(filepath.Dir(charDirAbs), charID)
 
 	p.Text(func(tw *TextWriter) {
 		if displayName != charID {
@@ -141,21 +143,11 @@ func runListChar(charDir string, p *Printer) int {
 	return 0
 }
 
-func runListAll(ffxiPath string, p *Printer) int {
-	var userDir string
-	if ffxiPath != "" {
-		userDir = lister.UserDirFromFFXIPath(ffxiPath)
-		if st, err := os.Stat(userDir); err != nil || !st.IsDir() {
-			fmt.Fprintf(os.Stderr, "macromog list: USER directory not found under %s\n", ffxiPath)
-			return 1
-		}
-	} else {
-		detected, err := lister.DetectUserDir()
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "macromog list: %v\n", err)
-			return 1
-		}
-		userDir = detected
+func runListAll(ffxiPath, installName string, p *Printer) int {
+	userDir, inst, err := resolveUserDirForList(ffxiPath, installName)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "macromog list: %v\n", err)
+		return 1
 	}
 
 	chars, err := lister.DiscoverCharacters(userDir)
@@ -164,8 +156,6 @@ func runListAll(ffxiPath string, p *Printer) int {
 		return 1
 	}
 
-	aliasDoc, _ := aliases.Load(userDir)
-
 	p.Text(func(tw *TextWriter) {
 		fmt.Fprintf(tw, "FFXI USER: %s\n\n", tw.Highlight(userDir))
 		if len(chars) == 0 {
@@ -173,7 +163,7 @@ func runListAll(ffxiPath string, p *Printer) int {
 			return
 		}
 		for _, c := range chars {
-			displayName := aliases.LookupName(aliasDoc, c.ID)
+			displayName := config.LookupName(inst, c.ID)
 			var label string
 			if displayName != c.ID {
 				label = tw.PadRight(
@@ -197,7 +187,7 @@ func runListAll(ffxiPath string, p *Printer) int {
 	entries := make([]listCharEntry, len(chars))
 	for i, c := range chars {
 		entry := listCharEntry{ID: c.ID, BookCount: c.BookCount}
-		if name := aliases.LookupName(aliasDoc, c.ID); name != c.ID {
+		if name := config.LookupName(inst, c.ID); name != c.ID {
 			entry.Name = name
 		}
 		entries[i] = entry

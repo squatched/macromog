@@ -8,7 +8,7 @@ import (
 const usage = `Usage: macromog [--output <format>] <command> [flags]
 
 Commands:
-  alias     assign a friendly name to a character folder
+  config    manage installs, character aliases, and CLI preferences
   export    export macros from .dat files to YAML
   import    import macros from YAML into .dat files (auto-backups first)
   template  generate a blank YAML template for a given scope
@@ -18,9 +18,10 @@ Commands:
 
 Global flags:
   --output <format>   output format: text (default) or json
-  --ffxi-path <path>  path to FFXI install (auto-detected if possible)
+  --ffxi-path <path>  path to FFXI install root (raw path only)
+  --install <name>    named FFXI install from config
   --char-dir <id>     character folder (hex ID or path)
-  --char-name <name>  character alias (set with 'macromog alias')
+  --char-name <name>  friendly character name from config
 
 Run 'macromog <command> --help' for command-specific flags.
 `
@@ -44,8 +45,8 @@ func run(args []string) int {
 	p := NewPrinter(os.Stdout, format)
 
 	switch args[1] {
-	case "alias":
-		return runAlias(args[2:], p)
+	case "config":
+		return runConfig(args[2:], p)
 	case "export":
 		return runExport(args[2:], p)
 	case "import":

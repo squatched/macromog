@@ -27,8 +27,9 @@ Arguments:
 
 Flags:
   --ffxi-path <path>    FFXI install root (auto-detected if omitted)
+  --install <name>      named FFXI install from config
   --char-dir <path>     character USER directory; bypasses selection
-  --char-name <name>    character alias; bypasses selection
+  --char-name <name>    friendly character name from config; bypasses selection
   --all                 import into all discovered characters without prompting
   --no-backup           skip the automatic backup before writing
   --dry-run             validate and show what would be written, without writing
@@ -75,8 +76,9 @@ func runImport(args []string, p *Printer) int {
 	fs := flag.NewFlagSet("import", flag.ContinueOnError)
 	fs.SetOutput(os.Stderr)
 	ffxiPath := fs.String("ffxi-path", "", "FFXI install root")
+	installName := fs.String("install", "", "named FFXI install from config")
 	charDir := fs.String("char-dir", "", "character USER directory")
-	charName := fs.String("char-name", "", "character alias")
+	charName := fs.String("char-name", "", "friendly character name from config")
 	all := fs.Bool("all", false, "import into all discovered characters")
 	noBackup := fs.Bool("no-backup", false, "skip automatic backup")
 	dryRun := fs.Bool("dry-run", false, "show what would be written without writing")
@@ -113,7 +115,10 @@ func runImport(args []string, p *Printer) int {
 		return 1
 	}
 
-	charDirs, err := resolveCharDirs(*charDir, *charName, *ffxiPath, *all)
+	charDirs, err := resolveCharDirs(charSelectOpts{
+		charDir: *charDir, charName: *charName, ffxiPath: *ffxiPath,
+		installName: *installName, all: *all,
+	})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "macromog import: %v\n", err)
 		return 1
@@ -127,7 +132,7 @@ func runImport(args []string, p *Printer) int {
 
 	// If --scope was provided and it exceeds the YAML's embedded scope, confirm.
 	if !importScope.IsZero() && !*dryRun {
-		if confirmed, err := confirmScopeOverride(yamlAbs, importScope, os.Stdin); err != nil {
+		if confirmed, err := confirmScopeOverride(yamlAbs, importScope, stdinReader()); err != nil {
 			fmt.Fprintf(os.Stderr, "macromog import: %v\n", err)
 			return 1
 		} else if !confirmed {

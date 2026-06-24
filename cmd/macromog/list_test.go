@@ -153,9 +153,7 @@ func TestRunList_CharName(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := writeAliasFile(t, renamedUser, "aabbcc", "Squatched"); err != nil {
-		t.Fatal(err)
-	}
+	setTestConfig(t, parent, map[string]string{"aabbcc": "Squatched"})
 
 	if got := runList([]string{"--ffxi-path", parent, "--char-name", "Squatched"}, newTextPrinter()); got != 0 {
 		t.Errorf("runList(--char-name) = %d, want 0", got)
@@ -182,9 +180,7 @@ func TestRunList_CharName_DirMissing(t *testing.T) {
 	if err := os.Rename(userDir, renamedUser); err != nil {
 		t.Fatal(err)
 	}
-	if err := writeAliasFile(t, renamedUser, "aabbcc", "Squatched"); err != nil {
-		t.Fatal(err)
-	}
+	setTestConfig(t, parent, map[string]string{"aabbcc": "Squatched"})
 	// Delete the directory the alias points to.
 	if err := os.RemoveAll(filepath.Join(renamedUser, "aabbcc")); err != nil {
 		t.Fatal(err)
@@ -202,9 +198,7 @@ func TestRunList_ShowsAliasInOutput(t *testing.T) {
 	if err := os.Rename(userDir, renamedUser); err != nil {
 		t.Fatal(err)
 	}
-	if err := writeAliasFile(t, renamedUser, "aabbcc", "Squatched"); err != nil {
-		t.Fatal(err)
-	}
+	setTestConfig(t, parent, map[string]string{"aabbcc": "Squatched"})
 
 	var buf bytes.Buffer
 	p := NewPrinter(&buf, FormatText)
@@ -226,9 +220,7 @@ func TestRunList_ShowsAliasForSingleChar(t *testing.T) {
 	if err := os.Rename(userDir, renamedUser); err != nil {
 		t.Fatal(err)
 	}
-	if err := writeAliasFile(t, renamedUser, "aabbcc", "Squatched"); err != nil {
-		t.Fatal(err)
-	}
+	setTestConfig(t, parent, map[string]string{"aabbcc": "Squatched"})
 
 	charDir := filepath.Join(renamedUser, "aabbcc")
 	var buf bytes.Buffer
@@ -241,29 +233,22 @@ func TestRunList_ShowsAliasForSingleChar(t *testing.T) {
 	}
 }
 
-func TestRunList_FutureVersionCharactersYML(t *testing.T) {
+func TestRunList_InvalidConfig(t *testing.T) {
 	userDir := makeTestUserDir(t)
 	parent := t.TempDir()
 	renamedUser := filepath.Join(parent, "USER")
 	if err := os.Rename(userDir, renamedUser); err != nil {
 		t.Fatal(err)
 	}
-	// Write a future-version file — list should still succeed, not error.
-	content := "version: 99\nchars:\n  aabbcc:\n    name: Squatched\n"
-	if err := os.WriteFile(filepath.Join(renamedUser, "characters.yml"), []byte(content), 0o644); err != nil {
+	path := filepath.Join(t.TempDir(), "config.yml")
+	if err := os.WriteFile(path, []byte("version: 99\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
+	t.Setenv("MACROMOG_CONFIG", path)
 
-	if got := runList([]string{"--ffxi-path", parent}, newTextPrinter()); got != 0 {
-		t.Errorf("runList(future-version characters.yml) = %d, want 0", got)
+	if got := runList([]string{"--ffxi-path", parent}, newTextPrinter()); got != 1 {
+		t.Errorf("runList(invalid config) = %d, want 1", got)
 	}
-}
-
-// writeAliasFile writes a minimal characters.yml mapping charID → name.
-func writeAliasFile(t *testing.T, userDir, charID, name string) error {
-	t.Helper()
-	content := "version: 1\nchars:\n  " + charID + ":\n    name: " + name + "\n"
-	return os.WriteFile(filepath.Join(userDir, "characters.yml"), []byte(content), 0o644)
 }
 
 func TestRunList_WideCharAlignment(t *testing.T) {
@@ -281,9 +266,7 @@ func TestRunList_WideCharAlignment(t *testing.T) {
 		}
 	}
 	// 玄白侍士: 4 wide chars = 8 display columns
-	if err := writeAliasFile(t, userDir, "aabbcc", "玄白侍士"); err != nil {
-		t.Fatal(err)
-	}
+	setTestConfig(t, parent, map[string]string{"aabbcc": "玄白侍士"})
 
 	var buf bytes.Buffer
 	p := NewPrinter(&buf, FormatText)
