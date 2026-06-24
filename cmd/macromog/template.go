@@ -61,7 +61,7 @@ func runTemplate(args []string, p *Printer) int {
 	}
 
 	doc := tmpl.Generate(sc, *charName)
-	data, err := export.MarshalYAML(doc)
+	data, err := export.MarshalYAMLWithPlaceholders(doc)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "macromog template: %v\n", err)
 		return 1

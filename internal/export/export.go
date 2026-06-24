@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/squatched/macromog/internal/dat"
@@ -42,14 +43,21 @@ type Options struct {
 	CharacterDir string
 	Character    string
 	Scope        scope.Scope // zero value = full scope
+	Dense        bool        // include all in-scope macros even if empty
 }
 
 // FromCharacterDir reads macro .dat files from a FFXI USER directory and
-// returns a sparse YAML document containing non-empty macros within the scope.
+// returns a YAML document containing macros within the scope. When
+// opts.Dense is false (default), only non-empty macros are included. When
+// opts.Dense is true, all in-scope slots are present even when empty.
 func FromCharacterDir(opts Options) (Document, error) {
 	sc := opts.Scope
 	if sc.IsZero() {
 		sc = scope.Full()
+	}
+
+	if opts.Dense {
+		return fromCharacterDirDense(opts, sc)
 	}
 
 	dir := opts.CharacterDir
@@ -147,6 +155,80 @@ func exportMacro(m dat.Macro) *Macro {
 		out.Contents = lines
 	}
 	return &out
+}
+
+// fromCharacterDirDense builds a Document that includes every in-scope book,
+// set, and macro slot regardless of whether the source files or content exist.
+// Missing .dat files are treated as empty sets.
+func fromCharacterDirDense(opts Options, sc scope.Scope) (Document, error) {
+	dir := opts.CharacterDir
+	titles, err := dat.ReadBookTitles(dir)
+	if err != nil {
+		return Document{}, err
+	}
+
+	doc := Document{
+		Version:    1,
+		Character:  opts.Character,
+		ExportedAt: time.Now().UTC().Format(time.RFC3339),
+		Scope:      sc,
+		Books:      make(map[int]Book),
+	}
+
+	for _, bookIdx := range sc.BooksInScope(dat.MaxBooks) {
+		b := Book{Sets: make(map[int]Set)}
+		if name := titles[bookIdx-1]; name != "" {
+			b.Name = name
+		}
+		for setIdx := 1; setIdx <= dat.SetsPerBook; setIdx++ {
+			if !sc.ContainsSet(bookIdx, setIdx) {
+				continue
+			}
+			path := filepath.Join(dir, dat.MacroFileName(bookIdx, setIdx))
+			setData, readErr := dat.ReadMacroSetFile(path)
+			if readErr != nil && !os.IsNotExist(readErr) {
+				return Document{}, fmt.Errorf("%s: %w", dat.MacroFileName(bookIdx, setIdx), readErr)
+			}
+			b.Sets[setIdx] = exportMacroSetDense(setData, sc, bookIdx, setIdx)
+		}
+		doc.Books[bookIdx] = b
+	}
+
+	return doc, nil
+}
+
+func exportMacroSetDense(set dat.MacroSet, sc scope.Scope, book, setIdx int) Set {
+	out := Set{HeaderUnknown: set.HeaderUnknown}
+	for i := 0; i < dat.SetsPerBook; i++ {
+		yamlKey := dat.YAMLKey(i)
+		if sc.ContainsMacro(book, setIdx, scope.TypeCtrl, yamlKey) {
+			if out.Ctrl == nil {
+				out.Ctrl = make(map[int]Macro)
+			}
+			out.Ctrl[yamlKey] = exportMacroDense(set.Ctrl[i])
+		}
+		if sc.ContainsMacro(book, setIdx, scope.TypeAlt, yamlKey) {
+			if out.Alt == nil {
+				out.Alt = make(map[int]Macro)
+			}
+			out.Alt[yamlKey] = exportMacroDense(set.Alt[i])
+		}
+	}
+	return out
+}
+
+// exportMacroDense always returns a Macro with all dat.LineCount content lines
+// populated. This gives the post-processor (replacePlaceholders) all 6 slots
+// to work with; empty strings become numbered comment placeholders.
+func exportMacroDense(m dat.Macro) Macro {
+	out := Macro{}
+	if m.Name != "" {
+		out.Name = m.Name
+	}
+	full := make([]string, dat.LineCount)
+	copy(full, m.Contents[:])
+	out.Contents = full
+	return out
 }
 
 // compactLines preserves interior blank lines but trims trailing empties.
@@ -269,7 +351,7 @@ func macroNode(m Macro) *yaml.Node {
 	if m.Name != "" {
 		addKV(n, "name", scalarNode(m.Name))
 	}
-	if len(m.Contents) > 0 {
+	if m.Contents != nil {
 		lines := &yaml.Node{Kind: yaml.SequenceNode}
 		for _, line := range m.Contents {
 			lines.Content = append(lines.Content, scalarNode(line))
@@ -321,13 +403,78 @@ func sortedIntKeys[V any](m map[int]V) []int {
 	return keys
 }
 
+// MarshalYAMLWithPlaceholders is like MarshalYAML but replaces double-quoted
+// empty-string items within "contents:" blocks with numbered comment lines
+// (# Macro Line N). This prevents users from being misled into wrapping their
+// macro content in outer double quotes when editing the YAML.
+//
+// "contents: []" (inline empty sequence) is left unchanged — it signals a
+// named macro with no content lines, not an unfilled placeholder slot.
+func MarshalYAMLWithPlaceholders(doc Document) ([]byte, error) {
+	data, err := MarshalYAML(doc)
+	if err != nil {
+		return nil, err
+	}
+	return replacePlaceholders(data), nil
+}
+
+// replacePlaceholders processes YAML line-by-line. Within each block-style
+// "contents:" sequence it replaces every `- ""` item with a numbered comment.
+// Each item is numbered by its 1-based position in the sequence regardless of
+// whether surrounding items are empty or non-empty.
+func replacePlaceholders(data []byte) []byte {
+	lines := strings.Split(string(data), "\n")
+	out := make([]string, 0, len(lines))
+
+	itemNum := 0
+	itemIndent := -1 // indent of sequence items; -1 = not in a contents block
+
+	for i, line := range lines {
+		if i == len(lines)-1 && line == "" {
+			// Preserve the trailing newline artifact from Split.
+			out = append(out, line)
+			continue
+		}
+
+		stripped := strings.TrimLeft(line, " ")
+		indent := len(line) - len(stripped)
+
+		if itemIndent >= 0 {
+			if indent == itemIndent && strings.HasPrefix(stripped, "- ") {
+				itemNum++
+				if stripped == `- ""` {
+					out = append(out, fmt.Sprintf("%s- # Macro Line %d",
+						strings.Repeat(" ", itemIndent), itemNum))
+				} else {
+					out = append(out, line)
+				}
+				continue
+			}
+			// Indentation changed or non-item line: exit the contents block.
+			itemIndent = -1
+			itemNum = 0
+		}
+
+		// Detect the start of a block-style contents: sequence.
+		// "contents:" (bare key) starts a block; "contents: []" does not.
+		if stripped == "contents:" {
+			itemIndent = indent + 4
+			itemNum = 0
+		}
+
+		out = append(out, line)
+	}
+
+	return []byte(strings.Join(out, "\n"))
+}
+
 // WriteFile exports macros from opts.CharacterDir and writes YAML to outputPath.
 func WriteFile(opts Options, outputPath string) error {
 	doc, err := FromCharacterDir(opts)
 	if err != nil {
 		return err
 	}
-	data, err := MarshalYAML(doc)
+	data, err := MarshalYAMLWithPlaceholders(doc)
 	if err != nil {
 		return err
 	}

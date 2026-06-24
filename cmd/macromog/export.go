@@ -27,6 +27,7 @@ Flags:
   --char-dir <path>     character USER directory; bypasses selection
   --char-name <name>    friendly character name from config; bypasses selection
   --all                 export all discovered characters without prompting
+  --dense               include all in-scope macro slots even if empty
   --output <file>       output YAML file (-o shorthand); requires one character
   --name <name>         character name for YAML metadata; requires one character
   --scope <selector>    scope selector (repeatable; e.g. B1S3, B1,5, B1S3A1)
@@ -34,6 +35,7 @@ Flags:
 Examples:
   macromog export
   macromog export --all
+  macromog export --dense -o full.yml
   macromog export /path/to/USER/a1b2c3d4
   macromog export /path/to/USER/a1b2c3d4 macros.yml
   macromog export --char-dir /path/to/USER/a1b2c3d4 -o macros.yml
@@ -65,6 +67,7 @@ func runExport(args []string, p *Printer) int {
 	charDir := fs.String("char-dir", "", "character USER directory")
 	charName := fs.String("char-name", "", "character alias")
 	all := fs.Bool("all", false, "export all discovered characters")
+	dense := fs.Bool("dense", false, "include all in-scope macro slots even if empty")
 	output := fs.String("output", "", "output YAML file")
 	shortOut := fs.String("o", "", "output YAML file (shorthand)")
 	metaName := fs.String("name", "", "character name for YAML metadata")
@@ -130,7 +133,7 @@ func runExport(args []string, p *Printer) int {
 			outPath = fmt.Sprintf("%s_macros_%s.yml", strings.ToLower(name), stamp)
 		}
 
-		if err := export.WriteFile(export.Options{CharacterDir: dir, Character: name, Scope: sc}, outPath); err != nil {
+		if err := export.WriteFile(export.Options{CharacterDir: dir, Character: name, Scope: sc, Dense: *dense}, outPath); err != nil {
 			if !p.IsJSON() {
 				ew := p.Err()
 				if multi {
