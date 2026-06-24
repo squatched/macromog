@@ -32,7 +32,7 @@ RELEASE_BINS     := \
 .PHONY: help \
         validate validate-plugin validate-cli \
         validate-plugin-lint validate-plugin-format \
-        validate-plugin-test validate-plugin-coverage \
+        validate-plugin-test validate-plugin-coverage validate-plugin-package validate-wine-smoke \
         validate-cli-lint validate-cli-format validate-cli-tidy validate-cli-test validate-cli-coverage \
         fix fix-plugin-format fix-cli-format fix-cli-tidy \
         build-cli build-cli-all build-plugin build-release-bins package-plugin \
@@ -47,7 +47,7 @@ validate: validate-plugin validate-cli ## Run all validation checks across plugi
 
 # ── Plugin (Lua / Windower addon) ────────────────────────────────────────────
 
-validate-plugin: validate-plugin-lint validate-plugin-format validate-plugin-coverage ## Run all plugin validation checks
+validate-plugin: validate-plugin-lint validate-plugin-format validate-plugin-coverage validate-plugin-package ## Run all plugin validation checks
 
 validate-plugin-lint: ## Static analysis with luacheck
 	$(LUACHECK) $(LUA_SRC)
@@ -57,6 +57,14 @@ validate-plugin-format: ## Formatting check — fails if any file is not stylua-
 
 validate-plugin-test: ## Run test suite without coverage instrumentation (fast, local)
 	$(BUSTED) $(TEST_DIR)
+
+validate-plugin-package: ## Verify release zip layout (empty data/, bundled Windows CLIs)
+	@chmod +x scripts/validate-package.sh
+	scripts/validate-package.sh
+
+validate-wine-smoke: build-release-bins ## Optional: run Windows CLI under Wine (skips if absent)
+	@chmod +x scripts/validate-wine-smoke.sh
+	scripts/validate-wine-smoke.sh
 
 validate-plugin-coverage: ## Run tests with coverage and enforce $(PLUGIN_COV_MIN)% threshold
 	$(BUSTED) --coverage $(TEST_DIR)
