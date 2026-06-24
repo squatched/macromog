@@ -12,8 +12,6 @@ Download the binary for your platform from the [Releases](https://github.com/squ
 |----------|--------|
 | Windows 64-bit | `macromog-windows-amd64.exe` |
 | Windows 32-bit | `macromog-windows-386.exe` |
-| macOS (Intel) | `macromog-darwin-amd64` |
-| macOS (Apple Silicon) | `macromog-darwin-arm64` |
 | Linux 64-bit | `macromog-linux-amd64` |
 | Linux 32-bit | `macromog-linux-386` |
 
@@ -34,7 +32,21 @@ macromog export
 macromog import squatched_macros_20260620_033000.yml
 ```
 
-On Windows, macromog auto-detects your FFXI installation in common locations. On other platforms, supply `--ffxi-path` (see [Global Flags](#global-flags)).
+macromog auto-detects your FFXI install on Windows and Linux. If detection fails, supply `--ffxi-path` pointing at your FFXI root (the folder that contains `USER`).
+
+---
+
+## Commands
+
+| Command | What it does |
+|---------|-------------|
+| [`alias`](#alias--set-a-character-nickname) | Assign a friendly name to a character folder |
+| [`export`](#export--export-macros-to-yaml) | Read macro `.dat` files and write them to YAML |
+| [`import`](#import--import-macros-from-yaml) | Write macros from a YAML file back to `.dat` files |
+| [`template`](#template--generate-a-blank-yaml-template) | Generate a blank YAML template for a given scope |
+| [`validate`](#validate--validate-a-yaml-file) | Check a YAML file for schema and FFXI constraint errors |
+| [`backup`](#backup--back-up-macro-files) | Create a timestamped copy of all macro `.dat` files |
+| [`list`](#list--list-characters-and-books) | Show detected characters and their populated books |
 
 ---
 
@@ -45,9 +57,77 @@ These flags work with all commands:
 | Flag | Description |
 |------|-------------|
 | `--output text\|json` | Output format. Default: `text`. Use `json` for scripting. |
-| `--ffxi-path <path>` | Path to your FFXI install root. Auto-detected on Windows. |
-| `--char-dir <path>` | Full path to a character's USER folder (bypasses selection). |
-| `--char-name <name>` | Character alias (set with `macromog alias`; bypasses selection). |
+| `--ffxi-path <path>` | Path to your FFXI install root. Auto-detected if omitted (see [Detection](#environment-and-detection)). |
+| `--char-dir <path>` | Path to a character's folder inside USER (e.g. `/path/to/USER/a1b2c3d4`). Bypasses character selection entirely. |
+| `--char-name <name>` | Character alias (set with `macromog alias`). Bypasses selection; USER folder is auto-detected or use `--ffxi-path`. |
+
+---
+
+## Scope Selectors
+
+The `--scope` flag narrows which macros are touched during `export`, `import`, or `template` generation.
+
+### Selector components
+
+| Component | Meaning | Range |
+|-----------|---------|-------|
+| `B<n>` | Book n | 1–40 |
+| `S<n>` | Set n (within current book) | 1–10 |
+| `C<n>` | Ctrl key n (within current set) | 0–9 |
+| `A<n>` | Alt key n (within current set) | 0–9 |
+
+### Ranges and wildcards
+
+```
+B1-5        books 1 through 5
+B1S2-4      book 1, sets 2 through 4
+B*          all books (full scope)
+B1S*        all sets in book 1 (book-level scope)
+B1S3C*      all ctrl keys in book 1, set 3
+```
+
+### Comma siblings
+
+A comma within a selector creates a sibling at the current level:
+
+```
+B1,3,5      books 1, 3, and 5
+B1S2,4      book 1, sets 2 and 4
+B1S3A1,3    book 1, set 3, alt keys 1 and 3
+B1S3A1,C2   book 1, set 3 — alt key 1 and ctrl key 2
+```
+
+### Multiple `--scope` flags
+
+Use multiple flags for disjoint selectors at the same level:
+
+```sh
+macromog export --scope B1S3A1 --scope B5S2C4
+```
+
+All flags must resolve to the same scope level. Mixing levels across flags is an error.
+
+### Scope levels
+
+| Deepest component | Scope level |
+|-------------------|-------------|
+| `C` or `A` | macro |
+| `S` | set |
+| `B` | book |
+| `*` or `B*` | full |
+
+### Effect on import
+
+The scope embedded in a YAML file controls what import is allowed to clear:
+
+| YAML scope level | What import may clear |
+|------------------|-----------------------|
+| `full` | All 40 books (absent books are deleted) |
+| `book` | Only the specified books |
+| `set` | Only the specified (book, set) pairs |
+| `macro` | Nothing — only the named slots are updated |
+
+If you pass `--scope` to `import` and it exceeds the YAML's declared scope, macromog prompts for confirmation before proceeding.
 
 ---
 
@@ -83,8 +163,6 @@ Accepted input forms:
 
 ---
 
-## Commands
-
 ### `alias` — Set a character nickname
 
 ```sh
@@ -99,17 +177,17 @@ Assign a friendly name to a character folder. Once set, use `--char-name <name>`
 - `<name>` — the friendly name to assign
 
 **Flags:**
-- `--ffxi-path <path>` — FFXI install root
+- `--ffxi-path <path>` — FFXI install root (auto-detected if omitted)
 - `--remove` — remove the alias instead of setting it
 
 **Examples:**
 ```sh
 macromog alias a1b2c3d4 Squatched
 macromog alias --remove a1b2c3d4
-macromog alias --ffxi-path "C:/Program Files (x86)/PlayOnline/SquareEnix/FINAL FANTASY XI" a1b2c3d4 Squatched
+macromog alias --ffxi-path "/mnt/games/FINAL FANTASY XI" a1b2c3d4 Squatched
 ```
 
-Aliases are stored in `USER/characters.yml`. The file is version-tracked; if it was written by a newer macromog, the tool refuses to modify it to avoid data loss.
+Aliases are stored in `USER/characters.yml`.
 
 ---
 
@@ -122,7 +200,7 @@ macromog export [flags] [<char-dir>] [output]
 Reads macro `.dat` files and writes a sparse YAML file containing only non-empty macros.
 
 **Arguments:**
-- `[<char-dir>]` — character USER directory (positional alternative to `--char-dir`)
+- `[<char-dir>]` — character folder inside USER (positional alternative to `--char-dir`)
 - `[output]` — output file path (positional alternative to `--output`/`-o`)
 
 **Flags:**
@@ -159,11 +237,11 @@ macromog export --scope B1,5 -o books1and5.yml
 macromog import [flags] <file> [<char-dir>]
 ```
 
-Reads a YAML file and writes macros to `.dat` files. A timestamped backup is created automatically before any writes.
+Reads a YAML file, validates it, and writes macros to `.dat` files. A timestamped backup is created automatically before any writes. Validation runs automatically — you do not need to run `validate` first, though doing so gives you a clear error report before committing to an import.
 
 **Arguments:**
 - `<file>` — the YAML file to import (required)
-- `[<char-dir>]` — character USER directory (positional alternative to `--char-dir`)
+- `[<char-dir>]` — character folder inside USER (positional alternative to `--char-dir`)
 
 **Flags:**
 - `--ffxi-path`, `--char-dir`, `--char-name`, `--all` — see [Global Flags](#global-flags) and [Character Selection](#character-selection)
@@ -173,7 +251,7 @@ Reads a YAML file and writes macros to `.dat` files. A timestamped backup is cre
 
 **Examples:**
 ```sh
-# Standard import (backup is automatic)
+# Standard import (backup is automatic, validation is automatic)
 macromog import squatched_macros_20260620_033000.yml
 
 # Dry run: show what would happen without writing
@@ -259,7 +337,7 @@ macromog backup [flags] [<char-dir>]
 Copies all `mcr*.dat` and `*.ttl` files to a timestamped directory named `<char-id>_YYYYMMDD_HHMMSS`.
 
 **Arguments:**
-- `[<char-dir>]` — character USER directory (positional alternative to `--char-dir`)
+- `[<char-dir>]` — character folder inside USER (positional alternative to `--char-dir`)
 
 **Flags:**
 - `--ffxi-path`, `--char-dir`, `--char-name`, `--all` — see [Global Flags](#global-flags)
@@ -393,74 +471,6 @@ When operating on multiple characters (`--all`), `export`, `import`, and `backup
 
 ---
 
-## Scope Selectors
-
-The `--scope` flag narrows which macros are touched during export, import, or template generation. The same selector syntax applies to all three commands.
-
-### Selector components
-
-| Component | Meaning | Range |
-|-----------|---------|-------|
-| `B<n>` | Book n | 1–40 |
-| `S<n>` | Set n (within current book) | 1–10 |
-| `C<n>` | Ctrl key n (within current set) | 0–9 |
-| `A<n>` | Alt key n (within current set) | 0–9 |
-
-### Ranges and wildcards
-
-```
-B1-5        books 1 through 5
-B1S2-4      book 1, sets 2 through 4
-B*          all books (full scope)
-B1S*        all sets in book 1 (book-level scope)
-B1S3C*      all ctrl keys in book 1, set 3
-```
-
-### Comma siblings
-
-A comma within a selector creates a sibling at the current level:
-
-```
-B1,3,5      books 1, 3, and 5
-B1S2,4      book 1, sets 2 and 4
-B1S3A1,3    book 1, set 3, alt keys 1 and 3
-B1S3A1,C2   book 1, set 3 — alt key 1 and ctrl key 2
-```
-
-### Multiple `--scope` flags
-
-Use multiple flags for disjoint selectors at the same level:
-
-```sh
-macromog export --scope B1S3A1 --scope B5S2C4
-```
-
-All flags must resolve to the same scope level (all book-level, all set-level, etc.). Mixing levels across flags is an error.
-
-### Scope levels
-
-| Deepest component | Scope level |
-|-------------------|-------------|
-| `C` or `A` | macro |
-| `S` | set |
-| `B` | book |
-| `*` or `B*` | full |
-
-### Effect on import
-
-The scope embedded in a YAML file controls what import is allowed to clear:
-
-| YAML scope level | What import may clear |
-|------------------|-----------------------|
-| `full` | All 40 books (absent books are deleted) |
-| `book` | Only the specified books |
-| `set` | Only the specified (book, set) pairs |
-| `macro` | Nothing — only the named slots are updated |
-
-If you pass `--scope` to `import` and it exceeds the YAML's declared scope, macromog prompts for confirmation before proceeding.
-
----
-
 ## Auto-Translate Markers
 
 FFXI auto-translate phrases stored in macros appear as placeholder tokens on export:
@@ -485,7 +495,7 @@ Lines containing auto-translate markers are exempt from the 60-character length 
 macromog export                              # export everything
 # edit the YAML
 macromog validate macros.yml                 # catch errors before importing
-macromog import macros.yml                   # backup is automatic
+macromog import macros.yml                   # validates + auto-backups before writing
 ```
 
 ### Shared macros across characters
@@ -525,7 +535,7 @@ macromog import b1.yml
 # Check if a file is valid; parse the result with jq
 macromog --output json validate macros.yml | jq '.valid'
 
-# Get the backup path after an export
+# Get the backup path after a backup
 macromog --output json backup --char-name Squatched | jq '.path'
 ```
 
@@ -533,12 +543,23 @@ macromog --output json backup --char-name Squatched | jq '.path'
 
 ## Environment and Detection
 
-On **Windows**, macromog searches for your FFXI installation in:
-- `C:\Program Files (x86)\PlayOnline\SquareEnix\FINAL FANTASY XI`
-- `C:\Program Files\PlayOnline\SquareEnix\FINAL FANTASY XI`
-- Steam library paths
+macromog searches common install locations automatically. Supply `--ffxi-path` if detection fails — it should point at the FFXI root directory (the one containing the `USER` subdirectory).
 
-If auto-detection fails, supply `--ffxi-path` with the path to your FFXI root directory (the folder that contains the `USER` subdirectory).
+### Windows
+
+```
+C:\Program Files (x86)\PlayOnline\SquareEnix\FINAL FANTASY XI\USER
+C:\Program Files\PlayOnline\SquareEnix\FINAL FANTASY XI\USER
+```
+
+### Linux
+
+| Setup | Path searched |
+|-------|--------------|
+| Default Wine prefix | `~/.wine/drive_c/Program Files (x86)/PlayOnline/SquareEnix/FINAL FANTASY XI/USER` |
+| Lutris | `~/Games/<game-name>/drive_c/Program Files (x86)/PlayOnline/SquareEnix/FINAL FANTASY XI/USER` (all subfolders of `~/Games` are scanned) |
+| Steam / Proton | `~/.steam/steam/steamapps/compatdata/230330/pfx/drive_c/…` |
+| Steam (alt path) | `~/.local/share/Steam/steamapps/compatdata/230330/pfx/drive_c/…` |
 
 **Color output** is enabled automatically when writing to a terminal. Set `NO_COLOR=1` or `TERM=dumb` to disable it.
 
