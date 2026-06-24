@@ -10,6 +10,7 @@ import (
 
 	"github.com/squatched/macromog/internal/aliases"
 	"github.com/squatched/macromog/internal/export"
+	"github.com/squatched/macromog/internal/scope"
 )
 
 const exportUsage = `Usage: macromog export [flags] [<char-dir>] [output]
@@ -28,6 +29,7 @@ Flags:
   --all                 export all discovered characters without prompting
   --output <file>       output YAML file (-o shorthand); requires one character
   --name <name>         character name for YAML metadata; requires one character
+  --scope <selector>    scope selector (repeatable; e.g. B1S3, B1,5, B1S3A1)
 
 Examples:
   macromog export
@@ -36,6 +38,7 @@ Examples:
   macromog export /path/to/USER/a1b2c3d4 macros.yml
   macromog export --char-dir /path/to/USER/a1b2c3d4 -o macros.yml
   macromog export --char-name Squatched -o macros.yml
+  macromog export --scope B1,5 -o books1and5.yml
 `
 
 type exportEntry struct {
@@ -60,8 +63,16 @@ func runExport(args []string, p *Printer) int {
 	output := fs.String("output", "", "output YAML file")
 	shortOut := fs.String("o", "", "output YAML file (shorthand)")
 	metaName := fs.String("name", "", "character name for YAML metadata")
+	var scopeSel scopeFlags
+	fs.Var(&scopeSel, "scope", "scope selector (repeatable)")
 
 	if err := fs.Parse(args); err != nil {
+		return 1
+	}
+
+	sc, err := scope.ParseSelectors([]string(scopeSel))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "macromog export: invalid --scope: %v\n", err)
 		return 1
 	}
 
@@ -113,7 +124,7 @@ func runExport(args []string, p *Printer) int {
 			outPath = fmt.Sprintf("%s_macros_%s.yml", strings.ToLower(name), stamp)
 		}
 
-		if err := export.WriteFile(dir, outPath, name); err != nil {
+		if err := export.WriteFile(export.Options{CharacterDir: dir, Character: name, Scope: sc}, outPath); err != nil {
 			if !p.IsJSON() {
 				ew := p.Err()
 				if multi {

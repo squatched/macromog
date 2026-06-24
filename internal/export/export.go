@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/squatched/macromog/internal/dat"
+	"github.com/squatched/macromog/internal/scope"
 	"gopkg.in/yaml.v3"
 )
 
@@ -16,12 +17,13 @@ type Document struct {
 	Version    int          `yaml:"version"`
 	Character  string       `yaml:"character,omitempty"`
 	ExportedAt string       `yaml:"exported_at,omitempty"`
+	Scope      scope.Scope  `yaml:"scope"`
 	Books      map[int]Book `yaml:"books,omitempty"`
 }
 
 type Book struct {
-	Name string         `yaml:"name,omitempty"`
-	Sets map[int]Set    `yaml:"sets,omitempty"`
+	Name string      `yaml:"name,omitempty"`
+	Sets map[int]Set `yaml:"sets,omitempty"`
 }
 
 type Set struct {
@@ -39,11 +41,17 @@ type Macro struct {
 type Options struct {
 	CharacterDir string
 	Character    string
+	Scope        scope.Scope // zero value = full scope
 }
 
 // FromCharacterDir reads macro .dat files from a FFXI USER directory and
-// returns a sparse YAML document containing all non-empty macros.
+// returns a sparse YAML document containing non-empty macros within the scope.
 func FromCharacterDir(opts Options) (Document, error) {
+	sc := opts.Scope
+	if sc.IsZero() {
+		sc = scope.Full()
+	}
+
 	dir := opts.CharacterDir
 	titles, err := dat.ReadBookTitles(dir)
 	if err != nil {
@@ -59,6 +67,7 @@ func FromCharacterDir(opts Options) (Document, error) {
 		Version:    1,
 		Character:  opts.Character,
 		ExportedAt: time.Now().UTC().Format(time.RFC3339),
+		Scope:      sc,
 		Books:      make(map[int]Book),
 	}
 
@@ -72,12 +81,17 @@ func FromCharacterDir(opts Options) (Document, error) {
 			continue
 		}
 
+		// Skip book/set pairs outside the scope.
+		if !sc.ContainsSet(book, set) {
+			continue
+		}
+
 		setData, err := dat.ReadMacroSetFile(path)
 		if err != nil {
 			return Document{}, fmt.Errorf("%s: %w", filepath.Base(path), err)
 		}
 
-		exported := exportMacroSet(setData)
+		exported := exportMacroSet(setData, sc, book, set)
 		if exported.Ctrl == nil && exported.Alt == nil {
 			continue
 		}
@@ -96,20 +110,25 @@ func FromCharacterDir(opts Options) (Document, error) {
 	return doc, nil
 }
 
-func exportMacroSet(set dat.MacroSet) Set {
+func exportMacroSet(set dat.MacroSet, sc scope.Scope, book, setIdx int) Set {
 	out := Set{HeaderUnknown: set.HeaderUnknown}
 	for i := 0; i < 10; i++ {
-		if m := exportMacro(set.Ctrl[i]); m != nil {
-			if out.Ctrl == nil {
-				out.Ctrl = make(map[int]Macro)
+		yamlKey := dat.YAMLKey(i)
+		if sc.ContainsMacro(book, setIdx, scope.TypeCtrl, yamlKey) {
+			if m := exportMacro(set.Ctrl[i]); m != nil {
+				if out.Ctrl == nil {
+					out.Ctrl = make(map[int]Macro)
+				}
+				out.Ctrl[yamlKey] = *m
 			}
-			out.Ctrl[dat.YAMLKey(i)] = *m
 		}
-		if m := exportMacro(set.Alt[i]); m != nil {
-			if out.Alt == nil {
-				out.Alt = make(map[int]Macro)
+		if sc.ContainsMacro(book, setIdx, scope.TypeAlt, yamlKey) {
+			if m := exportMacro(set.Alt[i]); m != nil {
+				if out.Alt == nil {
+					out.Alt = make(map[int]Macro)
+				}
+				out.Alt[yamlKey] = *m
 			}
-			out.Alt[dat.YAMLKey(i)] = *m
 		}
 	}
 	return out
@@ -164,6 +183,11 @@ func buildYAMLNode(doc Document) *yaml.Node {
 		addKV(root, "exported_at", scalarNode(doc.ExportedAt))
 	}
 
+	// scope is always written.
+	if !doc.Scope.IsZero() {
+		addKV(root, "scope", scopeNode(doc.Scope))
+	}
+
 	bookKeys := sortedIntKeys(doc.Books)
 	if len(bookKeys) > 0 {
 		booksNode := &yaml.Node{Kind: yaml.MappingNode}
@@ -187,6 +211,35 @@ func buildYAMLNode(doc Document) *yaml.Node {
 	}
 
 	return root
+}
+
+func scopeNode(sc scope.Scope) *yaml.Node {
+	n := &yaml.Node{Kind: yaml.MappingNode}
+	addKV(n, "level", scalarNode(string(sc.Level)))
+	if len(sc.Selections) > 0 {
+		seqNode := &yaml.Node{Kind: yaml.SequenceNode}
+		for _, sel := range sc.Selections {
+			seqNode.Content = append(seqNode.Content, selectionNode(sel))
+		}
+		addKV(n, "selections", seqNode)
+	}
+	return n
+}
+
+func selectionNode(sel scope.Selection) *yaml.Node {
+	// Use flow style (inline) for compact output: {book: 1, set: 3, type: ctrl, key: 1}
+	n := &yaml.Node{Kind: yaml.MappingNode, Style: yaml.FlowStyle}
+	addKV(n, "book", intNode(sel.Book))
+	if sel.Set != 0 {
+		addKV(n, "set", intNode(sel.Set))
+	}
+	if sel.Type != "" {
+		addKV(n, "type", scalarNode(string(sel.Type)))
+	}
+	if sel.Type != "" {
+		addKV(n, "key", intNode(sel.Key))
+	}
+	return n
 }
 
 func setNode(s Set) *yaml.Node {
@@ -268,9 +321,9 @@ func sortedIntKeys[V any](m map[int]V) []int {
 	return keys
 }
 
-// WriteFile exports macros from characterDir and writes YAML to outputPath.
-func WriteFile(characterDir, outputPath, character string) error {
-	doc, err := FromCharacterDir(Options{CharacterDir: characterDir, Character: character})
+// WriteFile exports macros from opts.CharacterDir and writes YAML to outputPath.
+func WriteFile(opts Options, outputPath string) error {
+	doc, err := FromCharacterDir(opts)
 	if err != nil {
 		return err
 	}
