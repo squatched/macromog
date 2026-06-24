@@ -224,4 +224,105 @@ describe('setup readiness', function()
         assert.is_true(setup.learned.Squatched)
         assert.is_nil(cli_calls.set_alias)
     end)
+
+    it('fails when char id cannot be determined', function()
+        cli_calls.config_show = { config = { installs = { steam = {} } } }
+        cli_calls.list_all = {
+            user_dir = 'C:/ffxi/USER',
+            characters = {
+                { id = 'aaa' },
+                { id = 'bbb' },
+            },
+        }
+        local orig_popen = io.popen
+        io.popen = function()
+            return nil
+        end
+        assert.is_false(setup.ensure_character('Squatched'))
+        io.popen = orig_popen
+    end)
+
+    it('picks newest mtime among multiple characters', function()
+        cli_calls.config_show = { config = { installs = { steam = {} } } }
+        cli_calls.list_all = {
+            user_dir = 'C:/ffxi/USER',
+            characters = {
+                { id = 'older' },
+                { id = 'newer' },
+            },
+        }
+        local orig_popen = io.popen
+        io.popen = function(cmd)
+            if cmd:find('older', 1, true) then
+                return {
+                    read = function()
+                        return '01/01/2020 12:00 PM'
+                    end,
+                    close = function() end,
+                }
+            end
+            return {
+                read = function()
+                    return '02/02/2025 12:00 PM'
+                end,
+                close = function() end,
+            }
+        end
+        setup.ensure_character('Squatched')
+        io.popen = orig_popen
+        assert.are.equal('newer', cli_calls.set_alias.char_id)
+    end)
+
+    it('reports alias setup failure', function()
+        cli_calls.config_show = { config = { installs = { steam = {} } } }
+        cli_calls.set_alias_code = 1
+        cli_calls.set_alias_out = 'bad id'
+        local msgs = {}
+        windower.add_to_chat = function(_, msg)
+            msgs[#msgs + 1] = msg
+        end
+        assert.is_false(setup.ensure_character('Squatched'))
+        assert.is_true(msgs[#msgs]:find('Alias setup failed', 1, true) ~= nil)
+    end)
+end)
+
+describe('setup.on_zone edge cases', function()
+    before_each(function()
+        setup.install_ready = false
+        setup.zoned_since_load = false
+        setup.noticed_zone = false
+        setup.learned = {}
+        cli_calls = {
+            config_show = { config = { installs = { steam = {} } } },
+            list_all = {
+                user_dir = 'C:/ffxi/USER',
+                characters = { { id = 'a1b2c3d4' } },
+            },
+            ffxi_root = 'C:/ffxi',
+        }
+    end)
+
+    it('only announces ready once', function()
+        local msgs = {}
+        windower.add_to_chat = function(_, msg)
+            msgs[#msgs + 1] = msg
+        end
+        setup.on_zone()
+        setup.on_zone()
+        local ready_count = 0
+        for _, msg in ipairs(msgs) do
+            if msg:find('Ready!', 1, true) then
+                ready_count = ready_count + 1
+            end
+        end
+        assert.are.equal(1, ready_count)
+    end)
+
+    it('skips alias when player name is unavailable', function()
+        windower.ffxi.get_player = function()
+            return nil
+        end
+        setup.on_zone()
+        assert.is_nil(cli_calls.set_alias)
+    end)
 end)
