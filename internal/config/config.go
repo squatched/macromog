@@ -163,7 +163,7 @@ func Validate(cfg *Config) error {
 		if strings.TrimSpace(inst.Path) == "" {
 			return fmt.Errorf("install %q: path must not be empty", name)
 		}
-		norm, err := NormalizePath(inst.Path)
+		norm, err := CanonicalInstallPath(inst.Path)
 		if err != nil {
 			return fmt.Errorf("install %q: %w", name, err)
 		}
@@ -243,12 +243,12 @@ func ParseBool(s string) (bool, error) {
 
 // FindInstallByPath returns the install name whose normalized path matches path.
 func FindInstallByPath(cfg *Config, path string) (string, *Install, error) {
-	norm, err := NormalizePath(path)
+	norm, err := CanonicalInstallPath(path)
 	if err != nil {
 		return "", nil, err
 	}
 	for name, inst := range cfg.Installs {
-		instNorm, err := NormalizePath(inst.Path)
+		instNorm, err := CanonicalInstallPath(inst.Path)
 		if err != nil {
 			continue
 		}
