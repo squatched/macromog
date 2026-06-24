@@ -547,10 +547,12 @@ macromog searches common install locations automatically. Supply `--ffxi-path` i
 
 ### Windows
 
-```
-C:\Program Files (x86)\PlayOnline\SquareEnix\FINAL FANTASY XI\USER
-C:\Program Files\PlayOnline\SquareEnix\FINAL FANTASY XI\USER
-```
+| Setup | Path searched |
+|-------|--------------|
+| Standard PlayOnline install | `C:\Program Files (x86)\PlayOnline\SquareEnix\FINAL FANTASY XI\USER` |
+| PlayOnline (64-bit Program Files) | `C:\Program Files\PlayOnline\SquareEnix\FINAL FANTASY XI\USER` |
+| Steam (default install) | `C:\Program Files (x86)\Steam\steamapps\common\FINAL FANTASY XI Online\USER` |
+| Steam (64-bit Program Files) | `C:\Program Files\Steam\steamapps\common\FINAL FANTASY XI Online\USER` |
 
 ### Linux
 

@@ -189,10 +189,10 @@ quality. They do not belong under the `validate` umbrella.
 | Target | Purpose |
 |--------|---------|
 | `build-cli` | Build the CLI binary for the current platform (`./macromog`) |
-| `build-cli-all` | Cross-compile for all 6 release platforms; no output kept |
+| `build-cli-all` | Cross-compile for all 4 release platforms; no output kept |
 
-Release platforms: `darwin/amd64`, `darwin/arm64`, `linux/amd64`, `linux/386`,
-`windows/amd64`, `windows/386`. (`darwin/386` was dropped in Go 1.15.)
+Release platforms: `linux/amd64`, `linux/386`, `windows/amd64`, `windows/386`.
+macOS is not supported — FFXI has no native macOS client.
 
 A failed build blocks PRs via a dedicated `build.yml` workflow. Unlike `validate-*` targets,
 `build-cli-all` is not run as part of `make validate`.

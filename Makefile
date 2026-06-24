@@ -14,7 +14,6 @@ CLI_DIRS         := ./cmd
 CLI_MAIN         := ./cmd/macromog
 BINARY           := bin/macromog
 BUILD_PLATFORMS  := \
-    darwin/amd64 darwin/arm64 \
     linux/amd64  linux/386   \
     windows/amd64 windows/386
 
