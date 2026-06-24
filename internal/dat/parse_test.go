@@ -270,4 +270,3 @@ func TestReadMacroSetFile(t *testing.T) {
 		t.Errorf("name = %q", set.Ctrl[0].Name)
 	}
 }
-
