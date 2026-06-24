@@ -30,6 +30,7 @@ coverage-cli.out
 
 # Go build outputs
 /bin/
+/dist/
 
 # Go test binaries (built with go test -c)
 *.test

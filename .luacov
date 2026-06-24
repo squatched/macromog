@@ -4,7 +4,10 @@ return {
     reportfile = "luacov.report.out",
     include = {
         "macromog",
-        "lib/macros",
+        "lib/cli",
+        "lib/detect",
+        "lib/json",
+        "lib/setup",
         "lib/validate",
         "lib/yaml",
     },
