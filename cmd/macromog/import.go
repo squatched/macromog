@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -122,7 +123,7 @@ func runImport(args []string, p *Printer) int {
 
 	// If --scope was provided and it exceeds the YAML's embedded scope, confirm.
 	if !importScope.IsZero() && !*dryRun {
-		if confirmed, err := confirmScopeOverride(yamlAbs, importScope); err != nil {
+		if confirmed, err := confirmScopeOverride(yamlAbs, importScope, os.Stdin); err != nil {
 			fmt.Fprintf(os.Stderr, "macromog import: %v\n", err)
 			return 1
 		} else if !confirmed {
@@ -232,7 +233,8 @@ func runImport(args []string, p *Printer) int {
 
 // confirmScopeOverride reads the YAML scope field and, if the import scope
 // exceeds it, asks the user to confirm. Returns true if import should proceed.
-func confirmScopeOverride(yamlPath string, importScope scope.Scope) (bool, error) {
+// r is read for the user's response; pass os.Stdin in production.
+func confirmScopeOverride(yamlPath string, importScope scope.Scope, r io.Reader) (bool, error) {
 	data, err := os.ReadFile(yamlPath)
 	if err != nil {
 		return false, err
@@ -256,7 +258,7 @@ func confirmScopeOverride(yamlPath string, importScope scope.Scope) (bool, error
 		importScope.Level, yamlLevel,
 	)
 
-	scanner := bufio.NewScanner(os.Stdin)
+	scanner := bufio.NewScanner(r)
 	if !scanner.Scan() {
 		return false, nil
 	}
