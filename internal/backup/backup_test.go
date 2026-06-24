@@ -95,6 +95,23 @@ func TestBackup_EmptyDir(t *testing.T) {
 	}
 }
 
+func TestBackup_UnreadableSourceFile(t *testing.T) {
+	tmp := t.TempDir()
+	datPath := filepath.Join(tmp, "mcr.dat")
+	if err := os.WriteFile(datPath, []byte("data"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(datPath, 0o000); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(datPath, 0o644) })
+
+	dest := t.TempDir()
+	if _, err := backup.Backup(tmp, dest); err == nil {
+		t.Error("expected error when source file is unreadable")
+	}
+}
+
 // prepCharDir copies the test fixture into a fresh temp dir so tests can write
 // into it without touching the checked-in testdata.
 func prepCharDir(t *testing.T) string {

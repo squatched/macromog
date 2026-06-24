@@ -11,6 +11,7 @@ Commands:
   alias     assign a friendly name to a character folder
   export    export macros from .dat files to YAML
   import    import macros from YAML into .dat files (auto-backups first)
+  template  generate a blank YAML template for a given scope
   validate  validate a YAML file against the schema
   backup    create a timestamped backup of all macro .dat files
   list      list detected characters and macro books
@@ -49,6 +50,8 @@ func run(args []string) int {
 		return runExport(args[2:], p)
 	case "import":
 		return runImport(args[2:], p)
+	case "template":
+		return runTemplate(args[2:], p)
 	case "validate":
 		return runValidate(args[2:], p)
 	case "backup":

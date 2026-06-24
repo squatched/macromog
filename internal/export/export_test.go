@@ -10,6 +10,7 @@ import (
 	"github.com/squatched/macromog/internal/dat"
 	"github.com/squatched/macromog/internal/dat/testdata"
 	"github.com/squatched/macromog/internal/export"
+	"github.com/squatched/macromog/internal/scope"
 	"github.com/squatched/macromog/internal/validate"
 )
 
@@ -113,7 +114,7 @@ func TestFromCharacterDir_EmptyCharacter(t *testing.T) {
 func TestWriteFile(t *testing.T) {
 	dir := t.TempDir()
 	out := filepath.Join(dir, "out.yml")
-	if err := export.WriteFile(testdata.CharDir(), out, "test"); err != nil {
+	if err := export.WriteFile(export.Options{CharacterDir: testdata.CharDir(), Character: "test"}, out); err != nil {
 		t.Fatal(err)
 	}
 	data, err := os.ReadFile(out)
@@ -122,5 +123,74 @@ func TestWriteFile(t *testing.T) {
 	}
 	if !strings.Contains(string(data), "B33S1") {
 		t.Errorf("output missing macro name: %s", data)
+	}
+}
+
+func TestFromCharacterDir_ScopeFieldAlwaysPresent(t *testing.T) {
+	doc, err := export.FromCharacterDir(export.Options{CharacterDir: testdata.CharDir()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if doc.Scope.Level != scope.LevelFull {
+		t.Errorf("default scope level = %q, want full", doc.Scope.Level)
+	}
+	data, err := export.MarshalYAML(doc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), "level: full") {
+		t.Errorf("marshaled YAML missing scope field:\n%s", data)
+	}
+}
+
+func TestFromCharacterDir_BookScope(t *testing.T) {
+	sc := scope.Scope{
+		Level:      scope.LevelBook,
+		Selections: []scope.Selection{{Book: 33}},
+	}
+	doc, err := export.FromCharacterDir(export.Options{
+		CharacterDir: testdata.CharDir(),
+		Scope:        sc,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Only book 33 should appear.
+	if _, ok := doc.Books[33]; !ok {
+		t.Error("book 33 missing from book-scoped export")
+	}
+	for bk := range doc.Books {
+		if bk != 33 {
+			t.Errorf("book-scoped export contains unexpected book %d", bk)
+		}
+	}
+	if doc.Scope.Level != scope.LevelBook {
+		t.Errorf("scope.Level = %q, want book", doc.Scope.Level)
+	}
+}
+
+func TestFromCharacterDir_SetScope(t *testing.T) {
+	sc := scope.Scope{
+		Level:      scope.LevelSet,
+		Selections: []scope.Selection{{Book: 6, Set: 10}},
+	}
+	doc, err := export.FromCharacterDir(export.Options{
+		CharacterDir: testdata.CharDir(),
+		Scope:        sc,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	b6, ok := doc.Books[6]
+	if !ok {
+		t.Fatal("book 6 missing from set-scoped export")
+	}
+	if _, ok := b6.Sets[10]; !ok {
+		t.Error("set 10 missing from set-scoped export")
+	}
+	for setIdx := range b6.Sets {
+		if setIdx != 10 {
+			t.Errorf("set-scoped export contains unexpected set %d in book 6", setIdx)
+		}
 	}
 }

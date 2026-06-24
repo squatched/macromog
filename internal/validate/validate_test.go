@@ -589,6 +589,117 @@ books:
 			wantValid:   false,
 			errContains: []string{"alt", "key must be 0–9"},
 		},
+		{
+			name: "scope level full is valid",
+			input: `version: 1
+scope:
+  level: full
+books:
+  1:
+    sets:
+      1:
+        ctrl:
+          1:
+            name: "Cure"
+`,
+			wantValid: true,
+		},
+		{
+			name: "scope level book with valid selection is valid",
+			input: `version: 1
+scope:
+  level: book
+  selections:
+    - {book: 1}
+books:
+  1:
+    sets:
+      1:
+        ctrl:
+          1:
+            name: "Cure"
+`,
+			wantValid: true,
+		},
+		{
+			name: "scope level macro with valid selection is valid",
+			input: `version: 1
+scope:
+  level: macro
+  selections:
+    - {book: 1, set: 3, type: ctrl, key: 2}
+books:
+  1:
+    sets:
+      3:
+        ctrl:
+          2:
+            name: "Cure"
+`,
+			wantValid: true,
+		},
+		{
+			name: "scope with invalid level rejected",
+			input: `version: 1
+scope:
+  level: partial
+books:
+  1:
+    sets:
+      1:
+        ctrl:
+          1:
+            name: "X"
+`,
+			wantValid:   false,
+			errContains: []string{"scope.level", "partial"},
+		},
+		{
+			name: "scope full with selections rejected",
+			input: `version: 1
+scope:
+  level: full
+  selections:
+    - {book: 1}
+books: {}
+`,
+			wantValid:   false,
+			errContains: []string{"scope.selections", "absent when level is full"},
+		},
+		{
+			name: "scope book without selections rejected",
+			input: `version: 1
+scope:
+  level: book
+books: {}
+`,
+			wantValid:   false,
+			errContains: []string{"scope.selections", "required"},
+		},
+		{
+			name: "scope book with out-of-range book rejected",
+			input: `version: 1
+scope:
+  level: book
+  selections:
+    - {book: 41}
+books: {}
+`,
+			wantValid:   false,
+			errContains: []string{"scope.selections[0].book", "1–40"},
+		},
+		{
+			name: "scope macro with invalid type rejected",
+			input: `version: 1
+scope:
+  level: macro
+  selections:
+    - {book: 1, set: 3, type: magic, key: 1}
+books: {}
+`,
+			wantValid:   false,
+			errContains: []string{"scope.selections[0].type", "ctrl or alt"},
+		},
 	}
 
 	for _, tt := range tests {

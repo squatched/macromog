@@ -30,7 +30,21 @@ type document struct {
 	Version    *int         `yaml:"version"`
 	Character  string       `yaml:"character"`
 	ExportedAt string       `yaml:"exported_at"`
+	Scope      *docScope    `yaml:"scope"`
 	Books      map[int]book `yaml:"books"`
+}
+
+// docScope mirrors scope.Scope for validation (avoids import cycle).
+type docScope struct {
+	Level      string         `yaml:"level"`
+	Selections []docSelection `yaml:"selections"`
+}
+
+type docSelection struct {
+	Book int    `yaml:"book"`
+	Set  int    `yaml:"set"`
+	Type string `yaml:"type"`
+	Key  int    `yaml:"key"`
 }
 
 type book struct {
@@ -40,8 +54,8 @@ type book struct {
 
 type set struct {
 	HeaderUnknown uint32        `yaml:"header_unknown"`
-	Ctrl      map[int]macro `yaml:"ctrl"`
-	Alt       map[int]macro `yaml:"alt"`
+	Ctrl          map[int]macro `yaml:"ctrl"`
+	Alt           map[int]macro `yaml:"alt"`
 }
 
 type macro struct {
@@ -91,6 +105,10 @@ func Validate(data []byte) []Error {
 		if _, err := time.Parse(time.RFC3339, doc.ExportedAt); err != nil {
 			errs = append(errs, Error{Path: "exported_at", Message: `must be a date-time like "2026-06-20T03:30:00Z"`})
 		}
+	}
+
+	if doc.Scope != nil {
+		errs = append(errs, validateScope(doc.Scope)...)
 	}
 
 	for bookIdx, b := range doc.Books {
@@ -179,6 +197,98 @@ func validateMacro(path string, m macro) []Error {
 		}
 		if hasNonPrintable(line) {
 			errs = append(errs, Error{Path: linePath, Message: fmt.Sprintf("must contain only printable characters, got %q", line)})
+		}
+	}
+
+	return errs
+}
+
+var validScopeLevels = map[string]bool{
+	"full":  true,
+	"book":  true,
+	"set":   true,
+	"macro": true,
+}
+
+var validMacroTypes = map[string]bool{
+	"ctrl": true,
+	"alt":  true,
+}
+
+func validateScope(s *docScope) []Error {
+	var errs []Error
+
+	if !validScopeLevels[s.Level] {
+		errs = append(errs, Error{
+			Path:    "scope.level",
+			Message: fmt.Sprintf("must be full, book, set, or macro; got %q", s.Level),
+		})
+		return errs
+	}
+
+	if s.Level == "full" && len(s.Selections) > 0 {
+		errs = append(errs, Error{
+			Path:    "scope.selections",
+			Message: "must be absent when level is full",
+		})
+		return errs
+	}
+
+	if s.Level != "full" && len(s.Selections) == 0 {
+		errs = append(errs, Error{
+			Path:    "scope.selections",
+			Message: fmt.Sprintf("required when level is %q", s.Level),
+		})
+		return errs
+	}
+
+	for i, sel := range s.Selections {
+		selPath := fmt.Sprintf("scope.selections[%d]", i)
+
+		if sel.Book < 1 || sel.Book > 40 {
+			errs = append(errs, Error{
+				Path:    selPath + ".book",
+				Message: fmt.Sprintf("must be 1–40, got %d", sel.Book),
+			})
+		}
+
+		switch s.Level {
+		case "set", "macro":
+			if sel.Set < 1 || sel.Set > 10 {
+				errs = append(errs, Error{
+					Path:    selPath + ".set",
+					Message: fmt.Sprintf("must be 1–10, got %d", sel.Set),
+				})
+			}
+		case "book":
+			if sel.Set != 0 {
+				errs = append(errs, Error{
+					Path:    selPath + ".set",
+					Message: "must be absent for book-level scope",
+				})
+			}
+		}
+
+		if s.Level == "macro" {
+			if !validMacroTypes[sel.Type] {
+				errs = append(errs, Error{
+					Path:    selPath + ".type",
+					Message: fmt.Sprintf("must be ctrl or alt, got %q", sel.Type),
+				})
+			}
+			if sel.Key < 0 || sel.Key > 9 {
+				errs = append(errs, Error{
+					Path:    selPath + ".key",
+					Message: fmt.Sprintf("must be 0–9, got %d", sel.Key),
+				})
+			}
+		} else {
+			if sel.Type != "" {
+				errs = append(errs, Error{
+					Path:    selPath + ".type",
+					Message: fmt.Sprintf("must be absent for %s-level scope", s.Level),
+				})
+			}
 		}
 	}
 

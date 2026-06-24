@@ -203,6 +203,35 @@ func TestRunExport_CharName(t *testing.T) {
 	}
 }
 
+func TestRunExport_WithScopeFlag(t *testing.T) {
+	dir := t.TempDir()
+	out := filepath.Join(dir, "scoped.yml")
+	args := []string{"--char-dir", testdata.CharDir(), "--scope", "B33", "-o", out}
+	if got := runExport(args, newTextPrinter()); got != 0 {
+		t.Fatalf("runExport(--scope B33) = %d, want 0", got)
+	}
+	data, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := string(data)
+	if !strings.Contains(s, "level: book") {
+		t.Errorf("scoped export missing book scope level: %s", s)
+	}
+	if !strings.Contains(s, "B33S1") {
+		t.Errorf("scoped export missing B33S1: %s", s)
+	}
+}
+
+func TestRunExport_InvalidScopeFlag(t *testing.T) {
+	dir := t.TempDir()
+	out := filepath.Join(dir, "bad.yml")
+	args := []string{"--char-dir", testdata.CharDir(), "--scope", "B0", "-o", out}
+	if got := runExport(args, newTextPrinter()); got != 1 {
+		t.Errorf("runExport(bad scope) = %d, want 1", got)
+	}
+}
+
 func TestRunExport_DefaultOutputName(t *testing.T) {
 	dir := t.TempDir()
 	wd, err := os.Getwd()

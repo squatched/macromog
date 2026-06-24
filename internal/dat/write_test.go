@@ -265,7 +265,10 @@ func TestWriteBookTitles(t *testing.T) {
 		t.Fatalf("ReadBookTitles: %v", err)
 	}
 
-	cases := []struct{ idx int; want string }{
+	cases := []struct {
+		idx  int
+		want string
+	}{
 		{0, "WHM75"},
 		{19, "RDM75NIN"},
 		{20, "BLM90"},
@@ -274,6 +277,91 @@ func TestWriteBookTitles(t *testing.T) {
 	for _, c := range cases {
 		if read[c.idx] != c.want {
 			t.Errorf("titles[%d] = %q, want %q", c.idx, read[c.idx], c.want)
+		}
+	}
+}
+
+// TestWriteBookTitles_Sparse verifies that title files are deleted (not written
+// as all-zero) when all entries in the corresponding group are empty — matching
+// the game's own behavior (observed in real character directories).
+func TestWriteBookTitles_Sparse(t *testing.T) {
+	dir := t.TempDir()
+
+	// Seed both files so we can confirm deletion.
+	var seed [MaxBooks]string
+	seed[0] = "Book1"
+	seed[20] = "Book21"
+	if err := WriteBookTitles(dir, seed); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+	for _, f := range []string{"mcr.ttl", "mcr_2.ttl"} {
+		if _, err := os.Stat(filepath.Join(dir, f)); err != nil {
+			t.Fatalf("expected %s after seed write: %v", f, err)
+		}
+	}
+
+	// Write all-empty titles — both files should be deleted.
+	var empty [MaxBooks]string
+	if err := WriteBookTitles(dir, empty); err != nil {
+		t.Fatalf("WriteBookTitles all-empty: %v", err)
+	}
+	for _, f := range []string{"mcr.ttl", "mcr_2.ttl"} {
+		if _, err := os.Stat(filepath.Join(dir, f)); !os.IsNotExist(err) {
+			t.Errorf("%s should be absent when all titles are empty", f)
+		}
+	}
+
+	// ReadBookTitles should still return all-empty without error.
+	read, err := ReadBookTitles(dir)
+	if err != nil {
+		t.Fatalf("ReadBookTitles after delete: %v", err)
+	}
+	for i, n := range read {
+		if n != "" {
+			t.Errorf("titles[%d] = %q, want empty", i, n)
+		}
+	}
+}
+
+func TestWriteBookTitles_SparsePartial(t *testing.T) {
+	dir := t.TempDir()
+
+	// Only books 21-40 have titles → mcr_2.ttl exists, mcr.ttl absent.
+	var titles [MaxBooks]string
+	titles[20] = "BLM90" // book 21 (index 20)
+
+	if err := WriteBookTitles(dir, titles); err != nil {
+		t.Fatalf("WriteBookTitles: %v", err)
+	}
+
+	if _, err := os.Stat(filepath.Join(dir, "mcr.ttl")); !os.IsNotExist(err) {
+		t.Error("mcr.ttl should be absent when books 1-20 all have empty titles")
+	}
+	if _, err := os.Stat(filepath.Join(dir, "mcr_2.ttl")); err != nil {
+		t.Errorf("mcr_2.ttl should exist when books 21-40 have titles: %v", err)
+	}
+
+	read, err := ReadBookTitles(dir)
+	if err != nil {
+		t.Fatalf("ReadBookTitles: %v", err)
+	}
+	if read[20] != "BLM90" {
+		t.Errorf("titles[20] = %q, want BLM90", read[20])
+	}
+	if read[0] != "" {
+		t.Errorf("titles[0] = %q, want empty", read[0])
+	}
+}
+
+func TestWriteBookTitles_AllEmptyNeitherFileCreated(t *testing.T) {
+	dir := t.TempDir()
+	var empty [MaxBooks]string
+	if err := WriteBookTitles(dir, empty); err != nil {
+		t.Fatalf("WriteBookTitles: %v", err)
+	}
+	for _, f := range []string{"mcr.ttl", "mcr_2.ttl"} {
+		if _, err := os.Stat(filepath.Join(dir, f)); !os.IsNotExist(err) {
+			t.Errorf("%s should not be created for all-empty titles", f)
 		}
 	}
 }
