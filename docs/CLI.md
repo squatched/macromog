@@ -32,7 +32,7 @@ macromog export
 macromog import squatched_macros_20260620_033000.yml
 ```
 
-macromog auto-detects your FFXI install on Windows and Linux. If detection fails, supply `--ffxi-path` pointing at your FFXI root (the folder that contains `USER`).
+macromog auto-detects your FFXI install on Windows and Linux. Register installs and give your characters real names with [`config`](#configuration) — much nicer than memorizing those cryptic letter-and-number folder IDs in USER. If detection fails, supply `--ffxi-path` pointing at your FFXI root (the folder that contains `USER`).
 
 ---
 
@@ -40,7 +40,7 @@ macromog auto-detects your FFXI install on Windows and Linux. If detection fails
 
 | Command | What it does |
 |---------|-------------|
-| [`alias`](#alias--set-a-character-nickname) | Assign a friendly name to a character folder |
+| [`config`](#configuration) | Manage installs, character aliases, and CLI preferences |
 | [`export`](#export--export-macros-to-yaml) | Read macro `.dat` files and write them to YAML |
 | [`import`](#import--import-macros-from-yaml) | Write macros from a YAML file back to `.dat` files |
 | [`template`](#template--generate-a-blank-yaml-template) | Generate a blank YAML template for a given scope |
@@ -57,9 +57,222 @@ These flags work with all commands:
 | Flag | Description |
 |------|-------------|
 | `--output text\|json` | Output format. Default: `text`. Use `json` for scripting. |
-| `--ffxi-path <path>` | Path to your FFXI install root. Auto-detected if omitted (see [Detection](#environment-and-detection)). |
+| `--ffxi-path <path>` | Path to your FFXI install root (raw path only). See [Install resolution](#install-resolution). |
+| `--install <name>` | Named FFXI install from config (e.g. `steam`, `lutris`). See [Install resolution](#install-resolution). |
 | `--char-dir <path>` | Path to a character's folder inside USER (e.g. `/path/to/USER/a1b2c3d4`). Bypasses character selection entirely. |
-| `--char-name <name>` | Character alias (set with `macromog alias`). Bypasses selection; USER folder is auto-detected or use `--ffxi-path`. |
+| `--char-name <name>` | Friendly character name from config — the sort you'd actually remember. Bypasses selection. |
+
+---
+
+## Configuration
+
+macromog keeps your CLI preferences in a YAML config file, kupo — installs, character names, and a few habits so you don't have to re-type them every command. The file is created automatically on first use and updated as you go.
+
+### Config file location
+
+| Context | Path |
+|---------|------|
+| Linux | `~/.config/macromog/config.yml` |
+| Windows | `%APPDATA%\macromog\config.yml` |
+| Running under Wine with a mapped Linux home | `~/.config/macromog/config.yml` (same file as the host shell) |
+| Override | `MACROMOG_CONFIG` environment variable (absolute path to config file) |
+
+When the Linux home directory is visible inside a Wine prefix, macromog prefers the XDG path so a host-shell `macromog` and a copy running inside the prefix can share one config. If that does not apply, set `MACROMOG_CONFIG` explicitly in both environments.
+
+### Config schema
+
+```yaml
+version: 1
+
+preferences:
+  default_offering: true    # optional; absent = true (see Default offering)
+
+default_install: steam      # optional; omitted when unset
+
+installs:
+  steam:
+    path: /home/adventurer/.steam/steamapps/compatdata/230330/pfx/drive_c/Program Files (x86)/PlayOnline/SquareEnix/FINAL FANTASY XI
+    default_character: a1b2c3d4    # optional; folder ID as FFXI stores it
+    characters:                     # optional; omitted when empty
+      a1b2c3d4:
+        name: Squatched
+      e5f6a7b8:
+        name: AltMule
+
+  lutris:
+    path: /home/adventurer/Games/ffxi/drive_c/Program Files (x86)/PlayOnline/SquareEnix/FINAL FANTASY XI
+    default_character: a1b2c3d4
+    characters:
+      a1b2c3d4:
+        name: Squatched
+```
+
+**Named installs** — register each FFXI root (Steam Proton prefix, Lutris bottle, native Windows install, etc.) under a short name. Use `--install <name>` to select one without typing the full path.
+
+**Character aliases** — FFXI stashes each character in USER under an opaque folder ID (those baffling strings like `a1b2c3d4`). Aliases map a real name you'll recognize to that ID. Scoped per install: the same friendly name on Steam and Lutris can point at different folders.
+
+**Defaults** — the first install you register becomes `default_install`; the first alias on an install becomes `default_character` for that install. Later additions do not change an existing default unless you pass `--set-default` or run an explicit set-default command. When a default is removed, the key is omitted from the file rather than left empty.
+
+**Paths** — stored as absolute, normalized paths: `~` expanded, made absolute, trailing slashes removed. Symlinks are preserved as written (not resolved to their targets).
+
+### Install resolution
+
+macromog picks the FFXI install root in this order:
+
+1. **`--ffxi-path <path>`** — use this path. If it matches a registered install, that install's aliases apply. In an interactive session, an unknown path triggers [install registration](#install-registration).
+2. **`--install <name>`** — look up a named install in config.
+3. **`default_install`** — if present in config.
+4. **Single install in config** — if exactly one install is registered, use it.
+5. **Auto-detect** — search common locations (see [Environment and Detection](#environment-and-detection)). If the result matches a registered install path, use that install's context. An unknown path in an interactive session triggers install registration.
+6. **Multiple installs, no default** — interactive selection prompt (see below).
+7. **Error** — with a hint to run `macromog config add-install`.
+
+`--ffxi-path` accepts filesystem paths only, not install names. Use `--install` for names.
+
+### Character selection
+
+Within the active install, macromog picks the character in this order:
+
+1. **`--char-dir <path>`** — use this folder directly.
+2. **`--char-name <name>`** — resolve alias from config for the active install.
+3. **`--all`** — every character in the USER folder.
+4. **`default_character`** — folder ID stored for the active install, if present (macromog shows the alias in messages when you have one).
+5. **Single configured alias** — if exactly one character is listed in config for this install, use it.
+6. **USER scan** — discover characters from the filesystem:
+   - One character found: use it (prints a notice).
+   - Multiple characters on an interactive terminal: selection prompt.
+   - Multiple characters on non-interactive input: error — use `--char-dir`, `--char-name`, or `--all`.
+7. **Multiple configured aliases, no default** — interactive selection prompt.
+
+When a selection prompt appears because no default is set, macromog may show an optional tip (controlled by [default offering](#default-offering)):
+
+```
+Multiple installs configured. Which install for this command?
+  [1] steam
+  [2] lutris
+Enter number:
+
+Tip: macromog config set-default-install steam skips this prompt.
+```
+
+Character prompts use the same pattern: *"Which character for this command?"* — never implying you are setting a default in that moment.
+
+### Install registration
+
+When macromog finds a path that is not yet in config (via `--ffxi-path` or auto-detect) and stdin is interactive:
+
+```
+Path not in config. Register as install? [Y/n]
+Name [steam]:
+```
+
+The suggested name is derived from the path (`steam`, `lutris`, `wine`, `playonline`, `default`, or `install`; collisions become `steam.2`, `steam.3`, …). Press Enter to accept the suggestion or type a different name.
+
+- **First registered install** becomes `default_install` automatically.
+- **Second install** does not change the default. macromog prints:
+
+  > Added install `lutris`. Default install is still `steam`. Use `macromog config set-default-install lutris` to change.
+
+- **Non-interactive sessions** — use the path for the current command only; no registration prompt.
+
+If you decline registration, the next interactive run with the same path asks again.
+
+### Default offering
+
+`preferences.default_offering` controls whether macromog shows tips about setting defaults when you choose an install or character without one configured. Selection prompts themselves are unchanged — only the optional tips are affected.
+
+```sh
+macromog config default-offering false
+macromog config default-offering true
+```
+
+Accepted values: `true`, `false`, `t`, `f`, `yes`, `no`, `y`, `n` (case-insensitive; stored as `true` or `false`).
+
+macromog prints an informational message whenever this preference changes:
+
+```
+Default offering disabled. Install and character selection prompts are unchanged; default-setting tips are suppressed.
+```
+
+When absent from config, default offering is enabled (`true`).
+
+To always choose install and character explicitly, remove defaults and disable offering:
+
+```sh
+macromog config remove-default-install
+macromog config remove-default-character --install steam
+macromog config default-offering false
+```
+
+Or pass `--install` and `--char-name` on every command.
+
+### Config lifecycle
+
+| Event | Behavior |
+|-------|----------|
+| First `macromog` invocation | Create `config.yml` with `version: 1` only |
+| Normal writes | Atomic write (temp file, then rename) |
+| Invalid config (parse or semantic error) | Specific error message; command aborts |
+
+**Interactive recovery** when config cannot be loaded:
+
+```
+config.yml is invalid: <reason>
+
+  [B]ack up corrupt file and start fresh
+  [Q]uit (fix manually)
+
+Choice [B/q]:
+```
+
+Choosing **B** renames the corrupt file to `config.yml.bak.<timestamp>` and writes a fresh empty config. Choosing **Q** exits without modifying the file. Non-interactive sessions exit with an error and do not auto-reset.
+
+Removing an install or alias also removes any `default_install` or `default_character` that pointed at it.
+
+### `config` command
+
+```sh
+macromog config <subcommand> [args]
+```
+
+| Subcommand | Purpose |
+|------------|---------|
+| `path` | Print config file location |
+| `show` | Dump current config |
+| `add-install <name> <path> [--set-default]` | Register an install |
+| `remove-install <name>` | Remove an install and its aliases |
+| `set-default-install <name>` | Set `default_install` |
+| `remove-default-install` | Remove `default_install` |
+| `set-alias <char-id> <name> [--install <name>] [--set-default]` | Give a character a friendly name |
+| `remove-alias <char-id> [--install <name>]` | Remove an alias |
+| `set-default-character <char-id> [--install <name>]` | Set `default_character` by folder ID |
+| `remove-default-character [--install <name>]` | Remove `default_character` for an install |
+| `default-offering <true\|false>` | Enable or disable default-setting tips |
+
+`--install` on config subcommands selects which install to affect; omitted flags use `default_install`.
+
+**Examples:**
+
+You'll need a character's folder ID once to create an alias — run `macromog list` if you don't have it handy. After that, `--char-name` is all you need day to day.
+
+```sh
+# Show where config lives
+macromog config path
+
+# Register a Steam Proton prefix
+macromog config add-install steam "/home/adventurer/.steam/steamapps/compatdata/230330/pfx/drive_c/Program Files (x86)/PlayOnline/SquareEnix/FINAL FANTASY XI"
+
+# Turn a1b2c3d4 into a name you'll recognize
+macromog config set-alias a1b2c3d4 Squatched
+
+# Alias on a specific install
+macromog config set-alias a1b2c3d4 Squatched --install lutris
+
+# Export using a named install and alias
+macromog export --install steam --char-name Squatched -o macros.yml
+```
+
+When a second alias is added to an install, macromog notes that the default character is unchanged and points to `config set-default-character`.
 
 ---
 
@@ -131,19 +344,9 @@ If you pass `--scope` to `import` and it exceeds the YAML's declared scope, macr
 
 ---
 
-## Character Selection
+## Multi-character selection
 
-macromog needs to know which character's macros to operate on. It resolves this in order:
-
-1. **`--char-dir <path>`** — use this folder directly, no questions asked.
-2. **`--char-name <name>`** — look up the alias in `USER/characters.yml` and use its folder.
-3. **`--all`** — operate on every character found in the USER folder.
-4. **Auto-detect** — scan the USER folder:
-   - One character found: use it automatically (prints a notice).
-   - Multiple characters found on an interactive terminal: show a selection prompt.
-   - Multiple characters found on non-interactive input (scripts, CI): error — use `--char-dir` or `--all`.
-
-### Interactive Selection Prompt
+When a command operates on more than one character (`--all`, or an interactive prompt that accepts multiple selections), macromog shows:
 
 ```
 Multiple characters found. Select characters:
@@ -161,33 +364,7 @@ Accepted input forms:
 | `1-3` | Characters 1 through 3 |
 | `all` | All listed characters |
 
----
-
-### `alias` — Set a character nickname
-
-```sh
-macromog alias <char-id> <name>
-macromog alias --remove <char-id>
-```
-
-Assign a friendly name to a character folder. Once set, use `--char-name <name>` instead of `--char-dir` in all other commands.
-
-**Arguments:**
-- `<char-id>` — the hex folder ID (e.g. `a1b2c3d4`)
-- `<name>` — the friendly name to assign
-
-**Flags:**
-- `--ffxi-path <path>` — FFXI install root (auto-detected if omitted)
-- `--remove` — remove the alias instead of setting it
-
-**Examples:**
-```sh
-macromog alias a1b2c3d4 Squatched
-macromog alias --remove a1b2c3d4
-macromog alias --ffxi-path "/mnt/games/FINAL FANTASY XI" a1b2c3d4 Squatched
-```
-
-Aliases are stored in `USER/characters.yml`.
+Single-character resolution order is documented under [Character selection](#character-selection) in Configuration.
 
 ---
 
@@ -204,7 +381,7 @@ Reads macro `.dat` files and writes a sparse YAML file containing only non-empty
 - `[output]` — output file path (positional alternative to `--output`/`-o`)
 
 **Flags:**
-- `--ffxi-path`, `--char-dir`, `--char-name`, `--all` — see [Global Flags](#global-flags) and [Character Selection](#character-selection)
+- `--ffxi-path`, `--install`, `--char-dir`, `--char-name`, `--all` — see [Global Flags](#global-flags) and [Configuration](#configuration)
 - `--output <file>` / `-o <file>` — output YAML path; requires exactly one character
 - `--name <name>` — embed this character name in the YAML `character:` field; requires one character
 - `--scope <selector>` — limit export to specific books/sets/macros (repeatable; see [Scope Selectors](#scope-selectors))
@@ -244,7 +421,7 @@ Reads a YAML file, validates it, and writes macros to `.dat` files. A timestampe
 - `[<char-dir>]` — character folder inside USER (positional alternative to `--char-dir`)
 
 **Flags:**
-- `--ffxi-path`, `--char-dir`, `--char-name`, `--all` — see [Global Flags](#global-flags) and [Character Selection](#character-selection)
+- `--ffxi-path`, `--install`, `--char-dir`, `--char-name`, `--all` — see [Global Flags](#global-flags) and [Configuration](#configuration)
 - `--no-backup` — skip the automatic backup (use with care)
 - `--dry-run` — validate the YAML and show what would be written, without writing anything
 - `--scope <selector>` — override the scope embedded in the YAML (repeatable; see [Scope Selectors](#scope-selectors))
@@ -372,7 +549,7 @@ macromog list [flags]
 Without a character selector, scans the FFXI USER folder and lists every detected character with its book count. With `--char-dir` or `--char-name`, lists all populated books for that character.
 
 **Flags:**
-- `--ffxi-path`, `--char-dir`, `--char-name` — see [Global Flags](#global-flags)
+- `--ffxi-path`, `--install`, `--char-dir`, `--char-name` — see [Global Flags](#global-flags) and [Configuration](#configuration)
 
 **Examples:**
 ```sh
@@ -457,14 +634,9 @@ The `--output` flag may appear before or after the subcommand name. When placed 
 { "file": "macros.yml", "valid": true }
 ```
 
-**`alias set`:**
+**`config show`:**
 ```json
-{ "char_id": "a1b2c3d4", "name": "Squatched" }
-```
-
-**`alias remove`:**
-```json
-{ "char_id": "a1b2c3d4", "removed": true }
+{ "path": "/home/adventurer/.config/macromog/config.yml", "config": { "version": 1, "installs": { ... } } }
 ```
 
 When operating on multiple characters (`--all`), `export`, `import`, and `backup` emit a JSON array instead of a single object.
@@ -543,7 +715,7 @@ macromog --output json backup --char-name Squatched | jq '.path'
 
 ## Environment and Detection
 
-macromog searches common install locations automatically. Supply `--ffxi-path` if detection fails — it should point at the FFXI root directory (the one containing the `USER` subdirectory).
+macromog searches common install locations automatically when config does not supply an install. Register paths with [`config add-install`](#config-command) so detection is rarely needed. Supply `--ffxi-path` if detection fails — it should point at the FFXI root directory (the one containing the `USER` subdirectory).
 
 ### Windows
 
