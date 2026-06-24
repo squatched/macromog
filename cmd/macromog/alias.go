@@ -94,10 +94,6 @@ func runAliasSet(userDir, charID, name string, p *Printer) int {
 	}
 
 	doc, err := aliases.Load(userDir)
-	if aliases.IsFutureVersion(err) {
-		fmt.Fprintf(os.Stderr, "macromog alias: %v\n", err)
-		return 1
-	}
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "macromog alias: %v\n", err)
 		return 1
@@ -122,10 +118,6 @@ func runAliasSet(userDir, charID, name string, p *Printer) int {
 
 func runAliasRemove(userDir, charID string, p *Printer) int {
 	doc, err := aliases.Load(userDir)
-	if aliases.IsFutureVersion(err) {
-		fmt.Fprintf(os.Stderr, "macromog alias: %v\n", err)
-		return 1
-	}
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "macromog alias: %v\n", err)
 		return 1
