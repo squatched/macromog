@@ -8,6 +8,7 @@ import (
 
 	"github.com/squatched/macromog/internal/dat/testdata"
 	"github.com/squatched/macromog/internal/export"
+	"github.com/squatched/macromog/internal/scope"
 )
 
 func TestRunImport_Help(t *testing.T) {
@@ -148,6 +149,106 @@ func TestRunImport_AllFlag(t *testing.T) {
 	args := []string{"--ffxi-path", ffxiDir, "--all", "--no-backup", yamlPath}
 	if got := runImport(args, newTextPrinter()); got != 0 {
 		t.Errorf("runImport(--all) = %d, want 0", got)
+	}
+}
+
+func TestRunImport_WithScopeFlag(t *testing.T) {
+	src := testdata.CharDir()
+	tmp := t.TempDir()
+
+	doc, err := export.FromCharacterDir(export.Options{CharacterDir: src, Character: "char"})
+	if err != nil {
+		t.Fatalf("export: %v", err)
+	}
+	data, _ := export.MarshalYAML(doc)
+	yamlPath := filepath.Join(tmp, "macros.yml")
+	_ = os.WriteFile(yamlPath, data, 0o644)
+
+	destDir := t.TempDir()
+	// B33 is a subset of the full-scope YAML → no confirmation needed.
+	args := []string{"--no-backup", "--scope", "B33", yamlPath, destDir}
+	if got := runImport(args, newTextPrinter()); got != 0 {
+		t.Fatalf("runImport(--scope B33) = %d, want 0", got)
+	}
+}
+
+func TestRunImport_InvalidScopeFlag(t *testing.T) {
+	if got := runImport([]string{"--scope", "B41", "fake.yml", t.TempDir()}, newTextPrinter()); got != 1 {
+		t.Errorf("runImport(bad scope) = %d, want 1", got)
+	}
+}
+
+func TestConfirmScopeOverride_NoExceed(t *testing.T) {
+	// Full-scope YAML; import scope B1 is narrower → no confirmation.
+	yamlContent := "version: 1\nscope:\n  level: full\nbooks: {}\n"
+	tmp := t.TempDir()
+	path := filepath.Join(tmp, "m.yml")
+	_ = os.WriteFile(path, []byte(yamlContent), 0o644)
+
+	sc := scope.Scope{Level: scope.LevelBook, Selections: []scope.Selection{{Book: 1}}}
+	confirmed, err := confirmScopeOverride(path, sc, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !confirmed {
+		t.Error("expected confirmed=true for subset scope")
+	}
+}
+
+func TestConfirmScopeOverride_ExceedsAndAccepts(t *testing.T) {
+	// Book-scope B1 YAML; import scope B1,5 exceeds → confirmation needed.
+	yamlContent := "version: 1\nscope:\n  level: book\n  selections:\n    - {book: 1}\nbooks: {}\n"
+	tmp := t.TempDir()
+	path := filepath.Join(tmp, "m.yml")
+	_ = os.WriteFile(path, []byte(yamlContent), 0o644)
+
+	sc := scope.Scope{Level: scope.LevelBook, Selections: []scope.Selection{{Book: 1}, {Book: 5}}}
+	confirmed, err := confirmScopeOverride(path, sc, strings.NewReader("y\n"))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !confirmed {
+		t.Error("expected confirmed=true when user types 'y'")
+	}
+}
+
+func TestConfirmScopeOverride_ExceedsAndRejects(t *testing.T) {
+	yamlContent := "version: 1\nscope:\n  level: book\n  selections:\n    - {book: 1}\nbooks: {}\n"
+	tmp := t.TempDir()
+	path := filepath.Join(tmp, "m.yml")
+	_ = os.WriteFile(path, []byte(yamlContent), 0o644)
+
+	sc := scope.Scope{Level: scope.LevelBook, Selections: []scope.Selection{{Book: 1}, {Book: 5}}}
+	confirmed, err := confirmScopeOverride(path, sc, strings.NewReader("n\n"))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if confirmed {
+		t.Error("expected confirmed=false when user types 'n'")
+	}
+}
+
+func TestConfirmScopeOverride_ExceedsNoInput(t *testing.T) {
+	yamlContent := "version: 1\nscope:\n  level: book\n  selections:\n    - {book: 1}\nbooks: {}\n"
+	tmp := t.TempDir()
+	path := filepath.Join(tmp, "m.yml")
+	_ = os.WriteFile(path, []byte(yamlContent), 0o644)
+
+	sc := scope.Scope{Level: scope.LevelBook, Selections: []scope.Selection{{Book: 1}, {Book: 5}}}
+	confirmed, err := confirmScopeOverride(path, sc, strings.NewReader(""))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if confirmed {
+		t.Error("expected confirmed=false on EOF")
+	}
+}
+
+func TestConfirmScopeOverride_FileNotFound(t *testing.T) {
+	sc := scope.Scope{Level: scope.LevelFull}
+	_, err := confirmScopeOverride("/nonexistent/file.yml", sc, nil)
+	if err == nil {
+		t.Error("expected error for missing file")
 	}
 }
 

@@ -3,6 +3,7 @@ package dat
 import (
 	"crypto/md5"
 	"encoding/binary"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -167,7 +168,8 @@ func WriteMacroSetFile(path string, set MacroSet) error {
 }
 
 // WriteBookTitles writes book names to mcr.ttl (books 1–20) and mcr_2.ttl
-// (books 21–40) in dir, creating them if absent.
+// (books 21–40) in dir. Matches game behavior: if all names in a group are
+// empty, the corresponding file is deleted (or left absent if it never existed).
 func WriteBookTitles(dir string, titles [MaxBooks]string) error {
 	if err := writeTitleFile(filepath.Join(dir, "mcr.ttl"), titles[:20]); err != nil {
 		return err
@@ -176,6 +178,22 @@ func WriteBookTitles(dir string, titles [MaxBooks]string) error {
 }
 
 func writeTitleFile(path string, names []string) error {
+	allEmpty := true
+	for _, n := range names {
+		if n != "" {
+			allEmpty = false
+			break
+		}
+	}
+	if allEmpty {
+		// Match game behavior: do not keep a title file when all entries are empty.
+		err := os.Remove(path)
+		if err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("remove %s: %w", filepath.Base(path), err)
+		}
+		return nil
+	}
+
 	out := make([]byte, HeaderSize+len(names)*BookNameSize)
 	binary.LittleEndian.PutUint32(out[0:4], MagicVersion)
 	// bytes 4–7: unknown flag; write 0
