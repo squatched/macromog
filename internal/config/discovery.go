@@ -3,7 +3,6 @@ package config
 import (
 	"os"
 	"path/filepath"
-	"runtime"
 	"sort"
 	"strings"
 
@@ -73,17 +72,31 @@ func discoverLinuxHomeViaZDrive() (string, bool) {
 	if err != nil {
 		return "", false
 	}
-
-	var withMacromog, withConfig []string
+	names := make([]string, 0, len(entries))
 	for _, e := range entries {
-		if !e.IsDir() {
-			continue
+		if e.IsDir() {
+			names = append(names, e.Name())
 		}
-		posixHome := hostpath("/home", e.Name())
-		if st, err := os.Stat(hostpath(posixHome, ".config", "macromog")); err == nil && st.IsDir() {
+	}
+	return pickLinuxHomeFromZUsers(names, hostHomeStat)
+}
+
+type hostHomeStatFn func(posixHome string, elem ...string) (bool, error)
+
+func hostHomeStat(posixHome string, elem ...string) (bool, error) {
+	p := hostpath(append([]string{posixHome}, elem...)...)
+	st, err := os.Stat(p)
+	return err == nil && st.IsDir(), err
+}
+
+func pickLinuxHomeFromZUsers(names []string, stat hostHomeStatFn) (string, bool) {
+	var withMacromog, withConfig []string
+	for _, name := range names {
+		posixHome := hostpath("/home", name)
+		if ok, _ := stat(posixHome, ".config", "macromog"); ok {
 			withMacromog = append(withMacromog, posixHome)
 		}
-		if st, err := os.Stat(hostpath(posixHome, ".config")); err == nil && st.IsDir() {
+		if ok, _ := stat(posixHome, ".config"); ok {
 			withConfig = append(withConfig, posixHome)
 		}
 	}
@@ -173,7 +186,7 @@ func (h *HostFS) findWinePrefixUnderHome(home string) (string, bool) {
 // SharedConfigDir returns the host XDG config directory when Linux and Wine
 // should share one config file.
 func (h *HostFS) SharedConfigDir() (string, bool) {
-	if runtime.GOOS != "windows" {
+	if h.GOOS != "windows" {
 		home, err := os.UserHomeDir()
 		if err != nil {
 			return "", false

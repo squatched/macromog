@@ -85,3 +85,84 @@ func TestHostFS_SetForTest(t *testing.T) {
 		t.Fatal("expected RunningUnderWine true after SetHostFSForTest")
 	}
 }
+
+func TestHostFS_ConfigSplitBrainRegression(t *testing.T) {
+	home := t.TempDir()
+	wine := &HostFS{GOOS: "windows", UnderWine: true, LinuxHome: home}
+	restoreWine := SetHostFSForTest(wine)
+
+	storedCfg, err := Path()
+	if err != nil {
+		t.Fatal(err)
+	}
+	openPath, err := OpenPath(storedCfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if openPath == storedCfg {
+		t.Fatal("wine OpenPath must not return POSIX path unchanged (split-brain risk)")
+	}
+	if !strings.HasPrefix(openPath, `Z:\`) {
+		t.Errorf("OpenPath = %q, want Z:\\ prefix", openPath)
+	}
+
+	restoreWine()
+	restoreLinux := SetHostFSForTest(&HostFS{GOOS: "linux"})
+	defer restoreLinux()
+
+	cfg := Empty()
+	if err := Save(storedCfg, cfg); err != nil {
+		t.Fatal(err)
+	}
+	hostFile := storedCfg
+	if _, err := os.Stat(hostFile); err != nil {
+		t.Fatalf("config must exist on host at %q: %v", hostFile, err)
+	}
+	loaded, err := Load(storedCfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if loaded.Version != CurrentVersion {
+		t.Errorf("loaded version = %d, want %d", loaded.Version, CurrentVersion)
+	}
+}
+
+func TestHostFS_CrossRuntimeInstallYAML(t *testing.T) {
+	home := t.TempDir()
+	prefix := filepath.Join(home, "Games", "ffxi")
+	ffxiDir := filepath.Join(prefix, "drive_c", "Program Files (x86)", "PlayOnline", "SquareEnix", "FINAL FANTASY XI")
+	if err := os.MkdirAll(filepath.Join(ffxiDir, "USER", "abc"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	wine := &HostFS{GOOS: "windows", UnderWine: true, LinuxHome: home, WinePrefix: prefix}
+	stored, err := wine.Stored(`C:\Program Files (x86)\PlayOnline\SquareEnix\FINAL FANTASY XI`)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	restore := SetHostFSForTest(&HostFS{GOOS: "linux"})
+	defer restore()
+	cfg := Config{
+		Version:  CurrentVersion,
+		Installs: map[string]Install{"lutris": {Path: stored}},
+	}
+	cfgPath := filepath.Join(t.TempDir(), "config.yml")
+	if err := Save(cfgPath, cfg); err != nil {
+		t.Fatal(err)
+	}
+	access, err := ResolveInstallPath(stored)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if access != stored {
+		t.Errorf("linux ResolveInstallPath = %q, want %q", access, stored)
+	}
+	loaded, err := Load(cfgPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if loaded.Installs["lutris"].Path != stored {
+		t.Fatalf("loaded = %q, want %q", loaded.Installs["lutris"].Path, stored)
+	}
+}

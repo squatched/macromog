@@ -61,16 +61,35 @@ func windowsCandidates() []string {
 
 func winePrefixCandidates() []string {
 	const driveRel = "Program Files (x86)/PlayOnline/SquareEnix/FINAL FANTASY XI/USER"
+	var posix []string
 	prefix := strings.TrimSpace(os.Getenv("WINEPREFIX"))
 	if prefix != "" {
 		if strings.HasPrefix(prefix, "/") {
-			return []string{filepath.Join(prefix, "drive_c", driveRel)}
+			posix = []string{filepath.Join(prefix, "drive_c", driveRel)}
 		}
 	}
-	if home, ok := config.LinuxHomeForSharedConfig(); ok {
-		return prefixCandidatesUnderHome(home, driveRel)
+	if len(posix) == 0 {
+		if home, ok := config.LinuxHomeForSharedConfig(); ok {
+			posix = prefixCandidatesUnderHome(home, driveRel)
+		}
 	}
-	return nil
+	return accessCandidates(posix)
+}
+
+func accessCandidates(posix []string) []string {
+	h := config.ActiveHostFS()
+	if !h.UnderWine {
+		return posix
+	}
+	out := make([]string, 0, len(posix))
+	for _, p := range posix {
+		access, err := h.Access(p)
+		if err != nil {
+			continue
+		}
+		out = append(out, access)
+	}
+	return out
 }
 
 func prefixCandidatesUnderHome(home, driveRel string) []string {
