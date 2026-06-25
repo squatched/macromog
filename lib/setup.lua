@@ -132,7 +132,17 @@ function setup.ensure_character(name)
         return false
     end
 
-    local char_id = pick_char_id(list_data.user_dir, list_data.characters)
+    local candidates = {}
+    for _, ch in ipairs(list_data.characters) do
+        if not ch.name or ch.name == '' then
+            candidates[#candidates + 1] = ch
+        end
+    end
+    if #candidates == 0 then
+        candidates = list_data.characters
+    end
+
+    local char_id = pick_char_id(list_data.user_dir, candidates)
     if not char_id then
         log.user('Could not determine character folder for ' .. name .. ', kupo!')
         return false
@@ -168,7 +178,8 @@ function setup.on_load()
 end
 
 function setup.on_login()
-    -- Character learning happens on the first zone after login.
+    setup.zoned_since_load = false
+    setup.noticed_zone = false
 end
 
 function setup.ready()
