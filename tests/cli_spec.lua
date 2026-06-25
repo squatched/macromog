@@ -130,6 +130,41 @@ describe('cli wrappers', function()
         assert.is_true(last_cmd:find('config show', 1, true) ~= nil)
     end)
 
+    it('does not enable MACROMOG_DEBUG for json when addon debug is on', function()
+        package.loaded['lib/log'] = {
+            active = function()
+                return true
+            end,
+            debug = function() end,
+        }
+        package.loaded['lib/cli'] = nil
+        local debug_cli = require('lib/cli')
+        mock_popen('{"config":{}}')
+        local data = debug_cli.config_show()
+        assert.are.same({}, data.config)
+        assert.is_false(last_cmd:find('MACROMOG_DEBUG', 1, true) ~= nil)
+        package.loaded['lib/log'] = nil
+        package.loaded['lib/cli'] = nil
+        require('lib/cli')
+    end)
+
+    it('enables MACROMOG_DEBUG for debug_all', function()
+        package.loaded['lib/log'] = {
+            active = function()
+                return false
+            end,
+            debug = function() end,
+        }
+        package.loaded['lib/cli'] = nil
+        local debug_cli = require('lib/cli')
+        mock_popen('paths:\nenvironment:\n')
+        debug_cli.debug_all()
+        assert.is_true(last_cmd:find('MACROMOG_DEBUG', 1, true) ~= nil)
+        package.loaded['lib/log'] = nil
+        package.loaded['lib/cli'] = nil
+        require('lib/cli')
+    end)
+
     it('delegates list_all to run_json', function()
         mock_popen('{"user_dir":"C:/ffxi/USER"}')
         local data = cli.list_all()

@@ -31,8 +31,10 @@ function cli.run(args, opts)
     for _, a in ipairs(args) do
         parts[#parts + 1] = quote(a)
     end
+    -- MACROMOG_DEBUG writes to stderr; we merge stderr into stdout (2>&1), so
+    -- only enable it for explicit debug probes — never for --output json calls.
     local prefix = ''
-    if log.active() or opts.debug then
+    if opts.debug then
         prefix = 'set MACROMOG_DEBUG=1&& '
     end
     local cmd = prefix .. table.concat(parts, ' ') .. ' 2>&1'
