@@ -59,6 +59,9 @@ libs/*/
 *.zip
 *.tar.gz
 
+# DLL build intermediates
+spawn/build/
+
 # Personal YAML backups (optional - you may want to commit some examples)
 # backups/
 # data/*.yml

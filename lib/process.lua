@@ -6,7 +6,22 @@ local process = {
     last_backend = 'uninitialized',
 }
 
-local spawn_ok, spawn_mod = pcall(require, 'macromog_spawn')
+local spawn_ok = false
+local spawn_mod = nil
+
+do
+    local dll_path = windower and windower.addon_path and (windower.addon_path .. 'bin/macromog_spawn.dll')
+    if dll_path then
+        local loader = package.loadlib(dll_path, 'luaopen_macromog_spawn')
+        if loader then
+            local ok, mod = pcall(loader)
+            if ok and mod then
+                spawn_ok = true
+                spawn_mod = mod
+            end
+        end
+    end
+end
 
 local function quote_shell(arg)
     arg = tostring(arg or '')

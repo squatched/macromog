@@ -33,6 +33,7 @@ forbid_entry() {
 require_entry 'Macromog/macromog.lua'
 require_entry 'Macromog/lib/cli.lua'
 require_entry 'Macromog/bin/macromog.exe'
+require_entry 'Macromog/bin/macromog_spawn.dll'
 forbid_entry 'macromog-linux'
 forbid_entry 'macromog-windows'
 require_entry 'Macromog/data/'

@@ -24,6 +24,11 @@ endif
 PLUGIN_ZIP       := $(DIST_DIR)/macromog-$(VERSION).zip
 BUILD_PLATFORMS  := linux/amd64 windows/386
 RELEASE_BINS     := macromog macromog.exe
+SPAWN_CC         := i686-w64-mingw32-gcc
+SPAWN_SRC        := spawn/macromog_spawn.c
+SPAWN_DEF        := spawn/LuaCore.def
+SPAWN_BUILD      := spawn/build
+SPAWN_DLL        := $(DIST_DIR)/bin/macromog_spawn.dll
 
 .DEFAULT_GOAL := help
 
@@ -34,7 +39,7 @@ RELEASE_BINS     := macromog macromog.exe
         validate-plugin-test validate-plugin-coverage validate-plugin-package validate-wine-smoke \
         validate-cli-lint validate-cli-format validate-cli-tidy validate-cli-test validate-cli-coverage \
         fix fix-plugin-format fix-cli-format fix-cli-tidy \
-        build-cli build-cli-all build-plugin build-release-bins package-plugin \
+        build-cli build-cli-all build-plugin build-release-bins build-spawn-dll package-plugin \
         clean
 
 help: ## Show available targets
@@ -158,12 +163,22 @@ build-release-bins: ## Cross-compile release CLI binaries into dist/bin/
 	GOOS=linux GOARCH=amd64 $(GO) build -o $(DIST_DIR)/bin/macromog $(CLI_MAIN)
 	GOOS=windows GOARCH=386 $(GO) build -ldflags="-H windowsgui -s -w" -o $(DIST_DIR)/bin/macromog.exe $(CLI_MAIN)
 
-build-plugin: build-release-bins ## Stage the Windower addon tree under dist/Macromog/
+build-spawn-dll: ## Build macromog_spawn.dll (32-bit, hidden process spawn + file mtime)
+	@mkdir -p $(SPAWN_BUILD) $(DIST_DIR)/bin
+	i686-w64-mingw32-dlltool -d $(SPAWN_DEF) -D LuaCore.dll -l $(SPAWN_BUILD)/libLuaCore.a
+	$(SPAWN_CC) -shared -o $(SPAWN_DLL) $(SPAWN_SRC) \
+	    -L $(SPAWN_BUILD) -lLuaCore \
+	    -lkernel32 \
+	    -Wl,--kill-at \
+	    -Wall -O2 -s
+
+build-plugin: build-release-bins build-spawn-dll ## Stage the Windower addon tree under dist/Macromog/
 	@rm -rf $(PLUGIN_STAGE)
 	@mkdir -p $(PLUGIN_STAGE)/lib $(PLUGIN_STAGE)/data $(PLUGIN_STAGE)/bin
 	cp macromog.lua $(PLUGIN_STAGE)/
 	cp -r lib/. $(PLUGIN_STAGE)/lib/
 	cp $(DIST_DIR)/bin/macromog.exe $(PLUGIN_STAGE)/bin/
+	cp $(SPAWN_DLL) $(PLUGIN_STAGE)/bin/
 
 package-plugin: build-plugin ## Create dist/macromog-<version>.zip from the staged addon
 	@mkdir -p $(DIST_DIR)
@@ -178,4 +193,4 @@ fix: fix-trailing-ws fix-plugin-format fix-cli-format fix-cli-tidy ## Auto-fix a
 
 clean: ## Remove generated coverage artifacts and local build output
 	rm -f luacov.stats.out luacov.report.out coverage-plugin.xml coverage-cli.out $(BINARY)
-	rm -rf $(DIST_DIR)
+	rm -rf $(DIST_DIR) $(SPAWN_BUILD)
