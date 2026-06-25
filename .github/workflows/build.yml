@@ -45,7 +45,7 @@ jobs:
           cache: true
 
       - name: Install mingw-w64
-        run: sudo apt-get install -y gcc-mingw-w64-i686
+        run: sudo apt-get update -y && sudo apt-get install -y gcc-mingw-w64-i686
 
       - name: validate-plugin-package
         run: make validate-plugin-package
