@@ -43,14 +43,7 @@ func resolveInstall(session *configSession, opts installOpts) (installContext, e
 	detected, err := lister.DetectUserDir()
 	if err == nil {
 		ffxiPath := filepath.Dir(detected)
-		ctx, err := resolveExplicitPath(session, ffxiPath)
-		if err != nil {
-			return installContext{}, err
-		}
-		if ctx.install != nil {
-			return ctx, nil
-		}
-		return maybeRegisterInstall(session, ffxiPath)
+		return resolveExplicitPath(session, ffxiPath)
 	}
 
 	names := config.InstallNames(&session.cfg)
