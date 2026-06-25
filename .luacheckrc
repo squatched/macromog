@@ -28,6 +28,7 @@ globals = {
     "select",
     "unpack",
     "next",
+    "jit",
 }
 
 -- Ignore line-length warnings (macro lines can be long in comments/TODOs)

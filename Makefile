@@ -13,9 +13,19 @@ GO_SRC           := ./...
 CLI_DIRS         := ./cmd
 CLI_MAIN         := ./cmd/macromog
 BINARY           := bin/macromog
+DIST_DIR         := dist
+PLUGIN_STAGE     := $(DIST_DIR)/Macromog
+VERSION          := $(shell awk -F"'" '/_addon.version/{print $$2; exit}' macromog.lua)
+PLUGIN_ZIP       := $(DIST_DIR)/macromog-$(VERSION).zip
 BUILD_PLATFORMS  := \
     linux/amd64  linux/386   \
     windows/amd64 windows/386
+WINDOWS_PLATFORMS := windows/amd64 windows/386
+RELEASE_BINS     := \
+    macromog-linux-amd64 \
+    macromog-linux-386 \
+    macromog-windows-amd64.exe \
+    macromog-windows-386.exe
 
 .DEFAULT_GOAL := help
 
@@ -25,7 +35,7 @@ BUILD_PLATFORMS  := \
         validate-plugin-test validate-plugin-coverage \
         validate-cli-lint validate-cli-format validate-cli-tidy validate-cli-test validate-cli-coverage \
         fix fix-plugin-format fix-cli-format fix-cli-tidy \
-        build-cli build-cli-all \
+        build-cli build-cli-all build-plugin build-release-bins package-plugin \
         clean
 
 help: ## Show available targets
@@ -126,6 +136,26 @@ build-cli-all: ## Cross-compile the CLI for all release platforms (compilation c
 	done
 	@printf "All platforms: OK\n"
 
+build-release-bins: ## Cross-compile release CLI binaries into dist/bin/
+	@mkdir -p $(DIST_DIR)/bin
+	GOOS=linux GOARCH=amd64 $(GO) build -o $(DIST_DIR)/bin/macromog-linux-amd64 $(CLI_MAIN)
+	GOOS=linux GOARCH=386 $(GO) build -o $(DIST_DIR)/bin/macromog-linux-386 $(CLI_MAIN)
+	GOOS=windows GOARCH=amd64 $(GO) build -o $(DIST_DIR)/bin/macromog-windows-amd64.exe $(CLI_MAIN)
+	GOOS=windows GOARCH=386 $(GO) build -o $(DIST_DIR)/bin/macromog-windows-386.exe $(CLI_MAIN)
+
+build-plugin: build-release-bins ## Stage the Windower addon tree under dist/Macromog/
+	@rm -rf $(PLUGIN_STAGE)
+	@mkdir -p $(PLUGIN_STAGE)/lib $(PLUGIN_STAGE)/data $(PLUGIN_STAGE)/bin
+	cp macromog.lua $(PLUGIN_STAGE)/
+	cp -r lib/. $(PLUGIN_STAGE)/lib/
+	cp $(DIST_DIR)/bin/macromog-windows-amd64.exe $(PLUGIN_STAGE)/bin/
+	cp $(DIST_DIR)/bin/macromog-windows-386.exe $(PLUGIN_STAGE)/bin/
+
+package-plugin: build-plugin ## Create dist/macromog-<version>.zip from the staged addon
+	@mkdir -p $(DIST_DIR)
+	rm -f $(PLUGIN_ZIP)
+	cd $(DIST_DIR) && zip -r "macromog-$(VERSION).zip" Macromog
+
 # ── Umbrella fix targets ──────────────────────────────────────────────────────
 
 fix: fix-plugin-format fix-cli-format fix-cli-tidy ## Auto-fix all issues that can be fixed automatically
@@ -134,3 +164,4 @@ fix: fix-plugin-format fix-cli-format fix-cli-tidy ## Auto-fix all issues that c
 
 clean: ## Remove generated coverage artifacts and local build output
 	rm -f luacov.stats.out luacov.report.out coverage-plugin.xml coverage-cli.out $(BINARY)
+	rm -rf $(DIST_DIR)

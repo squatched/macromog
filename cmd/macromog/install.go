@@ -62,11 +62,15 @@ func resolveInstall(session *configSession, opts installOpts) (installContext, e
 }
 
 func resolveExplicitPath(session *configSession, rawPath string) (installContext, error) {
-	norm, err := config.NormalizePath(rawPath)
+	norm, err := config.CanonicalInstallPath(rawPath)
 	if err != nil {
 		return installContext{}, err
 	}
-	userDir := lister.UserDirFromFFXIPath(norm)
+	access, err := config.ResolveInstallPath(norm)
+	if err != nil {
+		return installContext{}, err
+	}
+	userDir := lister.UserDirFromFFXIPath(access)
 	if st, err := os.Stat(userDir); err != nil || !st.IsDir() {
 		return installContext{}, fmt.Errorf("USER directory not found under %s", norm)
 	}
@@ -75,7 +79,7 @@ func resolveExplicitPath(session *configSession, rawPath string) (installContext
 		return installContext{}, err
 	}
 	if inst != nil {
-		return installContext{ffxiPath: norm, installName: name, install: inst}, nil
+		return installContext{ffxiPath: access, installName: name, install: inst}, nil
 	}
 	return maybeRegisterInstall(session, norm)
 }
@@ -85,7 +89,11 @@ func resolveNamedInstall(session *configSession, name string) (installContext, e
 	if !ok {
 		return installContext{}, fmt.Errorf("install %q not found in config", name)
 	}
-	return installContext{ffxiPath: inst.Path, installName: name, install: &inst}, nil
+	access, err := config.ResolveInstallPath(inst.Path)
+	if err != nil {
+		return installContext{}, err
+	}
+	return installContext{ffxiPath: access, installName: name, install: &inst}, nil
 }
 
 func installFromName(session *configSession, name string) (installContext, error) {
@@ -93,25 +101,33 @@ func installFromName(session *configSession, name string) (installContext, error
 	if !ok {
 		return installContext{}, fmt.Errorf("default install %q not found in config", name)
 	}
-	return installContext{ffxiPath: inst.Path, installName: name, install: &inst}, nil
+	access, err := config.ResolveInstallPath(inst.Path)
+	if err != nil {
+		return installContext{}, err
+	}
+	return installContext{ffxiPath: access, installName: name, install: &inst}, nil
 }
 
-func maybeRegisterInstall(session *configSession, ffxiPath string) (installContext, error) {
+func maybeRegisterInstall(session *configSession, canonicalPath string) (installContext, error) {
+	access, err := config.ResolveInstallPath(canonicalPath)
+	if err != nil {
+		return installContext{}, err
+	}
 	if !stdinIsTerminal() {
-		return installContext{ffxiPath: ffxiPath}, nil
+		return installContext{ffxiPath: access}, nil
 	}
 	ew := newErrWriter()
 	fmt.Fprint(ew, "Path not in config. Register as install? [Y/n] ")
 	answerLine, ok := readStdinLine()
 	if !ok {
-		return installContext{ffxiPath: ffxiPath}, nil
+		return installContext{ffxiPath: access}, nil
 	}
 	answer := strings.ToLower(strings.TrimSpace(answerLine))
 	if answer == "n" || answer == "no" {
-		return installContext{ffxiPath: ffxiPath}, nil
+		return installContext{ffxiPath: access}, nil
 	}
 
-	suggested := config.SuggestInstallName(&session.cfg, ffxiPath)
+	suggested := config.SuggestInstallName(&session.cfg, canonicalPath)
 	fmt.Fprintf(ew, "Name [%s]: ", suggested)
 	name := suggested
 	if nameLine, ok := readStdinLine(); ok {
@@ -119,17 +135,25 @@ func maybeRegisterInstall(session *configSession, ffxiPath string) (installConte
 			name = typed
 		}
 	}
-	if err := addInstallToConfig(session, name, ffxiPath); err != nil {
+	if err := addInstallToConfig(session, name, canonicalPath); err != nil {
 		return installContext{}, err
 	}
 	inst := session.cfg.Installs[name]
-	return installContext{ffxiPath: ffxiPath, installName: name, install: &inst}, nil
+	return installContext{ffxiPath: access, installName: name, install: &inst}, nil
 }
 
 func addInstallToConfig(session *configSession, name, rawPath string) error {
-	norm, err := config.NormalizePath(rawPath)
+	norm, err := config.CanonicalInstallPath(rawPath)
 	if err != nil {
 		return err
+	}
+	access, err := config.ResolveInstallPath(norm)
+	if err != nil {
+		return err
+	}
+	userDir := lister.UserDirFromFFXIPath(access)
+	if st, err := os.Stat(userDir); err != nil || !st.IsDir() {
+		return fmt.Errorf("USER directory not found under %s", norm)
 	}
 	if session.cfg.Installs == nil {
 		session.cfg.Installs = make(map[string]config.Install)

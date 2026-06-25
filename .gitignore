@@ -3,6 +3,7 @@
 # Windower / FFXI specific
 data/settings.xml
 data/*.log
+data/.debug
 *.dat
 !internal/dat/testdata/**/*.dat
 *.dmp
@@ -30,6 +31,7 @@ coverage-cli.out
 
 # Go build outputs
 /bin/
+/dist/
 
 # Go test binaries (built with go test -c)
 *.test

@@ -66,6 +66,13 @@ func TestRunConfig_AddInstall(t *testing.T) {
 	if cfg.DefaultInstall != "steam" {
 		t.Errorf("default_install = %q, want steam", cfg.DefaultInstall)
 	}
+	canonical, err := config.CanonicalInstallPath(ffxiDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := cfg.Installs["steam"].Path; got != canonical {
+		t.Errorf("stored path = %q, want canonical %q", got, canonical)
+	}
 }
 
 func TestRunConfig_AddInstall_Errors(t *testing.T) {

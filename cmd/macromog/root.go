@@ -48,6 +48,7 @@ func newRootCmd() (*cobra.Command, *cliState) {
 		newBackupCmd(state),
 		newListCmd(state),
 		newConfigCmd(state),
+		newDebugCmd(state),
 	)
 
 	return root, state

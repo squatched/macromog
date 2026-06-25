@@ -28,14 +28,24 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Package addon
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Build release binaries and addon zip
         run: |
           VERSION="${{ needs.release-please.outputs.version }}"
-          zip -r "macromog-${VERSION}.zip" \
-            macromog.lua lib/ data/.gitkeep README.md CHANGELOG.md LICENSE \
-            --exclude "data/*.bak" --exclude "data/*_backup_*.yml"
+          make build-release-bins package-plugin VERSION="$VERSION"
 
       - name: Upload to release
-        run: gh release upload "${{ needs.release-please.outputs.tag_name }}" "macromog-${{ needs.release-please.outputs.version }}.zip"
+        run: |
+          TAG="${{ needs.release-please.outputs.tag_name }}"
+          VERSION="${{ needs.release-please.outputs.version }}"
+          gh release upload "$TAG" \
+            "dist/macromog-${VERSION}.zip" \
+            dist/bin/macromog-linux-amd64 \
+            dist/bin/macromog-linux-386 \
+            dist/bin/macromog-windows-amd64.exe \
+            dist/bin/macromog-windows-386.exe
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

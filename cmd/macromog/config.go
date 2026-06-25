@@ -113,13 +113,19 @@ func newConfigAddInstallCmd(state *cliState) *cobra.Command {
 				state.code = 1
 				return nil
 			}
-			norm, err := config.NormalizePath(rawPath)
+			norm, err := config.CanonicalInstallPath(rawPath)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "macromog config: %v\n", err)
 				state.code = 1
 				return nil
 			}
-			userDir := lister.UserDirFromFFXIPath(norm)
+			access, err := config.ResolveInstallPath(norm)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "macromog config: %v\n", err)
+				state.code = 1
+				return nil
+			}
+			userDir := lister.UserDirFromFFXIPath(access)
 			if st, err := os.Stat(userDir); err != nil || !st.IsDir() {
 				fmt.Fprintf(os.Stderr, "macromog config: USER directory not found under %s\n", norm)
 				state.code = 1
@@ -281,7 +287,13 @@ func newConfigSetAliasCmd(state *cliState) *cobra.Command {
 				state.code = 1
 				return nil
 			}
-			userDir := lister.UserDirFromFFXIPath(inst.Path)
+			access, err := config.ResolveInstallPath(inst.Path)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "macromog config: %v\n", err)
+				state.code = 1
+				return nil
+			}
+			userDir := lister.UserDirFromFFXIPath(access)
 			charDir := filepath.Join(userDir, charID)
 			if st, err := os.Stat(charDir); err != nil || !st.IsDir() {
 				fmt.Fprintf(os.Stderr, "macromog config: %q is not a valid character directory in %s\n", charID, userDir)

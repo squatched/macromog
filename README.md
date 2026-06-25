@@ -35,7 +35,6 @@ Full setup and command walkthroughs will live in `docs/` once implemented, kupo!
 - `macromog.lua` — Main addon
 - `docs/` — Technical documentation
 - `AGENTS.md` — Development and agent guide (repo root for tooling)
-- `data/` — YAML macro files
 
 ## Contributing
 
