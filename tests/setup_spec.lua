@@ -287,6 +287,73 @@ describe('setup readiness', function()
         assert.are.equal('newer', cli_calls.set_alias.char_id)
     end)
 
+    it('on_login resets zone state so next character is learned', function()
+        setup.zoned_since_load = true
+        setup.noticed_zone = true
+        setup.on_login()
+        assert.is_false(setup.zoned_since_load)
+        assert.is_false(setup.noticed_zone)
+    end)
+
+    it('skips already-aliased characters when picking folder', function()
+        cli_calls.config_show = { config = { installs = { steam = {} } } }
+        cli_calls.list_all = {
+            user_dir = 'C:/ffxi/USER',
+            characters = {
+                { id = 'char1', name = 'Char1' },
+                { id = 'char2' },
+            },
+        }
+        local orig_mtime = process_mod.file_mtime
+        process_mod.file_mtime = function()
+            return nil
+        end
+        assert.is_true(setup.ensure_character('Char2'))
+        assert.are.equal('char2', cli_calls.set_alias.char_id)
+        process_mod.file_mtime = orig_mtime
+    end)
+
+    it('learns new character alias after login resets state', function()
+        setup.on_zone()
+        assert.is_true(setup.learned.Squatched)
+
+        local orig_get_player = windower.ffxi.get_player
+        windower.ffxi.get_player = function()
+            return { name = 'Altchar' }
+        end
+        cli_calls.config_show = {
+            config = {
+                installs = {
+                    steam = {
+                        path = 'C:/ffxi',
+                        characters = { a1b2c3d4 = { name = 'Squatched' } },
+                    },
+                },
+            },
+        }
+        cli_calls.list_all = {
+            user_dir = 'C:/ffxi/USER',
+            characters = {
+                { id = 'a1b2c3d4', name = 'Squatched' },
+                { id = 'b2c3d4e5' },
+            },
+        }
+        local orig_mtime = process_mod.file_mtime
+        process_mod.file_mtime = function()
+            return nil
+        end
+
+        setup.on_login()
+        setup.on_zone()
+
+        windower.ffxi.get_player = orig_get_player
+        process_mod.file_mtime = orig_mtime
+
+        assert.is_true(setup.learned.Altchar)
+        assert.are.equal('b2c3d4e5', cli_calls.set_alias.char_id)
+        assert.are.equal('Altchar', cli_calls.set_alias.name)
+    end)
+
     it('reports alias setup failure', function()
         cli_calls.config_show = { config = { installs = { steam = {} } } }
         cli_calls.set_alias_code = 1
@@ -297,6 +364,132 @@ describe('setup readiness', function()
         end
         assert.is_false(setup.ensure_character('Squatched'))
         assert.is_true(msgs[#msgs]:find('Alias setup failed', 1, true) ~= nil)
+    end)
+
+    it('ensure_character returns false when config_show fails', function()
+        cli_calls.config_show = nil
+        assert.is_false(setup.ensure_character('Squatched'))
+        assert.is_nil(cli_calls.set_alias)
+    end)
+
+    it('ensure_character returns false when list_all returns nil', function()
+        cli_calls.config_show = { config = { installs = { steam = {} } } }
+        cli_calls.list_all = nil
+        local msgs = {}
+        windower.add_to_chat = function(_, msg)
+            msgs[#msgs + 1] = msg
+        end
+        assert.is_false(setup.ensure_character('Squatched'))
+        assert.is_true(msgs[#msgs]:find('No character folders', 1, true) ~= nil)
+    end)
+
+    it('falls back to full character list when all are already aliased', function()
+        cli_calls.config_show = { config = { installs = { steam = {} } } }
+        cli_calls.list_all = {
+            user_dir = 'C:/ffxi/USER',
+            characters = {
+                { id = 'char1', name = 'Char1' },
+                { id = 'char2', name = 'Char2' },
+            },
+        }
+        local orig_mtime = process_mod.file_mtime
+        process_mod.file_mtime = function()
+            return nil
+        end
+        assert.is_true(setup.ensure_character('NewChar'))
+        assert.are.equal('char1', cli_calls.set_alias.char_id)
+        process_mod.file_mtime = orig_mtime
+    end)
+end)
+
+describe('ensure_character candidate filtering', function()
+    before_each(function()
+        setup.install_ready = false
+        setup.zoned_since_load = false
+        setup.noticed_zone = false
+        setup.learned = {}
+        cli_calls = {
+            config_show = { config = { installs = { steam = {} } } },
+            list_all = nil,
+            ffxi_root = 'C:/ffxi',
+        }
+    end)
+
+    -- Table-driven: which character ID is picked given a mix of aliased and
+    -- unaliased entries, with mtime unavailable (picks first candidate).
+    local filter_cases = {
+        {
+            desc = 'single unaliased character is selected',
+            chars = { { id = 'only' } },
+            expected = 'only',
+        },
+        {
+            desc = 'aliased character is excluded; unaliased is selected',
+            chars = { { id = 'taken', name = 'Other' }, { id = 'free' } },
+            expected = 'free',
+        },
+        {
+            desc = 'empty-string name is treated as unaliased',
+            chars = { { id = 'blank', name = '' }, { id = 'real', name = 'Real' } },
+            expected = 'blank',
+        },
+        {
+            desc = 'all aliased: falls back to full list and picks first',
+            chars = { { id = 'aa', name = 'Alice' }, { id = 'bb', name = 'Bob' } },
+            expected = 'aa',
+        },
+        {
+            desc = 'single unaliased among several aliased is selected',
+            chars = {
+                { id = 'aa', name = 'Alice' },
+                { id = 'bb' },
+                { id = 'cc', name = 'Carol' },
+            },
+            expected = 'bb',
+        },
+        {
+            desc = 'first of multiple unaliased is selected when mtime unavailable',
+            chars = { { id = 'xx' }, { id = 'yy' } },
+            expected = 'xx',
+        },
+    }
+
+    for _, case in ipairs(filter_cases) do
+        local c = case
+        it(c.desc, function()
+            cli_calls.list_all = { user_dir = 'C:/ffxi/USER', characters = c.chars }
+            local orig = process_mod.file_mtime
+            process_mod.file_mtime = function()
+                return nil
+            end
+            assert.is_true(setup.ensure_character('NewChar'))
+            assert.are.equal(c.expected, cli_calls.set_alias.char_id)
+            process_mod.file_mtime = orig
+        end)
+    end
+
+    it('mtime picks newest unaliased over older unaliased, ignoring aliased', function()
+        cli_calls.list_all = {
+            user_dir = 'C:/ffxi/USER',
+            characters = {
+                { id = 'old_free' },
+                { id = 'taken', name = 'Other' },
+                { id = 'new_free' },
+            },
+        }
+        local orig = process_mod.file_mtime
+        process_mod.file_mtime = function(path)
+            if path:find('new_free', 1, true) then
+                return '20250101120000'
+            end
+            if path:find('old_free', 1, true) then
+                return '20200101120000'
+            end
+            return nil
+        end
+        assert.is_true(setup.ensure_character('NewChar'))
+        assert.are.equal('new_free', cli_calls.set_alias.char_id)
+        process_mod.file_mtime = orig
     end)
 end)
 

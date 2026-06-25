@@ -214,4 +214,75 @@ describe('macromog lifecycle events', function()
         events['incoming chunk'](0x01)
         assert.is_false(setup.zoned_since_load)
     end)
+
+    it('login event is registered', function()
+        assert.is_function(events.login)
+    end)
+
+    it('login event resets zone flags', function()
+        setup.zoned_since_load = true
+        setup.noticed_zone = true
+        events.login()
+        assert.is_false(setup.zoned_since_load)
+        assert.is_false(setup.noticed_zone)
+    end)
+
+    -- Regression: second zone packet in the same session (no logout in between)
+    -- must not re-register or fire the ready message a second time.
+    it('second zone packet without login is gated by zoned_since_load', function()
+        setup.install_ready = true
+        events['incoming chunk'](0x0A)
+        assert.is_true(setup.learned.Squatched)
+        local msg_count = #chat_msgs
+        cli_calls.set_alias = nil
+
+        events['incoming chunk'](0x0A)
+
+        assert.is_nil(cli_calls.set_alias)
+        assert.are.equal(msg_count, #chat_msgs)
+    end)
+
+    -- Regression: after login fires, the next zone packet must trigger character
+    -- learning for the new character without clobbering the first character's alias.
+    it('zone packet after login registers new character without clobbering first', function()
+        setup.install_ready = true
+
+        -- First character zones in.
+        events['incoming chunk'](0x0A)
+        assert.is_true(setup.learned.Squatched)
+
+        -- Switch to a second character.
+        local orig_get_player = windower.ffxi.get_player
+        windower.ffxi.get_player = function()
+            return { name = 'Altchar' }
+        end
+        cli_calls.config_show = {
+            config = {
+                installs = {
+                    steam = {
+                        path = 'C:/ffxi',
+                        characters = { a1b2c3d4 = { name = 'Squatched' } },
+                    },
+                },
+            },
+        }
+        cli_calls.list_all = {
+            user_dir = 'C:/ffxi/USER',
+            characters = {
+                { id = 'a1b2c3d4', name = 'Squatched' },
+                { id = 'b2c3d4e5' },
+            },
+        }
+
+        events.login()
+        assert.is_false(setup.zoned_since_load)
+
+        events['incoming chunk'](0x0A)
+
+        windower.ffxi.get_player = orig_get_player
+
+        assert.is_true(setup.learned.Altchar)
+        assert.are.equal('b2c3d4e5', cli_calls.set_alias.char_id)
+        assert.are.equal('Altchar', cli_calls.set_alias.name)
+    end)
 end)
