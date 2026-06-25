@@ -48,9 +48,9 @@ func Path() (string, error) {
 		return p, nil
 	}
 	if dir, ok := sharedConfigDir(); ok {
-		path := filepath.Join(dir, "config.yml")
-		debug.Logf("Path: shared XDG %q", path)
-		return path, nil
+		p := normalizeHostPath(configFileInDir(dir))
+		debug.Logf("Path: shared XDG %q", p)
+		return p, nil
 	}
 	configDir, err := os.UserConfigDir()
 	if err != nil {
@@ -70,7 +70,7 @@ func sharedConfigDir() (string, bool) {
 		return filepath.Join(home, ".config", "macromog"), true
 	}
 	if home, ok := LinuxHomeForSharedConfig(); ok {
-		return filepath.Join(home, ".config", "macromog"), true
+		return hostpath(home, ".config", "macromog"), true
 	}
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -80,6 +80,14 @@ func sharedConfigDir() (string, bool) {
 		return filepath.Join(home, ".config", "macromog"), true
 	}
 	return "", false
+}
+
+func configFileInDir(dir string) string {
+	dir = normalizeHostPath(dir)
+	if strings.HasPrefix(dir, "/home/") {
+		return hostpath(dir, "config.yml")
+	}
+	return filepath.Join(dir, "config.yml")
 }
 
 // Empty returns a fresh config with only version set.

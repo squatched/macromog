@@ -54,7 +54,8 @@ func LinuxHomeForSharedConfig() (string, bool) {
 // OpenPath returns a filesystem path suitable for os.Open on this runtime.
 // Canonical POSIX paths under /home are mapped to Z: when needed under Wine.
 func OpenPath(canonical string) (string, error) {
-	if runtime.GOOS != "windows" || !strings.HasPrefix(filepath.ToSlash(canonical), "/home/") {
+	canonical = normalizeHostPath(canonical)
+	if runtime.GOOS != "windows" || !strings.HasPrefix(canonical, "/home/") {
 		debug.Logf("OpenPath: passthrough %q", canonical)
 		return canonical, nil
 	}
@@ -62,10 +63,9 @@ func OpenPath(canonical string) (string, error) {
 		debug.Logf("OpenPath: passthrough (not wine) %q", canonical)
 		return canonical, nil
 	}
-	if _, err := os.Stat(canonical); err == nil {
-		debug.Logf("OpenPath: posix stat ok %q", canonical)
-		return canonical, nil
-	}
+	// Always map /home/... through Z: under Wine. A direct POSIX stat can
+	// succeed on an empty host file while the real config lives under the
+	// prefix (drive_c/home/...), causing save/load split-brain.
 	got, err := resolveForWine(canonical)
 	debug.Logf("OpenPath: mapped %q -> %q err=%v", canonical, got, err)
 	return got, err
@@ -116,7 +116,7 @@ func linuxHomeFromPath(path string) (string, bool) {
 	slash = strings.TrimLeft(slash, `/`)
 	parts := strings.Split(slash, "/")
 	if len(parts) >= 2 && parts[0] == "home" && parts[1] != "" {
-		return "/" + filepath.Join(parts[0], parts[1]), true
+		return hostpath("/home", parts[1]), true
 	}
 	return "", false
 }
@@ -132,11 +132,11 @@ func discoverLinuxHomeViaZDrive() (string, bool) {
 		if !e.IsDir() {
 			continue
 		}
-		posixHome := filepath.Join("/home", e.Name())
-		if st, err := os.Stat(filepath.Join(posixHome, ".config", "macromog")); err == nil && st.IsDir() {
+		posixHome := hostpath("/home", e.Name())
+		if st, err := os.Stat(hostpath(posixHome, ".config", "macromog")); err == nil && st.IsDir() {
 			withMacromog = append(withMacromog, posixHome)
 		}
-		if st, err := os.Stat(filepath.Join(posixHome, ".config")); err == nil && st.IsDir() {
+		if st, err := os.Stat(hostpath(posixHome, ".config")); err == nil && st.IsDir() {
 			withConfig = append(withConfig, posixHome)
 		}
 	}
@@ -171,17 +171,35 @@ func winePrefixDir() (string, error) {
 }
 
 func normalizeWinePrefixPath(p string) (string, error) {
+	p = strings.TrimSpace(p)
 	if isZDrivePath(p) {
 		rest := strings.TrimLeft(p[2:], `\/`)
 		p = "/" + strings.ReplaceAll(rest, `\`, `/`)
 	}
+	slash := normalizeHostPath(p)
+	if strings.HasPrefix(slash, "/home/") {
+		return strings.TrimRight(slash, "/"), nil
+	}
 	return NormalizePath(expandHome(p))
 }
 
+func hostAccessPath(posix string) (string, error) {
+	posix = normalizeHostPath(posix)
+	if runtime.GOOS == "windows" && RunningUnderWine() && strings.HasPrefix(posix, "/home/") {
+		return resolveForWine(posix)
+	}
+	return posix, nil
+}
+
 func findWinePrefixUnderHome(home string) (string, bool) {
+	home = normalizeHostPath(home)
 	var candidates []string
-	games := filepath.Join(home, "Games")
-	if entries, err := os.ReadDir(games); err == nil {
+	games := hostpath(home, "Games")
+	gamesAccess, err := hostAccessPath(games)
+	if err != nil {
+		return "", false
+	}
+	if entries, err := os.ReadDir(gamesAccess); err == nil {
 		names := make([]string, 0, len(entries))
 		for _, e := range entries {
 			if e.IsDir() {
@@ -190,18 +208,26 @@ func findWinePrefixUnderHome(home string) (string, bool) {
 		}
 		sort.Strings(names)
 		for _, name := range names {
-			candidates = append(candidates, filepath.Join(games, name))
+			candidates = append(candidates, hostpath(games, name))
 		}
 	}
-	candidates = append(candidates, filepath.Join(home, ".wine"))
+	candidates = append(candidates, hostpath(home, ".wine"))
 
 	for _, p := range candidates {
-		if st, err := os.Stat(filepath.Join(p, ffxiUserSuffix)); err == nil && st.IsDir() {
+		access, err := hostAccessPath(hostpath(p, ffxiUserSuffix))
+		if err != nil {
+			continue
+		}
+		if st, err := os.Stat(access); err == nil && st.IsDir() {
 			return p, true
 		}
 	}
 	for _, p := range candidates {
-		if st, err := os.Stat(filepath.Join(p, "drive_c")); err == nil && st.IsDir() {
+		access, err := hostAccessPath(hostpath(p, "drive_c"))
+		if err != nil {
+			continue
+		}
+		if st, err := os.Stat(access); err == nil && st.IsDir() {
 			return p, true
 		}
 	}
@@ -258,7 +284,8 @@ func canonicalDrivePath(path string) (string, error) {
 		return "", err
 	}
 	driveDir := "drive_" + drive
-	joined := filepath.Join(prefix, driveDir, rest)
+	prefix = normalizeHostPath(prefix)
+	joined := hostpath(prefix, driveDir, rest)
 	return toStoredPath(joined)
 }
 
@@ -268,10 +295,13 @@ func isZDrivePath(path string) bool {
 
 func resolveForWine(stored string) (string, error) {
 	stored = strings.TrimSpace(stored)
-	if !strings.HasPrefix(stored, "/") {
+	// filepath.Join on Windows/Wine turns /home/... into \home\...; normalize
+	// backslashes before testing for a POSIX absolute path.
+	slash := filepath.ToSlash(strings.ReplaceAll(stored, `\`, `/`))
+	if !strings.HasPrefix(slash, "/") {
 		return NormalizePath(stored)
 	}
-	rest := strings.TrimPrefix(stored, "/")
+	rest := strings.TrimPrefix(slash, "/")
 	return "Z:\\" + strings.ReplaceAll(rest, "/", "\\"), nil
 }
 
@@ -291,6 +321,10 @@ func isDrivePath(path string) bool {
 
 func toStoredPath(path string) (string, error) {
 	expanded := expandHome(path)
+	slash := normalizeHostPath(expanded)
+	if strings.HasPrefix(slash, "/home/") {
+		return strings.TrimRight(slash, "/"), nil
+	}
 	abs, err := filepath.Abs(expanded)
 	if err != nil {
 		return "", err

@@ -25,6 +25,10 @@ local cli_calls = {}
 
 package.loaded['lib/cli'] = {
     config_show = function()
+        cli_calls.config_show_calls = (cli_calls.config_show_calls or 0) + 1
+        if cli_calls.config_show_sequence then
+            return cli_calls.config_show_sequence[cli_calls.config_show_calls]
+        end
         return cli_calls.config_show
     end,
     config_add_install = function(name, path)
@@ -83,17 +87,36 @@ describe('setup readiness', function()
     end)
 
     it('registers install when config is empty', function()
-        cli_calls.config_show = { config = {} }
+        cli_calls.config_show_sequence = {
+            { config = {} },
+            { config = { installs = { steam = { path = '/ffxi' } } } },
+        }
         assert.is_true(setup.ensure_install())
         assert.is_true(setup.install_ready)
         assert.are.equal('steam', cli_calls.add_install.name)
     end)
 
     it('ignores installs without a stored path', function()
-        cli_calls.config_show = { config = { installs = { lutris = { path = '' } } } }
+        cli_calls.config_show_sequence = {
+            { config = { installs = { lutris = { path = '' } } } },
+            { config = { installs = { steam = { path = '/ffxi' } } } },
+        }
         assert.is_true(setup.ensure_install())
         assert.is_true(setup.install_ready)
         assert.are.equal('steam', cli_calls.add_install.name)
+    end)
+
+    it('fails ensure_install when post-add config_show cannot verify', function()
+        cli_calls.config_show_sequence = {
+            { config = {} },
+            { config = {} },
+        }
+        local msgs = {}
+        windower.add_to_chat = function(_, msg)
+            msgs[#msgs + 1] = msg
+        end
+        assert.is_false(setup.ensure_install())
+        assert.is_true(msgs[#msgs]:find('could not be verified', 1, true) ~= nil)
     end)
 
     it('learns character alias after zone', function()
@@ -151,7 +174,9 @@ describe('setup readiness', function()
     end)
 
     it('fails ensure_install when add-install fails', function()
-        cli_calls.config_show = { config = {} }
+        cli_calls.config_show_sequence = {
+            { config = {} },
+        }
         cli_calls.ffxi_root = 'C:/ffxi'
         cli_calls.add_install_code = 1
         cli_calls.add_install_out = 'duplicate install'

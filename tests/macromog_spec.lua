@@ -41,6 +41,10 @@ _G.windower = {
 
 package.loaded['lib/cli'] = {
     config_show = function()
+        cli_calls.config_show_calls = (cli_calls.config_show_calls or 0) + 1
+        if cli_calls.config_show_sequence then
+            return cli_calls.config_show_sequence[cli_calls.config_show_calls]
+        end
         return cli_calls.config_show
     end,
     config_add_install = function(name, path)
@@ -191,7 +195,10 @@ describe('macromog lifecycle events', function()
     before_each(reset_state)
 
     it('load event configures install and greets user', function()
-        cli_calls.config_show = { config = {} }
+        cli_calls.config_show_sequence = {
+            { config = {} },
+            { config = { installs = { steam = { path = 'C:/ffxi' } } } },
+        }
         events.load()
         assert.is_true(setup.install_ready)
         assert.is_true(last_chat():find('Kupomog', 1, true) ~= nil)

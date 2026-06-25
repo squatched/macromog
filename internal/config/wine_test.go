@@ -55,6 +55,27 @@ func TestResolveForWine_PosixToZ(t *testing.T) {
 	}
 }
 
+func TestResolveForWine_BackslashHostPath(t *testing.T) {
+	// filepath.Join on Windows/Wine turns /home/... into \home\...; ToSlash
+	// must still map through Z: instead of falling back to drive_c/home/...
+	got, err := resolveForWine(`\home\squatched\.config\macromog\config.yml`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := `Z:\home\squatched\.config\macromog\config.yml`
+	if got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+func TestConfigFileInDir_HostXDG(t *testing.T) {
+	got := configFileInDir("/home/squatched/.config/macromog")
+	want := "/home/squatched/.config/macromog/config.yml"
+	if got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
 func TestRunningUnderWine_Linux(t *testing.T) {
 	if RunningUnderWine() {
 		t.Error("expected false on linux test runner")

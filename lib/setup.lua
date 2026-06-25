@@ -104,6 +104,20 @@ function setup.ensure_install()
         log.debug('add-install failed: ' .. tostring(out))
         return false
     end
+    log.debug('add-install stdout: ' .. tostring(out))
+    local saved, show_err = cli.config_show()
+    if not saved then
+        log.user('Install registration could not be verified, kupo!')
+        log.debug('post add-install config_show failed: ' .. tostring(show_err))
+        return false
+    end
+    local inst = saved.config and saved.config.installs and saved.config.installs[name]
+    if not inst or not inst.path or inst.path == '' then
+        log.user('Install registration could not be verified, kupo!')
+        log.debug('post add-install verify failed for install ' .. tostring(name))
+        return false
+    end
+    log.debug('stored install path: ' .. tostring(inst.path))
     setup.install_ready = true
     return true
 end

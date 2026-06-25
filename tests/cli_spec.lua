@@ -128,6 +128,8 @@ describe('cli wrappers', function()
         local data = cli.config_show()
         assert.are.same({}, data.config)
         assert.is_true(last_cmd:find('config show', 1, true) ~= nil)
+        assert.is_true(last_cmd:find('--output', 1, true) ~= nil)
+        assert.is_true(last_cmd:find('json', 1, true) ~= nil)
     end)
 
     it('does not enable MACROMOG_DEBUG for json when addon debug is on', function()

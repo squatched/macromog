@@ -57,12 +57,10 @@ function cli.run(args, opts)
 end
 
 function cli.run_json(args, opts)
-    local full = {}
+    local full = { '--output', 'json' }
     for _, a in ipairs(args) do
         full[#full + 1] = a
     end
-    full[#full + 1] = '--output'
-    full[#full + 1] = 'json'
     local code, out, err = cli.run(full, opts)
     if code ~= 0 then
         return nil, out ~= '' and out or err

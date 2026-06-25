@@ -147,6 +147,14 @@ func addInstallToConfig(session *configSession, name, rawPath string) error {
 	if err != nil {
 		return err
 	}
+	access, err := config.ResolveInstallPath(norm)
+	if err != nil {
+		return err
+	}
+	userDir := lister.UserDirFromFFXIPath(access)
+	if st, err := os.Stat(userDir); err != nil || !st.IsDir() {
+		return fmt.Errorf("USER directory not found under %s", norm)
+	}
 	if session.cfg.Installs == nil {
 		session.cfg.Installs = make(map[string]config.Install)
 	}
