@@ -1,0 +1,50 @@
+name: Validate Spawn DLL
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  spawn-lint:
+    name: validate-spawn-lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install tools
+        run: sudo apt-get update -qq && sudo apt-get install -y cppcheck
+
+      - name: validate-spawn-lint
+        run: make validate-spawn-lint
+
+  spawn-format:
+    name: validate-spawn-format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: validate-spawn-format
+        run: make validate-spawn-format
+
+  spawn-test:
+    name: validate-spawn-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: validate-spawn-test
+        run: make validate-spawn-test
+
+  spawn-build:
+    name: build-spawn-dll
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install tools
+        run: sudo apt-get update -qq && sudo apt-get install -y gcc-mingw-w64-i686
+
+      - name: build-spawn-dll
+        run: make build-spawn-dll

@@ -77,10 +77,27 @@ jobs:
             coverage-cli.html
           if-no-files-found: warn
 
+  coverage-spawn:
+    name: coverage-spawn
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: validate-spawn-coverage
+        run: make validate-spawn-coverage
+
+      - name: Upload spawn coverage artifact
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: coverage-spawn
+          path: spawn/build/spawn-coverage.txt
+          if-no-files-found: warn
+
   summarize:
     name: coverage-summary
     runs-on: ubuntu-latest
-    needs: [coverage-plugin, coverage-cli]
+    needs: [coverage-plugin, coverage-cli, coverage-spawn]
     if: always() && github.event_name == 'pull_request'
     permissions:
       pull-requests: write
@@ -99,6 +116,13 @@ jobs:
         with:
           name: coverage-cli
           path: ./cli-reports/
+        continue-on-error: true
+
+      - name: Download spawn coverage artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: coverage-spawn
+          path: ./spawn-reports/
         continue-on-error: true
 
       - name: Comment coverage on PR
@@ -124,13 +148,23 @@ jobs:
               if (tot) cliPct = parseFloat(tot[1])
             } catch (_) {}
 
+            // ── Spawn DLL Helper Coverage (C/gcov) ────────────────────────
+            let spawnPct = null
+            try {
+              const report = fs.readFileSync('./spawn-reports/spawn-coverage.txt', 'utf8')
+              const tot = report.match(/([\d.]+)%/)
+              if (tot) spawnPct = parseFloat(tot[1])
+            } catch (_) {}
+
             // ── Compose comment ────────────────────────────────────────────
             const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
             const pluginThreshold = 80
             const cliThreshold = 80
+            const spawnThreshold = 95
 
             const pluginPassed = pluginPct !== null && pluginPct >= pluginThreshold
             const cliPassed   = cliPct   !== null && cliPct   >= cliThreshold
+            const spawnPassed = spawnPct  !== null && spawnPct  >= spawnThreshold
 
             const fmt  = (pct) => pct !== null ? `${pct.toFixed(2)}%` : 'unknown'
             const icon = (ok)  => ok ? '✅' : '❌'
@@ -161,6 +195,19 @@ jobs:
               '> Also includes `coverage-cli.out` (Go cover profile) for local tooling.',
             ].filter(s => s !== undefined).join('\n')
 
+            const spawnSection = [
+              `### ${icon(spawnPassed)} Spawn DLL Helper Coverage — ${fmt(spawnPct)}`,
+              '',
+              spawnPassed
+                ? `Meets the ${spawnThreshold}% threshold.`
+                : spawnPct !== null
+                  ? `Below the ${spawnThreshold}% threshold.`
+                  : `Coverage data unavailable — the coverage-spawn job may have failed. See the [workflow run](${runUrl}) for details.`,
+              '',
+              '> Covers `spawn/helpers.h` (pure-C helpers) via native gcov. Win32-specific',
+              '> code (`l_spawn`, `l_file_mtime`) is exercised by `validate-spawn-smoke` instead.',
+            ].filter(s => s !== undefined).join('\n')
+
             const body = [
               MARKER,
               '## Coverage Report',
@@ -168,6 +215,8 @@ jobs:
               pluginSection,
               '',
               cliSection,
+              '',
+              spawnSection,
               '',
               `[Download artifacts / view run](${runUrl})`,
             ].join('\n')

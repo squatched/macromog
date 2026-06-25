@@ -127,7 +127,7 @@ Append `!` after the type for a **breaking change** (major bump): `feat!:`, `fix
 
 ### Scopes (optional but encouraged)
 
-`core`, `yaml`, `macros`, `validate`, `ci`, `docs`, `plugin`, `cli`
+`core`, `yaml`, `macros`, `validate`, `ci`, `docs`, `plugin`, `cli`, `spawn`
 
 ### Examples
 
@@ -158,6 +158,10 @@ docs: add INSTRUCTIONS.md with quick-start guide
 
 These are tracked and reported separately. Never combine them into a single percentage — a high score in one must not mask a low score in the other.
 
+The spawn DLL tracks helper-function coverage via gcov (`validate-spawn-coverage`,
+threshold: 95%). Win32-specific code (`l_spawn`, `l_file_mtime`) cannot be tested
+natively on Linux and is exercised functionally by `validate-spawn-smoke` instead.
+
 ### Target naming
 
 All validation targets follow a two-level naming scheme:
@@ -169,7 +173,7 @@ fix-<component>-<check>
 
 | Segment | Values | Notes |
 |---------|--------|-------|
-| `<component>` | `plugin`, `cli` | `plugin` = Lua/Windower addon; `cli` = Go binary |
+| `<component>` | `plugin`, `cli`, `spawn` | `plugin` = Lua/Windower addon; `cli` = Go binary; `spawn` = C DLL |
 | `<check>` | `lint`, `format`, `test`, `coverage` | Not every check exists for every component |
 
 Component umbrellas (`validate-plugin`, `validate-cli`) run all checks for that component.

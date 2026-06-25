@@ -1,6 +1,7 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
-#include <stddef.h>
+
+#include "helpers.h"
 
 /* ── Minimal Lua 5.1 API ───────────────────────────────────────────── */
 
@@ -10,54 +11,26 @@ typedef int (*lua_CFunction)(lua_State *L);
 
 #define LUA_TTABLE 5
 
-typedef struct { const char *name; lua_CFunction func; } luaL_Reg;
+typedef struct {
+    const char *name;
+    lua_CFunction func;
+} luaL_Reg;
 
-extern void       lua_settop     (lua_State *L, int idx);
-extern void       lua_pushnil    (lua_State *L);
-extern void       lua_pushnumber (lua_State *L, lua_Number n);
-extern void       lua_pushlstring(lua_State *L, const char *s, size_t len);
-extern void       lua_rawgeti    (lua_State *L, int idx, int n);
-extern size_t     lua_objlen     (lua_State *L, int idx);
-extern const char*lua_tolstring  (lua_State *L, int idx, size_t *len);
-extern int        lua_type       (lua_State *L, int idx);
-extern void       luaL_checktype (lua_State *L, int narg, int t);
-extern const char*luaL_checklstring(lua_State *L, int narg, size_t *len);
-extern void       luaL_register  (lua_State *L, const char *lib, const luaL_Reg *l);
+extern void lua_settop(lua_State *L, int idx);
+extern void lua_pushnil(lua_State *L);
+extern void lua_pushnumber(lua_State *L, lua_Number n);
+extern void lua_pushlstring(lua_State *L, const char *s, size_t len);
+extern void lua_rawgeti(lua_State *L, int idx, int n);
+extern size_t lua_objlen(lua_State *L, int idx);
+extern const char *lua_tolstring(lua_State *L, int idx, size_t *len);
+extern int lua_type(lua_State *L, int idx);
+extern void luaL_checktype(lua_State *L, int narg, int t);
+extern const char *luaL_checklstring(lua_State *L, int narg, size_t *len);
+extern void luaL_register(lua_State *L, const char *lib, const luaL_Reg *l);
 
-#define lua_pop(L, n)         lua_settop(L, -(n)-1)
-#define lua_tostring(L, i)    lua_tolstring(L, (i), NULL)
-#define luaL_checkstring(L,n) luaL_checklstring(L, (n), NULL)
-
-/* ── CRT-free helpers (no string.h dependency) ─────────────────────── */
-
-static void mem_copy(void *dst, const void *src, size_t n)
-{
-    char *d = (char *)dst;
-    const char *s = (const char *)src;
-    while (n--) *d++ = *s++;
-}
-
-/* ── Internal helpers ──────────────────────────────────────────────── */
-
-static void push_quoted(char *dst, size_t *pos, size_t cap, const char *src)
-{
-    const char *p;
-    int quote = 0;
-    for (p = src; *p; p++)
-        if (*p == ' ' || *p == '"') { quote = 1; break; }
-
-    if (*pos > 0 && *pos < cap - 1)
-        dst[(*pos)++] = ' ';
-    if (quote && *pos < cap - 1)
-        dst[(*pos)++] = '"';
-    for (p = src; *p && *pos < cap - 2; p++) {
-        if (*p == '"') dst[(*pos)++] = '\\';
-        dst[(*pos)++] = *p;
-    }
-    if (quote && *pos < cap - 1)
-        dst[(*pos)++] = '"';
-    dst[*pos] = '\0';
-}
+#define lua_pop(L, n) lua_settop(L, -(n) - 1)
+#define lua_tostring(L, i) lua_tolstring(L, (i), NULL)
+#define luaL_checkstring(L, n) luaL_checklstring(L, (n), NULL)
 
 /* ── spawn(bin, args) -> output, exit_code ─────────────────────────── */
 
@@ -75,11 +48,12 @@ static int l_spawn(lua_State *L)
     for (i = 1; i <= n; i++) {
         lua_rawgeti(L, 2, i);
         const char *arg = lua_tostring(L, -1);
-        if (arg) push_quoted(cmdline, &pos, sizeof(cmdline), arg);
+        if (arg)
+            push_quoted(cmdline, &pos, sizeof(cmdline), arg);
         lua_pop(L, 1);
     }
 
-    SECURITY_ATTRIBUTES sa = { sizeof(SECURITY_ATTRIBUTES), NULL, TRUE };
+    SECURITY_ATTRIBUTES sa = {sizeof(SECURITY_ATTRIBUTES), NULL, TRUE};
 
     HANDLE hRead = INVALID_HANDLE_VALUE, hWrite = INVALID_HANDLE_VALUE;
     if (!CreatePipe(&hRead, &hWrite, &sa, 0)) {
@@ -90,18 +64,16 @@ static int l_spawn(lua_State *L)
     SetHandleInformation(hRead, HANDLE_FLAG_INHERIT, 0);
 
     STARTUPINFOA si = {0};
-    si.cb         = sizeof(si);
-    si.dwFlags    = STARTF_USESTDHANDLES;
-    si.hStdInput  = NULL;
+    si.cb = sizeof(si);
+    si.dwFlags = STARTF_USESTDHANDLES;
+    si.hStdInput = NULL;
     si.hStdOutput = hWrite;
-    si.hStdError  = hWrite;
+    si.hStdError = hWrite;
 
     PROCESS_INFORMATION pi = {0};
 
-    BOOL ok = CreateProcessA(
-        NULL, cmdline, NULL, NULL, TRUE,
-        CREATE_NO_WINDOW, NULL, NULL, &si, &pi
-    );
+    BOOL ok =
+        CreateProcessA(NULL, cmdline, NULL, NULL, TRUE, CREATE_NO_WINDOW, NULL, NULL, &si, &pi);
     CloseHandle(hWrite);
 
     if (!ok) {
@@ -120,7 +92,8 @@ static int l_spawn(lua_State *L)
             if (used + nr >= cap) {
                 cap = (used + nr + 1) * 2;
                 char *tmp = (char *)HeapReAlloc(GetProcessHeap(), 0, buf, cap);
-                if (!tmp) break;
+                if (!tmp)
+                    break;
                 buf = tmp;
             }
             mem_copy(buf + used, chunk, nr);
@@ -157,17 +130,9 @@ static int l_file_mtime(lua_State *L)
         return 1;
     }
 
-    DWORD hi = data.ftLastWriteTime.dwHighDateTime;
-    DWORD lo = data.ftLastWriteTime.dwLowDateTime;
-
-    static const char hex[] = "0123456789ABCDEF";
     char stamp[17];
-    int j;
-    for (j = 0; j < 8; j++) {
-        stamp[j]   = hex[(hi >> (28 - 4 * j)) & 0xF];
-        stamp[8+j] = hex[(lo >> (28 - 4 * j)) & 0xF];
-    }
-    stamp[16] = '\0';
+    filetime_to_hex((uint32_t)data.ftLastWriteTime.dwHighDateTime,
+                    (uint32_t)data.ftLastWriteTime.dwLowDateTime, stamp);
     lua_pushlstring(L, stamp, 16);
     return 1;
 }
@@ -175,9 +140,9 @@ static int l_file_mtime(lua_State *L)
 /* ── Module entry point ────────────────────────────────────────────── */
 
 static const luaL_Reg funcs[] = {
-    { "spawn",      l_spawn      },
-    { "file_mtime", l_file_mtime },
-    { NULL,         NULL         },
+    {"spawn", l_spawn},
+    {"file_mtime", l_file_mtime},
+    {NULL, NULL},
 };
 
 __declspec(dllexport) int luaopen_macromog_spawn(lua_State *L)
