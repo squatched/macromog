@@ -15,7 +15,12 @@ CLI_MAIN         := ./cmd/macromog
 BINARY           := bin/macromog
 DIST_DIR         := dist
 PLUGIN_STAGE     := $(DIST_DIR)/Macromog
-VERSION          := $(shell awk -F"'" '/_addon.version/{print $$2; exit}' macromog.lua)
+ifndef VERSION
+VERSION := $(shell tr -d '\n\r' < version.txt 2>/dev/null)
+ifeq ($(strip $(VERSION)),)
+VERSION := $(shell awk -F"'" '/_addon.version/{print $$2; exit}' macromog.lua)
+endif
+endif
 PLUGIN_ZIP       := $(DIST_DIR)/macromog-$(VERSION).zip
 BUILD_PLATFORMS  := \
     linux/amd64  linux/386   \
