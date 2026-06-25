@@ -25,14 +25,10 @@ func (r exportEntry) errMsg() string    { return r.Error }
 
 func newExportCmd(state *cliState) *cobra.Command {
 	var (
-		ffxiPath    string
-		installName string
-		charDir     string
-		charName    string
-		all         bool
-		dense       bool
-		metaName    string
-		scopeSel    []string
+		chars    charSelectOpts
+		dense    bool
+		metaName string
+		scopeSel []string
 	)
 
 	cmd := &cobra.Command{
@@ -65,8 +61,8 @@ Examples:
 			}
 
 			remaining := args
-			if !all && charDir == "" && charName == "" && len(remaining) > 0 {
-				charDir = remaining[0]
+			if !chars.all && chars.charDir == "" && chars.charName == "" && len(remaining) > 0 {
+				chars.charDir = remaining[0]
 				remaining = remaining[1:]
 			}
 
@@ -75,10 +71,7 @@ Examples:
 				outPath = remaining[0]
 			}
 
-			charDirs, err := resolveCharDirs(charSelectOpts{
-				charDir: charDir, charName: charName, ffxiPath: ffxiPath,
-				installName: installName, all: all,
-			})
+			charDirs, err := resolveCharDirs(chars)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "macromog export: %v\n", err)
 				state.code = 1
@@ -92,11 +85,21 @@ Examples:
 			}
 
 			var baseOutDir string
-			if all {
+			if chars.all {
 				if outPath != "" {
 					baseOutDir, err = filepath.Abs(outPath)
 					if err != nil {
 						fmt.Fprintf(os.Stderr, "macromog export: %v\n", err)
+						state.code = 1
+						return nil
+					}
+					if st, serr := os.Stat(baseOutDir); serr == nil && !st.IsDir() {
+						fmt.Fprintf(os.Stderr, "macromog export: %s: not a directory\n", baseOutDir)
+						state.code = 1
+						return nil
+					}
+					if merr := os.MkdirAll(baseOutDir, 0o755); merr != nil {
+						fmt.Fprintf(os.Stderr, "macromog export: %v\n", merr)
 						state.code = 1
 						return nil
 					}
@@ -178,11 +181,8 @@ Examples:
 		},
 	}
 
-	cmd.Flags().StringVar(&ffxiPath, "ffxi-path", "", "FFXI install root")
-	cmd.Flags().StringVar(&installName, "install", "", "named FFXI install from config")
-	cmd.Flags().StringVar(&charDir, "char-dir", "", "character USER directory")
-	cmd.Flags().StringVar(&charName, "char-name", "", "friendly character name from config")
-	cmd.Flags().BoolVar(&all, "all", false, "export all discovered characters without prompting")
+	addCharFlags(cmd, &chars)
+	cmd.Flags().BoolVar(&chars.all, "all", false, "export all discovered characters without prompting")
 	cmd.Flags().BoolVar(&dense, "dense", false, "include all in-scope macro slots even if empty")
 	cmd.Flags().StringVar(&metaName, "name", "", "character name for YAML metadata")
 	cmd.Flags().StringArrayVar(&scopeSel, "scope", nil, "scope selector (repeatable; e.g. B1S3, B1,5)")

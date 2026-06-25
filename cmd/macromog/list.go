@@ -34,12 +34,7 @@ type listCharEntry struct {
 }
 
 func newListCmd(state *cliState) *cobra.Command {
-	var (
-		ffxiPath    string
-		installName string
-		charDir     string
-		charName    string
-	)
+	var chars charSelectOpts
 
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -58,10 +53,8 @@ Examples:
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			p := state.printer
-			if charDir != "" || charName != "" {
-				dir, err := resolveCharDir(charSelectOpts{
-					charDir: charDir, charName: charName, ffxiPath: ffxiPath, installName: installName,
-				})
+			if chars.charDir != "" || chars.charName != "" {
+				dir, err := resolveCharDir(chars)
 				if err != nil {
 					fmt.Fprintf(os.Stderr, "macromog list: %v\n", err)
 					state.code = 1
@@ -70,15 +63,12 @@ Examples:
 				state.code = runListChar(dir, p)
 				return nil
 			}
-			state.code = runListAll(ffxiPath, installName, p)
+			state.code = runListAll(chars.ffxiPath, chars.installName, p)
 			return nil
 		},
 	}
 
-	cmd.Flags().StringVar(&ffxiPath, "ffxi-path", "", "FFXI install root")
-	cmd.Flags().StringVar(&installName, "install", "", "named FFXI install from config")
-	cmd.Flags().StringVar(&charDir, "char-dir", "", "character USER directory")
-	cmd.Flags().StringVar(&charName, "char-name", "", "friendly character name from config")
+	addCharFlags(cmd, &chars)
 
 	return cmd
 }

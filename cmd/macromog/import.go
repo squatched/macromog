@@ -38,14 +38,10 @@ type importSetInfo struct {
 
 func newImportCmd(state *cliState) *cobra.Command {
 	var (
-		ffxiPath    string
-		installName string
-		charDir     string
-		charName    string
-		all         bool
-		noBackup    bool
-		dryRun      bool
-		scopeSel    []string
+		chars    charSelectOpts
+		noBackup bool
+		dryRun   bool
+		scopeSel []string
 	)
 
 	cmd := &cobra.Command{
@@ -67,8 +63,8 @@ Examples:
 		RunE: func(cmd *cobra.Command, args []string) error {
 			p := state.printer
 			yamlPath := args[0]
-			if charDir == "" && charName == "" && len(args) > 1 {
-				charDir = args[1]
+			if chars.charDir == "" && chars.charName == "" && len(args) > 1 {
+				chars.charDir = args[1]
 			}
 
 			var importScope scope.Scope
@@ -82,10 +78,7 @@ Examples:
 				}
 			}
 
-			charDirs, err := resolveCharDirs(charSelectOpts{
-				charDir: charDir, charName: charName, ffxiPath: ffxiPath,
-				installName: installName, all: all,
-			})
+			charDirs, err := resolveCharDirs(chars)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "macromog import: %v\n", err)
 				state.code = 1
@@ -197,11 +190,8 @@ Examples:
 		},
 	}
 
-	cmd.Flags().StringVar(&ffxiPath, "ffxi-path", "", "FFXI install root")
-	cmd.Flags().StringVar(&installName, "install", "", "named FFXI install from config")
-	cmd.Flags().StringVar(&charDir, "char-dir", "", "character USER directory")
-	cmd.Flags().StringVar(&charName, "char-name", "", "friendly character name from config")
-	cmd.Flags().BoolVar(&all, "all", false, "import into all discovered characters without prompting")
+	addCharFlags(cmd, &chars)
+	cmd.Flags().BoolVar(&chars.all, "all", false, "import into all discovered characters without prompting")
 	cmd.Flags().BoolVar(&noBackup, "no-backup", false, "skip automatic backup before writing")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "validate and show what would be written, without writing")
 	cmd.Flags().StringArrayVar(&scopeSel, "scope", nil, "override import scope (repeatable; e.g. B1, B1S3)")

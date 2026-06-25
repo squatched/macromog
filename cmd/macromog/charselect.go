@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/spf13/cobra"
 	"github.com/squatched/macromog/internal/config"
 	"github.com/squatched/macromog/internal/lister"
 )
@@ -18,6 +19,16 @@ type charSelectOpts struct {
 	ffxiPath    string
 	installName string
 	all         bool
+}
+
+// addCharFlags registers the four character-selection flags on cmd, binding
+// them into the corresponding fields of opts. Does not register --all, since
+// its description is operation-specific; callers add that flag themselves.
+func addCharFlags(cmd *cobra.Command, opts *charSelectOpts) {
+	cmd.Flags().StringVar(&opts.ffxiPath, "ffxi-path", "", "FFXI install root")
+	cmd.Flags().StringVar(&opts.installName, "install", "", "named FFXI install from config")
+	cmd.Flags().StringVar(&opts.charDir, "char-dir", "", "character USER directory")
+	cmd.Flags().StringVar(&opts.charName, "char-name", "", "friendly character name from config")
 }
 
 // resolveCharDirs returns character USER directory paths to operate on.

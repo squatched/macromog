@@ -160,6 +160,23 @@ func TestRunTemplate_ScopeAfterOutputPath(t *testing.T) {
 	}
 }
 
+func TestRunTemplate_MultipleScopes(t *testing.T) {
+	dir := t.TempDir()
+	out := filepath.Join(dir, "multi.yml")
+	args := []string{"--scope", "B1", "--scope", "B2", out}
+	if got := runTemplate(args, newTextPrinter()); got != 0 {
+		t.Fatalf("runTemplate(multi scope) = %d, want 0", got)
+	}
+	data, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := string(data)
+	if !strings.Contains(s, "book: 1") || !strings.Contains(s, "book: 2") {
+		t.Errorf("multi-scope template missing expected books:\n%s", s)
+	}
+}
+
 func TestRunTemplate_WriteFails(t *testing.T) {
 	// Point output at a non-existent directory.
 	out := "/nonexistent/dir/out.yml"

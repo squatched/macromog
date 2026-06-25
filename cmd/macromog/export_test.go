@@ -260,6 +260,80 @@ func TestRunExport_AllWithNameError(t *testing.T) {
 	}
 }
 
+func TestRunExport_AllWithExplicitDir(t *testing.T) {
+	ffxiDir := makeExportableFFXITree(t, "a1b2c3d4", "e5f6a7b8")
+	outDir := t.TempDir()
+	args := []string{"--ffxi-path", ffxiDir, "--all", outDir}
+	if got := runExport(args, newTextPrinter()); got != 0 {
+		t.Fatalf("runExport(--all <dir>) = %d, want 0", got)
+	}
+	entries, _ := os.ReadDir(outDir)
+	var ymlFiles []string
+	for _, e := range entries {
+		if strings.HasSuffix(e.Name(), ".yml") {
+			ymlFiles = append(ymlFiles, e.Name())
+		}
+	}
+	if len(ymlFiles) != 2 {
+		t.Errorf("expected 2 YAML files in explicit dir, got %v", ymlFiles)
+	}
+}
+
+func TestRunExport_AllPathIsFile(t *testing.T) {
+	ffxiDir, _, _ := makeFFXITree(t, "a1b2c3d4")
+	// Point --all at an existing file, not a directory — should error early.
+	f, err := os.CreateTemp(t.TempDir(), "*.yml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.Close()
+	args := []string{"--ffxi-path", ffxiDir, "--all", f.Name()}
+	if got := runExport(args, newTextPrinter()); got != 1 {
+		t.Errorf("runExport(--all <file>) = %d, want 1", got)
+	}
+}
+
+func TestRunExport_AllPathMkdirCreate(t *testing.T) {
+	ffxiDir := makeExportableFFXITree(t, "a1b2c3d4", "e5f6a7b8")
+	// Point --all at a path that doesn't exist yet — should be created.
+	outDir := filepath.Join(t.TempDir(), "new", "subdir")
+	args := []string{"--ffxi-path", ffxiDir, "--all", outDir}
+	if got := runExport(args, newTextPrinter()); got != 0 {
+		t.Fatalf("runExport(--all <new-dir>) = %d, want 0", got)
+	}
+	entries, _ := os.ReadDir(outDir)
+	var ymlFiles []string
+	for _, e := range entries {
+		if strings.HasSuffix(e.Name(), ".yml") {
+			ymlFiles = append(ymlFiles, e.Name())
+		}
+	}
+	if len(ymlFiles) != 2 {
+		t.Errorf("expected 2 YAML files in created dir, got %v", ymlFiles)
+	}
+}
+
+func TestRunExport_MultipleScopes(t *testing.T) {
+	dir := t.TempDir()
+	out := filepath.Join(dir, "multi.yml")
+	// Two separate --scope flags; both books should appear in selections.
+	args := []string{"--char-dir", testdata.CharDir(), "--scope", "B1", "--scope", "B33", out}
+	if got := runExport(args, newTextPrinter()); got != 0 {
+		t.Fatalf("runExport(multi scope) = %d, want 0", got)
+	}
+	data, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := string(data)
+	if !strings.Contains(s, "book: 1") {
+		t.Errorf("multi-scope export missing book 1 selection: %s", s)
+	}
+	if !strings.Contains(s, "book: 33") {
+		t.Errorf("multi-scope export missing book 33 selection: %s", s)
+	}
+}
+
 func TestRunExport_DenseFlag(t *testing.T) {
 	dir := t.TempDir()
 	out := filepath.Join(dir, "dense.yml")
@@ -280,4 +354,32 @@ func TestRunExport_DenseFlag(t *testing.T) {
 	if !strings.Contains(s, "# Macro Line 1") {
 		t.Errorf("dense export should use comment placeholders for empty slots:\n%s", s)
 	}
+}
+
+// makeExportableFFXITree builds a fake FFXI tree seeded with testdata .dat files
+// and a valid mcr.dat, so export can actually read the macro files.
+func makeExportableFFXITree(t *testing.T, charIDs ...string) string {
+	t.Helper()
+	src := testdata.CharDir()
+	ffxiDir := t.TempDir()
+	userDir := filepath.Join(ffxiDir, "USER")
+	if err := os.Mkdir(userDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range charIDs {
+		charDir := filepath.Join(userDir, id)
+		if err := os.Mkdir(charDir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		entries, _ := os.ReadDir(src)
+		for _, e := range entries {
+			if e.IsDir() {
+				continue
+			}
+			data, _ := os.ReadFile(filepath.Join(src, e.Name()))
+			_ = os.WriteFile(filepath.Join(charDir, e.Name()), data, 0o644)
+		}
+		_ = os.WriteFile(filepath.Join(charDir, "mcr.dat"), dat.EncodeMacroSet(dat.MacroSet{}), 0o644)
+	}
+	return ffxiDir
 }

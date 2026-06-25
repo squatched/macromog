@@ -22,13 +22,9 @@ func (r backupEntry) errMsg() string    { return r.Error }
 
 func newBackupCmd(state *cliState) *cobra.Command {
 	var (
-		ffxiPath    string
-		installName string
-		charDir     string
-		charName    string
-		all         bool
-		outDir      string
-		inPlace     bool
+		chars   charSelectOpts
+		outDir  string
+		inPlace bool
 	)
 
 	cmd := &cobra.Command{
@@ -46,8 +42,8 @@ Examples:
 		Args: cobra.RangeArgs(0, 1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			p := state.printer
-			if charDir == "" && charName == "" && len(args) > 0 {
-				charDir = args[0]
+			if chars.charDir == "" && chars.charName == "" && len(args) > 0 {
+				chars.charDir = args[0]
 			}
 
 			if outDir != "" && inPlace {
@@ -56,10 +52,7 @@ Examples:
 				return nil
 			}
 
-			charDirs, err := resolveCharDirs(charSelectOpts{
-				charDir: charDir, charName: charName, ffxiPath: ffxiPath,
-				installName: installName, all: all,
-			})
+			charDirs, err := resolveCharDirs(chars)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "macromog backup: %v\n", err)
 				state.code = 1
@@ -128,11 +121,8 @@ Examples:
 		},
 	}
 
-	cmd.Flags().StringVar(&ffxiPath, "ffxi-path", "", "FFXI install root")
-	cmd.Flags().StringVar(&installName, "install", "", "named FFXI install from config")
-	cmd.Flags().StringVar(&charDir, "char-dir", "", "character USER directory")
-	cmd.Flags().StringVar(&charName, "char-name", "", "friendly character name from config")
-	cmd.Flags().BoolVar(&all, "all", false, "back up all discovered characters")
+	addCharFlags(cmd, &chars)
+	cmd.Flags().BoolVar(&chars.all, "all", false, "back up all discovered characters")
 	cmd.Flags().StringVar(&outDir, "out", "", "directory to write the backup into (default: current directory)")
 	cmd.Flags().BoolVar(&inPlace, "in-place", false, "write backup into <char-dir>/backups/")
 

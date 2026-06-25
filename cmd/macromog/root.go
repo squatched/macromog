@@ -32,7 +32,7 @@ func newRootCmd() (*cobra.Command, *cliState) {
 			switch OutputFormat(state.format) {
 			case FormatText, FormatJSON:
 			default:
-				return fmt.Errorf("macromog: --output: unknown format %q (valid: text, json)", state.format)
+				return fmt.Errorf("--output: unknown format %q (valid: text, json)", state.format)
 			}
 			state.printer = NewPrinter(state.out, OutputFormat(state.format))
 			return nil
