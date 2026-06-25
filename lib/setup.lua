@@ -90,14 +90,14 @@ function setup.ensure_install()
     end
 
     local root = detect.ffxi_root(cli)
-    log.debug('detected ffxi root: ' .. tostring(root))
+    log.debug('detected ffxi root (wine-native): ' .. tostring(root))
     if not root then
         log.user('Could not detect FFXI install. Run macromog config add-install, kupo!')
         return false
     end
 
     local name = detect.suggest_install_name(root)
-    log.debug('registering install name=' .. name .. ' path=' .. root)
+    log.debug('registering install name=' .. name .. ' detected path (wine-native)=' .. root)
     local code, out = cli.config_add_install(name, root)
     if code ~= 0 then
         log.user('Install registration failed: ' .. (out or ''))

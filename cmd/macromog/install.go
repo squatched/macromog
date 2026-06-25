@@ -143,34 +143,12 @@ func maybeRegisterInstall(session *configSession, canonicalPath string) (install
 }
 
 func addInstallToConfig(session *configSession, name, rawPath string) error {
-	norm, err := config.CanonicalInstallPath(rawPath)
-	if err != nil {
-		return err
-	}
-	access, err := config.ResolveInstallPath(norm)
-	if err != nil {
-		return err
-	}
-	userDir := lister.UserDirFromFFXIPath(access)
-	if st, err := os.Stat(userDir); err != nil || !st.IsDir() {
-		return fmt.Errorf("USER directory not found under %s", norm)
-	}
-	if session.cfg.Installs == nil {
-		session.cfg.Installs = make(map[string]config.Install)
-	}
-	if _, exists := session.cfg.Installs[name]; exists {
-		return fmt.Errorf("install %q already exists", name)
-	}
 	wasFirst := len(session.cfg.Installs) == 0
-	session.cfg.Installs[name] = config.Install{Path: norm}
-	if wasFirst {
-		session.cfg.DefaultInstall = name
-	}
-	if err := session.save(); err != nil {
+	if err := registerInstall(session, name, rawPath, registerInstallOpts{}); err != nil {
 		return err
 	}
 	ew := newErrWriter()
-	if wasFirst {
+	if wasFirst || session.cfg.DefaultInstall == name {
 		fmt.Fprintf(ew, "Added install %q as default.\n", name)
 	} else {
 		fmt.Fprintf(ew, "Added install %q. Default install is still %q. Use 'macromog config set-default-install %s' to change.\n",

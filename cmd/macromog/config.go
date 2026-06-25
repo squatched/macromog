@@ -113,38 +113,8 @@ func newConfigAddInstallCmd(state *cliState) *cobra.Command {
 				state.code = 1
 				return nil
 			}
-			norm, err := config.CanonicalInstallPath(rawPath)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "macromog config: %v\n", err)
-				state.code = 1
-				return nil
-			}
-			access, err := config.ResolveInstallPath(norm)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "macromog config: %v\n", err)
-				state.code = 1
-				return nil
-			}
-			userDir := lister.UserDirFromFFXIPath(access)
-			if st, err := os.Stat(userDir); err != nil || !st.IsDir() {
-				fmt.Fprintf(os.Stderr, "macromog config: USER directory not found under %s\n", norm)
-				state.code = 1
-				return nil
-			}
-			if session.cfg.Installs == nil {
-				session.cfg.Installs = make(map[string]config.Install)
-			}
-			if _, exists := session.cfg.Installs[name]; exists {
-				fmt.Fprintf(os.Stderr, "macromog config: install %q already exists\n", name)
-				state.code = 1
-				return nil
-			}
 			wasFirst := len(session.cfg.Installs) == 0
-			session.cfg.Installs[name] = config.Install{Path: norm}
-			if wasFirst || setDefault {
-				session.cfg.DefaultInstall = name
-			}
-			if err := session.save(); err != nil {
+			if err := registerInstall(session, name, rawPath, registerInstallOpts{setDefault: setDefault}); err != nil {
 				fmt.Fprintf(os.Stderr, "macromog config: %v\n", err)
 				state.code = 1
 				return nil
