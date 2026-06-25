@@ -32,13 +32,12 @@ forbid_entry() {
 
 require_entry 'Macromog/macromog.lua'
 require_entry 'Macromog/lib/cli.lua'
-require_entry 'Macromog/bin/macromog-windows-amd64.exe'
-require_entry 'Macromog/bin/macromog-windows-386.exe'
+require_entry 'Macromog/bin/macromog.exe'
+forbid_entry 'macromog-linux'
+forbid_entry 'macromog-windows'
 require_entry 'Macromog/data/'
 
 forbid_entry '.gitkeep'
 forbid_entry 'example_macros.yml'
-forbid_entry 'macromog-linux-amd64'
-forbid_entry 'macromog-linux-386'
 
 echo "PASS: package layout for $ZIP"

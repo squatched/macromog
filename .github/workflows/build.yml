@@ -13,8 +13,11 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        goos:   [linux, windows]
-        goarch: [amd64, 386]
+        include:
+          - goos: linux
+            goarch: amd64
+          - goos: windows
+            goarch: 386
 
     steps:
       - uses: actions/checkout@v5

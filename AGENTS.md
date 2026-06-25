@@ -189,9 +189,10 @@ quality. They do not belong under the `validate` umbrella.
 | Target | Purpose |
 |--------|---------|
 | `build-cli` | Build the CLI binary for the current platform (`./macromog`) |
-| `build-cli-all` | Cross-compile for all 4 release platforms; no output kept |
+| `build-cli-all` | Cross-compile for all 2 release platforms; no output kept |
 
-Release platforms: `linux/amd64`, `linux/386`, `windows/amd64`, `windows/386`.
+Release platforms: `linux/amd64`, `windows/386`. Release binaries are named
+`macromog` and `macromog.exe`.
 macOS is not supported — FFXI has no native macOS client.
 
 A failed build blocks PRs via a dedicated `build.yml` workflow. Unlike `validate-*` targets,

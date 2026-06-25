@@ -1,6 +1,5 @@
 package.path = './?.lua;./?/init.lua;' .. package.path
 
-_G.jit = { arch = 'x64' }
 _G.windower = {
     addon_path = '/tmp/macromog_test/',
     add_to_chat = function() end,

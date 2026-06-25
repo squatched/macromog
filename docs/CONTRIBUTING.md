@@ -74,10 +74,10 @@ Optional checks (see below) are not required for PRs.
 |--------|-------------|
 | `make validate-wine-smoke` | Runs the cross-compiled Windows CLI under Wine; prints `SKIP` if Wine is not installed |
 
-`validate-wine-smoke` checks that the bundled `macromog-windows-amd64.exe`
-launches under Wine (`--help`). Shared-config read/write under Wine is covered
-by Go integration tests on the Linux host; **Windows contributors do not need
-Wine** — run `dist\bin\macromog-windows-amd64.exe --help` natively instead.
+`validate-wine-smoke` checks that the bundled `macromog.exe` launches under
+Wine (`--help`). Shared-config read/write under Wine is covered by Go integration
+tests on the Linux host; **Windows contributors do not need Wine** — run
+`dist\bin\macromog.exe --help` natively instead.
 
 ## Fix targets
 
@@ -146,7 +146,7 @@ When releasable commits land on `main`, the Release Please bot opens (or updates
 **"Release vX.Y.Z" PR** that pre-writes the changelog entry and bumps `version.txt`
 (and `_addon.version` in `macromog.lua`). A maintainer merges it; that merge creates
 the tag and publishes the GitHub Release with `dist/macromog-<version>.zip` plus the
-four bare CLI binaries (`linux`/`windows`, `amd64`/`386`) attached automatically.
+`macromog`, `macromog.exe`, and the plugin zip attached automatically.
 
 **The semver bump comes from your commit type:**
 

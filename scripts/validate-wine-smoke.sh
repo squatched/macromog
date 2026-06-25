@@ -9,7 +9,7 @@ if ! command -v wine >/dev/null 2>&1; then
   exit 0
 fi
 
-BIN="$ROOT/dist/bin/macromog-windows-amd64.exe"
+BIN="$ROOT/dist/bin/macromog.exe"
 if [[ ! -f "$BIN" ]]; then
   echo "FAIL: missing $BIN (run make build-release-bins first)" >&2
   exit 1
@@ -19,7 +19,7 @@ TMP="$(mktemp -d)"
 trap 'wineserver -k 2>/dev/null || true; rm -rf "$TMP"' EXIT
 
 export WINEPREFIX="$TMP/wine"
-export WINEARCH=win64
+export WINEARCH=win32
 export WINEDEBUG=-all
 # Go binaries are native PE, not .NET — skip Wine's mono installer prompt.
 export WINEDLLOVERRIDES='mscoree,mshtml=d'

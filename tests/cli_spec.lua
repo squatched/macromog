@@ -1,6 +1,5 @@
 package.path = './?.lua;./?/init.lua;' .. package.path
 
-_G.jit = { arch = 'x86' }
 _G.windower = {
     addon_path = '/tmp/macromog_test/',
 }
@@ -8,13 +7,8 @@ _G.windower = {
 local cli = require('lib/cli')
 
 describe('cli.binary_path', function()
-    it('selects 386 on x86', function()
-        assert.are.equal('/tmp/macromog_test/bin/macromog-windows-386.exe', cli.binary_path())
-    end)
-
-    it('selects amd64 on x64', function()
-        _G.jit.arch = 'x64'
-        assert.are.equal('/tmp/macromog_test/bin/macromog-windows-amd64.exe', cli.binary_path())
+    it('points at the bundled macromog.exe', function()
+        assert.are.equal('/tmp/macromog_test/bin/macromog.exe', cli.binary_path())
     end)
 end)
 

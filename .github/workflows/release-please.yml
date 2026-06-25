@@ -43,9 +43,7 @@ jobs:
           VERSION="${{ needs.release-please.outputs.version }}"
           gh release upload "$TAG" \
             "dist/macromog-${VERSION}.zip" \
-            dist/bin/macromog-linux-amd64 \
-            dist/bin/macromog-linux-386 \
-            dist/bin/macromog-windows-amd64.exe \
-            dist/bin/macromog-windows-386.exe
+            dist/bin/macromog \
+            dist/bin/macromog.exe
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
