@@ -61,7 +61,7 @@ validate: validate-trailing-ws validate-plugin validate-cli validate-spawn valid
 
 validate-trailing-ws: ## Fail on trailing whitespace or missing EOF newlines
 	@chmod +x scripts/clean-trailing-ws.sh
-	scripts/clean-trailing-ws.sh --check
+	scripts/clean-trailing-ws.sh --check --verbose
 
 fix-trailing-ws: ## Strip trailing whitespace and normalize EOF newlines in place
 	@chmod +x scripts/clean-trailing-ws.sh

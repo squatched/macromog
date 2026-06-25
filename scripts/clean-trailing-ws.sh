@@ -45,7 +45,9 @@ declare -a FILES=()
 
 case "$MODE" in
   all)
-    while IFS= read -r -d '' f; do FILES+=("$f"); done < <(git ls-files -z --others --exclude-standard)
+    while IFS= read -r -d '' f; do FILES+=("$f"); done < <(
+      { git ls-files -z; git ls-files -z --others --exclude-standard; } | sort -zu
+    )
     ;;
   staged)
     while IFS= read -r -d '' f; do FILES+=("$f"); done < <(git diff --cached --name-only -z --diff-filter=ACMR)
