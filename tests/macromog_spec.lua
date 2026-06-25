@@ -12,7 +12,6 @@ local chat_msgs = {}
 local cli_calls = {}
 local diag_called = false
 
-_G.jit = { arch = 'x64' }
 _G.windower = {
     addon_path = '/tmp/macromog_entry/',
     add_to_chat = function(_, msg)

@@ -10,10 +10,11 @@ Download the binary for your platform from the [Releases](https://github.com/squ
 
 | Platform | Binary |
 |----------|--------|
-| Windows 64-bit | `macromog-windows-amd64.exe` |
-| Windows 32-bit | `macromog-windows-386.exe` |
-| Linux 64-bit | `macromog-linux-amd64` |
-| Linux 32-bit | `macromog-linux-386` |
+| Windows (32-bit) | `macromog.exe` |
+| Linux (64-bit) | `macromog` |
+
+FFXI is a 32-bit client, so the Windower plugin bundles `macromog.exe`. Linux
+releases target amd64 only.
 
 ---
 

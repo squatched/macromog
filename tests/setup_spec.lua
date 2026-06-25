@@ -1,6 +1,5 @@
 package.path = './?.lua;./?/init.lua;' .. package.path
 
-_G.jit = { arch = 'x64' }
 _G.windower = {
     addon_path = '/tmp/macromog_test/',
     add_to_chat = function() end,
@@ -55,6 +54,7 @@ package.loaded['lib/detect'] = {
 
 package.loaded['lib/log'] = nil
 package.loaded['lib/setup'] = nil
+local process_mod = require('lib/process')
 local setup = require('lib/setup')
 
 describe('setup readiness', function()
@@ -248,7 +248,7 @@ describe('setup readiness', function()
         assert.is_nil(cli_calls.set_alias)
     end)
 
-    it('fails when char id cannot be determined', function()
+    it('falls back to first character when mtime is unavailable', function()
         cli_calls.config_show = { config = { installs = { steam = {} } } }
         cli_calls.list_all = {
             user_dir = 'C:/ffxi/USER',
@@ -257,12 +257,13 @@ describe('setup readiness', function()
                 { id = 'bbb' },
             },
         }
-        local orig_popen = io.popen
-        io.popen = function()
+        local orig_mtime = process_mod.file_mtime
+        process_mod.file_mtime = function()
             return nil
         end
-        assert.is_false(setup.ensure_character('Squatched'))
-        io.popen = orig_popen
+        assert.is_true(setup.ensure_character('Squatched'))
+        assert.are.equal('aaa', cli_calls.set_alias.char_id)
+        process_mod.file_mtime = orig_mtime
     end)
 
     it('picks newest mtime among multiple characters', function()
@@ -274,25 +275,15 @@ describe('setup readiness', function()
                 { id = 'newer' },
             },
         }
-        local orig_popen = io.popen
-        io.popen = function(cmd)
-            if cmd:find('older', 1, true) then
-                return {
-                    read = function()
-                        return '01/01/2020 12:00 PM'
-                    end,
-                    close = function() end,
-                }
+        local orig_mtime = process_mod.file_mtime
+        process_mod.file_mtime = function(path)
+            if path:find('older', 1, true) then
+                return '20200101120000'
             end
-            return {
-                read = function()
-                    return '02/02/2025 12:00 PM'
-                end,
-                close = function() end,
-            }
+            return '20250202120000'
         end
         setup.ensure_character('Squatched')
-        io.popen = orig_popen
+        process_mod.file_mtime = orig_mtime
         assert.are.equal('newer', cli_calls.set_alias.char_id)
     end)
 

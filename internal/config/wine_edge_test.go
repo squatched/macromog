@@ -131,6 +131,8 @@ func TestResolveForWine_RelativeFallsBackToNormalizePath(t *testing.T) {
 }
 
 func TestHostFS_ConfigPath_WindowsGOOS(t *testing.T) {
+	t.Setenv("WINE_HOST_XDG_CONFIG_HOME", "")
+	t.Setenv("XDG_CONFIG_HOME", "")
 	home := t.TempDir()
 	wine := &HostFS{
 		GOOS:      "windows",

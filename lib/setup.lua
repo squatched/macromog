@@ -3,6 +3,7 @@
 local cli = require('lib/cli')
 local detect = require('lib/detect')
 local log = require('lib/log')
+local process = require('lib/process')
 
 local setup = {
     install_ready = false,
@@ -50,29 +51,19 @@ local function alias_exists(cfg, name)
     return false
 end
 
-local function file_mtime(path)
-    local handle = io.popen('cmd /c for %I in ("' .. path:gsub('"', '') .. '") do @echo %~tI')
-    if not handle then
-        return nil
-    end
-    local line = handle:read('*l')
-    handle:close()
-    return line
-end
-
 local function pick_char_id(user_dir, characters)
     if #characters == 1 then
         return characters[1].id
     end
     local best_id, best_stamp
     for _, ch in ipairs(characters) do
-        local stamp = file_mtime(user_dir .. '\\' .. ch.id .. '\\mcr.dat')
+        local stamp = process.file_mtime(user_dir .. '\\' .. ch.id .. '\\mcr.dat')
         if stamp and (not best_stamp or stamp > best_stamp) then
             best_stamp = stamp
             best_id = ch.id
         end
     end
-    return best_id
+    return best_id or characters[1].id
 end
 
 function setup.ensure_install()

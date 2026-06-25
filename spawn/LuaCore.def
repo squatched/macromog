@@ -1,0 +1,13 @@
+LIBRARY LuaCore.dll
+EXPORTS
+lua_objlen
+lua_pushlstring
+lua_pushnil
+lua_pushnumber
+lua_rawgeti
+lua_settop
+lua_tolstring
+lua_type
+luaL_checktype
+luaL_checklstring
+luaL_register

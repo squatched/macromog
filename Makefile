@@ -22,15 +22,19 @@ VERSION := $(shell awk -F"'" '/_addon.version/{print $$2; exit}' macromog.lua)
 endif
 endif
 PLUGIN_ZIP       := $(DIST_DIR)/macromog-$(VERSION).zip
-BUILD_PLATFORMS  := \
-    linux/amd64  linux/386   \
-    windows/amd64 windows/386
-WINDOWS_PLATFORMS := windows/amd64 windows/386
-RELEASE_BINS     := \
-    macromog-linux-amd64 \
-    macromog-linux-386 \
-    macromog-windows-amd64.exe \
-    macromog-windows-386.exe
+BUILD_PLATFORMS  := linux/amd64 windows/386
+RELEASE_BINS     := macromog macromog.exe
+SPAWN_CC         := i686-w64-mingw32-gcc
+SPAWN_SRC        := spawn/macromog_spawn.c
+SPAWN_DEF        := spawn/LuaCore.def
+SPAWN_BUILD      := spawn/build
+SPAWN_DLL        := $(DIST_DIR)/bin/macromog_spawn.dll
+SPAWN_C_SRCS     := spawn/macromog_spawn.c spawn/test_spawn.c spawn/helpers.h
+SPAWN_TEST_BIN   := $(SPAWN_BUILD)/test_spawn
+SPAWN_COV_BIN    := $(SPAWN_BUILD)/test_spawn_cov
+SPAWN_GCNO       := $(SPAWN_COV_BIN)-test_spawn.gcno
+SPAWN_COV_MIN    := 95
+CPPCHECK         := cppcheck
 
 .DEFAULT_GOAL := help
 
@@ -38,10 +42,12 @@ RELEASE_BINS     := \
         validate validate-trailing-ws validate-plugin validate-cli \
         validate-plugin-lint validate-plugin-format \
         fix-trailing-ws \
-        validate-plugin-test validate-plugin-coverage validate-plugin-package validate-wine-smoke \
+        validate-plugin-test validate-plugin-coverage validate-plugin-package validate-spawn-smoke \
         validate-cli-lint validate-cli-format validate-cli-tidy validate-cli-test validate-cli-coverage \
-        fix fix-plugin-format fix-cli-format fix-cli-tidy \
-        build-cli build-cli-all build-plugin build-release-bins package-plugin \
+        fix fix-plugin-format fix-cli-format fix-cli-tidy fix-spawn-format \
+        build-cli build-cli-all build-plugin build-release-bins build-spawn-dll package-plugin \
+        validate-spawn validate-spawn-lint validate-spawn-format validate-spawn-test \
+        validate-spawn-coverage \
         clean
 
 help: ## Show available targets
@@ -49,13 +55,13 @@ help: ## Show available targets
 	  /^[a-zA-Z_-]+:.*?##/ {printf "  %-28s %s\n", $$1, $$2}' \
 	  $(MAKEFILE_LIST)
 
-validate: validate-trailing-ws validate-plugin validate-cli ## Run all validation checks across plugin (Lua) and CLI (Go)
+validate: validate-trailing-ws validate-plugin validate-cli validate-spawn validate-spawn-smoke ## Run all validation checks across plugin (Lua), CLI (Go), and spawn DLL (C)
 
 # ── Repository-wide ───────────────────────────────────────────────────────────
 
 validate-trailing-ws: ## Fail on trailing whitespace or missing EOF newlines
 	@chmod +x scripts/clean-trailing-ws.sh
-	scripts/clean-trailing-ws.sh --check
+	scripts/clean-trailing-ws.sh --check --verbose
 
 fix-trailing-ws: ## Strip trailing whitespace and normalize EOF newlines in place
 	@chmod +x scripts/clean-trailing-ws.sh
@@ -78,9 +84,9 @@ validate-plugin-package: ## Verify release zip layout (empty data/, bundled Wind
 	@chmod +x scripts/validate-package.sh
 	scripts/validate-package.sh
 
-validate-wine-smoke: build-release-bins ## Optional: run Windows CLI under Wine (skips if absent)
-	@chmod +x scripts/validate-wine-smoke.sh
-	scripts/validate-wine-smoke.sh
+validate-spawn-smoke: build-release-bins ## Optional: run Windows CLI natively (Windows) or under Wine (Linux)
+	@chmod +x scripts/validate-spawn-smoke.sh
+	scripts/validate-spawn-smoke.sh
 
 validate-plugin-coverage: ## Run tests with coverage and enforce $(PLUGIN_COV_MIN)% threshold
 	$(BUSTED) --coverage $(TEST_DIR)
@@ -146,6 +152,52 @@ fix-cli-tidy: ## Run go mod tidy in place
 fix-cli-format: ## Auto-format all Go source files in place
 	gofmt -w $(CLI_DIRS)
 
+# ── Spawn DLL (C) ─────────────────────────────────────────────────────────────
+
+validate-spawn: validate-spawn-lint validate-spawn-format validate-spawn-test validate-spawn-coverage build-spawn-dll ## Run all spawn DLL validation checks
+
+validate-spawn-lint: ## Static analysis of C source with cppcheck
+	@which $(CPPCHECK) > /dev/null 2>&1 || \
+	    { echo "cppcheck not found — sudo pacman -S cppcheck  (Ubuntu: sudo apt install cppcheck)"; exit 1; }
+	$(CPPCHECK) --enable=warning,performance,portability \
+	    --error-exitcode=1 \
+	    --suppress=missingIncludeSystem \
+	    --suppress=missingInclude \
+	    --platform=win32A \
+	    $(SPAWN_SRC)
+	$(CPPCHECK) --enable=warning,performance,portability \
+	    --error-exitcode=1 \
+	    spawn/test_spawn.c
+
+validate-spawn-format: ## Format check for C source and headers
+	clang-format --dry-run --Werror $(SPAWN_C_SRCS)
+
+validate-spawn-test: ## Build and run native unit tests for C helper functions
+	@mkdir -p $(SPAWN_BUILD)
+	gcc -Wall -Wextra -Werror -std=c11 -I spawn/ \
+	    -o $(SPAWN_TEST_BIN) spawn/test_spawn.c
+	$(SPAWN_TEST_BIN)
+
+validate-spawn-coverage: ## Run C helper tests with gcov; enforce $(SPAWN_COV_MIN)% threshold on helpers.h
+	@mkdir -p $(SPAWN_BUILD)
+	gcc -Wall -Wextra -std=c11 -I spawn/ -fprofile-arcs -ftest-coverage \
+	    -o $(SPAWN_COV_BIN) spawn/test_spawn.c
+	$(SPAWN_COV_BIN)
+	gcov $(SPAWN_GCNO) > $(SPAWN_BUILD)/spawn-gcov-raw.txt
+	@grep -A1 "helpers\.h" $(SPAWN_BUILD)/spawn-gcov-raw.txt | \
+	    grep "Lines executed:" | \
+	    awk -F"[:%]" '{pct=$$2+0; \
+	        printf "Spawn Coverage: %.2f%%\n", pct; \
+	        printf "Spawn Coverage: %.2f%%\n", pct > "$(SPAWN_BUILD)/spawn-coverage.txt"; \
+	        if (pct < $(SPAWN_COV_MIN)) { \
+	            printf "FAIL: %.2f%% is below the %d%% threshold\n", pct, $(SPAWN_COV_MIN); exit 1 \
+	        } \
+	        printf "PASS: meets %d%% threshold\n", $(SPAWN_COV_MIN)}'
+	@rm -f test_spawn.c.gcov helpers.h.gcov
+
+fix-spawn-format: ## Auto-format all C source files and headers in place
+	clang-format -i $(SPAWN_C_SRCS)
+
 # ── Build ─────────────────────────────────────────────────────────────────────
 
 build-cli: ## Build the CLI binary for the current platform (output: ./bin/macromog)
@@ -162,18 +214,25 @@ build-cli-all: ## Cross-compile the CLI for all release platforms (compilation c
 
 build-release-bins: ## Cross-compile release CLI binaries into dist/bin/
 	@mkdir -p $(DIST_DIR)/bin
-	GOOS=linux GOARCH=amd64 $(GO) build -o $(DIST_DIR)/bin/macromog-linux-amd64 $(CLI_MAIN)
-	GOOS=linux GOARCH=386 $(GO) build -o $(DIST_DIR)/bin/macromog-linux-386 $(CLI_MAIN)
-	GOOS=windows GOARCH=amd64 $(GO) build -o $(DIST_DIR)/bin/macromog-windows-amd64.exe $(CLI_MAIN)
-	GOOS=windows GOARCH=386 $(GO) build -o $(DIST_DIR)/bin/macromog-windows-386.exe $(CLI_MAIN)
+	GOOS=linux GOARCH=amd64 $(GO) build -o $(DIST_DIR)/bin/macromog $(CLI_MAIN)
+	GOOS=windows GOARCH=386 $(GO) build -ldflags="-H windowsgui -s -w" -o $(DIST_DIR)/bin/macromog.exe $(CLI_MAIN)
 
-build-plugin: build-release-bins ## Stage the Windower addon tree under dist/Macromog/
+build-spawn-dll: ## Build macromog_spawn.dll (32-bit, hidden process spawn + file mtime)
+	@mkdir -p $(SPAWN_BUILD) $(DIST_DIR)/bin
+	i686-w64-mingw32-dlltool -d $(SPAWN_DEF) -D LuaCore.dll -l $(SPAWN_BUILD)/libLuaCore.a
+	$(SPAWN_CC) -shared -o $(SPAWN_DLL) $(SPAWN_SRC) \
+	    -L $(SPAWN_BUILD) -lLuaCore \
+	    -lkernel32 \
+	    -Wl,--kill-at \
+	    -Wall -O2 -s
+
+build-plugin: build-release-bins build-spawn-dll ## Stage the Windower addon tree under dist/Macromog/
 	@rm -rf $(PLUGIN_STAGE)
 	@mkdir -p $(PLUGIN_STAGE)/lib $(PLUGIN_STAGE)/data $(PLUGIN_STAGE)/bin
 	cp macromog.lua $(PLUGIN_STAGE)/
 	cp -r lib/. $(PLUGIN_STAGE)/lib/
-	cp $(DIST_DIR)/bin/macromog-windows-amd64.exe $(PLUGIN_STAGE)/bin/
-	cp $(DIST_DIR)/bin/macromog-windows-386.exe $(PLUGIN_STAGE)/bin/
+	cp $(DIST_DIR)/bin/macromog.exe $(PLUGIN_STAGE)/bin/
+	cp $(SPAWN_DLL) $(PLUGIN_STAGE)/bin/
 
 package-plugin: build-plugin ## Create dist/macromog-<version>.zip from the staged addon
 	@mkdir -p $(DIST_DIR)
@@ -182,10 +241,10 @@ package-plugin: build-plugin ## Create dist/macromog-<version>.zip from the stag
 
 # ── Umbrella fix targets ──────────────────────────────────────────────────────
 
-fix: fix-trailing-ws fix-plugin-format fix-cli-format fix-cli-tidy ## Auto-fix all issues that can be fixed automatically
+fix: fix-trailing-ws fix-plugin-format fix-cli-format fix-cli-tidy fix-spawn-format ## Auto-fix all issues that can be fixed automatically
 
 # ── Housekeeping ─────────────────────────────────────────────────────────────
 
 clean: ## Remove generated coverage artifacts and local build output
 	rm -f luacov.stats.out luacov.report.out coverage-plugin.xml coverage-cli.out $(BINARY)
-	rm -rf $(DIST_DIR)
+	rm -rf $(DIST_DIR) $(SPAWN_BUILD)

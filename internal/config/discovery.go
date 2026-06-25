@@ -187,6 +187,9 @@ func (h *HostFS) findWinePrefixUnderHome(home string) (string, bool) {
 // should share one config file.
 func (h *HostFS) SharedConfigDir() (string, bool) {
 	if h.GOOS != "windows" {
+		if xdg := os.Getenv("XDG_CONFIG_HOME"); xdg != "" {
+			return filepath.Join(xdg, "macromog"), true
+		}
 		home, err := os.UserHomeDir()
 		if err != nil {
 			return "", false
@@ -194,6 +197,12 @@ func (h *HostFS) SharedConfigDir() (string, bool) {
 		return filepath.Join(home, ".config", "macromog"), true
 	}
 	if h.LinuxHome != "" {
+		if xdg := os.Getenv("WINE_HOST_XDG_CONFIG_HOME"); xdg != "" {
+			return hostpath(xdg, "macromog"), true
+		}
+		if xdg := os.Getenv("XDG_CONFIG_HOME"); xdg != "" {
+			return hostpath(xdg, "macromog"), true
+		}
 		return hostpath(h.LinuxHome, ".config", "macromog"), true
 	}
 	home, err := os.UserHomeDir()

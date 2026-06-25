@@ -2,44 +2,22 @@
 
 local json = require('lib/json')
 local log = require('lib/log')
+local process = require('lib/process')
 
 local cli = {}
 
-local function arch_suffix()
-    if jit and jit.arch == 'x64' then
-        return 'amd64'
-    end
-    return '386'
-end
-
 function cli.binary_path()
-    return windower.addon_path .. 'bin/macromog-windows-' .. arch_suffix() .. '.exe'
-end
-
-local function quote(arg)
-    arg = tostring(arg or '')
-    if arg:find(' ', 1, true) or arg:find('"', 1, true) then
-        return '"' .. arg:gsub('"', '\\"') .. '"'
-    end
-    return arg
+    return windower.addon_path .. 'bin/macromog.exe'
 end
 
 function cli.run(args, opts)
     opts = opts or {}
     local bin = cli.binary_path()
-    local parts = { quote(bin) }
-    for _, a in ipairs(args) do
-        parts[#parts + 1] = quote(a)
-    end
     -- MACROMOG_DEBUG writes to stderr; we merge stderr into stdout (2>&1), so
     -- only enable it for explicit debug probes — never for --output json calls.
-    local prefix = ''
-    if opts.debug then
-        prefix = 'set MACROMOG_DEBUG=1&& '
-    end
-    local cmd = prefix .. table.concat(parts, ' ') .. ' 2>&1'
-    log.debug('cli.run: ' .. cmd)
-    local pipe = io.popen(cmd, 'r')
+    log.debug('cli.run: ' .. bin .. ' ' .. table.concat(args, ' '))
+    local pipe = process.popen(bin, args, opts)
+    log.debug('cli.run backend: ' .. tostring(process.last_backend))
     if not pipe then
         return 1, '', 'failed to run CLI'
     end
