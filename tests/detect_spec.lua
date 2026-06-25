@@ -57,6 +57,13 @@ describe('detect.suggest_install_name', function()
         assert.are.equal('lutris', detect.suggest_install_name('/games/lutris/ffxi'))
     end)
 
+    it('detects lutris game folder names', function()
+        assert.are.equal(
+            'lutris',
+            detect.suggest_install_name('/home/squatched/Games/final-fantasy-xi-online/drive_c/FFXI')
+        )
+    end)
+
     it('detects wine installs', function()
         assert.are.equal('wine', detect.suggest_install_name('/home/user/.wine/drive_c/ffxi'))
     end)

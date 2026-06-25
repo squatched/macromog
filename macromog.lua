@@ -2,7 +2,7 @@
 -- Windower 4 addon
 
 _addon.name = 'Macromog'
-_addon.author = 'Caleb McCombs'
+_addon.author = 'Squatched'
 _addon.version = '0.1.0'
 _addon.commands = { 'macromog', 'mmog' }
 

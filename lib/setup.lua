@@ -30,7 +30,12 @@ local function any_install(cfg)
     if not cfg or not cfg.config or not cfg.config.installs then
         return false
     end
-    return next(cfg.config.installs) ~= nil
+    for _, inst in pairs(cfg.config.installs) do
+        if inst.path and inst.path ~= '' then
+            return true
+        end
+    end
+    return false
 end
 
 local function alias_exists(cfg, name)

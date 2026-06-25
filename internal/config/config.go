@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/squatched/macromog/internal/debug"
 	"gopkg.in/yaml.v3"
 )
 
@@ -38,36 +39,47 @@ type Character struct {
 	Name string `yaml:"name" json:"name"`
 }
 
-// Path returns the config file location for the current environment.
+// Path returns the canonical config file location for the current environment.
 // MACROMOG_CONFIG overrides the default when set to an absolute path.
+// Under Wine with a mapped Linux home, this is the host XDG path (/home/...).
 func Path() (string, error) {
 	if p := os.Getenv("MACROMOG_CONFIG"); p != "" {
+		debug.Logf("Path: MACROMOG_CONFIG override %q", p)
 		return p, nil
 	}
-	if useXDG, err := preferXDGConfig(); err == nil && useXDG {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return "", err
-		}
-		return filepath.Join(home, ".config", "macromog", "config.yml"), nil
+	if dir, ok := sharedConfigDir(); ok {
+		path := filepath.Join(dir, "config.yml")
+		debug.Logf("Path: shared XDG %q", path)
+		return path, nil
 	}
 	configDir, err := os.UserConfigDir()
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(configDir, "macromog", "config.yml"), nil
+	path := filepath.Join(configDir, "macromog", "config.yml")
+	debug.Logf("Path: user config dir %q", path)
+	return path, nil
 }
 
-func preferXDGConfig() (bool, error) {
+func sharedConfigDir() (string, bool) {
 	if runtime.GOOS != "windows" {
-		return true, nil
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", false
+		}
+		return filepath.Join(home, ".config", "macromog"), true
+	}
+	if home, ok := LinuxHomeForSharedConfig(); ok {
+		return filepath.Join(home, ".config", "macromog"), true
 	}
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return false, err
+		return "", false
 	}
-	_, err = os.Stat(filepath.Join(home, ".config"))
-	return err == nil, nil
+	if st, err := os.Stat(filepath.Join(home, ".config")); err == nil && st.IsDir() {
+		return filepath.Join(home, ".config", "macromog"), true
+	}
+	return "", false
 }
 
 // Empty returns a fresh config with only version set.
@@ -83,7 +95,11 @@ func MarshalYAML(cfg Config) ([]byte, error) {
 // Load reads and validates the config file at path.
 // A missing file is treated as an empty config.
 func Load(path string) (Config, error) {
-	data, err := os.ReadFile(path)
+	openPath, err := OpenPath(path)
+	if err != nil {
+		return Config{}, err
+	}
+	data, err := os.ReadFile(openPath)
 	if os.IsNotExist(err) {
 		return Empty(), nil
 	}
@@ -105,11 +121,15 @@ func Save(path string, cfg Config) error {
 	if err := Validate(&cfg); err != nil {
 		return err
 	}
+	openPath, err := OpenPath(path)
+	if err != nil {
+		return err
+	}
 	data, err := yaml.Marshal(cfg)
 	if err != nil {
 		return err
 	}
-	dir := filepath.Dir(path)
+	dir := filepath.Dir(openPath)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}
@@ -127,12 +147,16 @@ func Save(path string, cfg Config) error {
 	if err := tmp.Close(); err != nil {
 		return err
 	}
-	return os.Rename(tmpPath, path)
+	return os.Rename(tmpPath, openPath)
 }
 
 // Ensure creates an empty config file when path does not exist yet.
 func Ensure(path string) error {
-	if _, err := os.Stat(path); err == nil {
+	openPath, err := OpenPath(path)
+	if err != nil {
+		return err
+	}
+	if _, err := os.Stat(openPath); err == nil {
 		return nil
 	} else if !os.IsNotExist(err) {
 		return err

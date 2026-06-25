@@ -1,6 +1,7 @@
 package config
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 )
@@ -57,6 +58,43 @@ func TestResolveForWine_PosixToZ(t *testing.T) {
 func TestRunningUnderWine_Linux(t *testing.T) {
 	if RunningUnderWine() {
 		t.Error("expected false on linux test runner")
+	}
+}
+
+func TestLinuxHomeFromPath_WINEPREFIX(t *testing.T) {
+	got, ok := linuxHomeFromPath("/home/squatched/Games/final-fantasy-xi-online")
+	if !ok {
+		t.Fatal("expected ok")
+	}
+	if got != "/home/squatched" {
+		t.Errorf("got %q, want /home/squatched", got)
+	}
+}
+
+func TestLinuxHomeFromPath_ZDrive(t *testing.T) {
+	got, ok := linuxHomeFromPath(`Z:\home\squatched\Games\final-fantasy-xi-online`)
+	if !ok {
+		t.Fatal("expected ok")
+	}
+	if got != "/home/squatched" {
+		t.Errorf("got %q, want /home/squatched", got)
+	}
+}
+
+func TestFindWinePrefixUnderHome_Lutris(t *testing.T) {
+	home := t.TempDir()
+	prefix := filepath.Join(home, "Games", "final-fantasy-xi-online")
+	userDir := filepath.Join(prefix, ffxiUserSuffix)
+	if err := os.MkdirAll(userDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	got, ok := findWinePrefixUnderHome(home)
+	if !ok {
+		t.Fatal("expected prefix")
+	}
+	if got != prefix {
+		t.Errorf("got %q, want %q", got, prefix)
 	}
 }
 

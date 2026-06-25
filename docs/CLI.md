@@ -77,7 +77,7 @@ macromog keeps your CLI preferences in a YAML config file, kupo — installs, ch
 | Running under Wine with a mapped Linux home | `~/.config/macromog/config.yml` (same file as the host shell) |
 | Override | `MACROMOG_CONFIG` environment variable (absolute path to config file) |
 
-When the Linux home directory is visible inside a Wine prefix, macromog prefers the XDG path so a host-shell `macromog` and a copy running inside the prefix can share one config. If that does not apply, set `MACROMOG_CONFIG` explicitly in both environments.
+When the Linux home directory is visible inside a Wine prefix (including Lutris installs where `Z:\home\<user>\.config` exists), macromog prefers the host XDG path so a shell `macromog` and the in-game addon share one config file and POSIX install paths. If detection does not apply on your setup, set `MACROMOG_CONFIG` explicitly in both environments.
 
 ### Config schema
 

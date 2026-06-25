@@ -5,6 +5,9 @@ _G.windower = {
     addon_path = '/tmp/macromog_test/',
     add_to_chat = function() end,
     windower_path = 'C:/Windower4/',
+    file_exists = function()
+        return false
+    end,
     dir_exists = function()
         return false
     end,
@@ -46,6 +49,7 @@ package.loaded['lib/detect'] = {
     end,
 }
 
+package.loaded['lib/log'] = nil
 package.loaded['lib/setup'] = nil
 local setup = require('lib/setup')
 
@@ -85,6 +89,13 @@ describe('setup readiness', function()
         assert.are.equal('steam', cli_calls.add_install.name)
     end)
 
+    it('ignores installs without a stored path', function()
+        cli_calls.config_show = { config = { installs = { lutris = { path = '' } } } }
+        assert.is_true(setup.ensure_install())
+        assert.is_true(setup.install_ready)
+        assert.are.equal('steam', cli_calls.add_install.name)
+    end)
+
     it('learns character alias after zone', function()
         setup.on_zone()
         assert.is_true(setup.learned.Squatched)
@@ -104,8 +115,8 @@ describe('setup readiness', function()
         assert.are.equal('Log in before using Macromog commands, kupo!', setup.ready_message())
     end)
 
-    it('skips registration when install exists', function()
-        cli_calls.config_show = { config = { installs = { steam = {} } } }
+    it('skips registration when install has a path', function()
+        cli_calls.config_show = { config = { installs = { steam = { path = 'C:/ffxi' } } } }
         assert.is_true(setup.ensure_install())
         assert.is_true(setup.install_ready)
         assert.is_nil(cli_calls.add_install)

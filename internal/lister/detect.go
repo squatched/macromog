@@ -6,6 +6,9 @@ import (
 	"path/filepath"
 	"runtime"
 	"sort"
+	"strings"
+
+	"github.com/squatched/macromog/internal/config"
 )
 
 // ffxiSteamAppID is the Steam AppID for FINAL FANTASY XI Ultimate Collection
@@ -42,7 +45,7 @@ func userDirCandidates() []string {
 func windowsCandidates() []string {
 	const playOnlineRel = `PlayOnline\SquareEnix\FINAL FANTASY XI\USER`
 	const steamGameRel = `steamapps\common\FINAL FANTASY XI Online\USER`
-	return []string{
+	candidates := []string{
 		// Standard PlayOnline install locations (native and Steam via PlayOnline).
 		filepath.Join(`C:\Program Files (x86)`, playOnlineRel),
 		filepath.Join(`C:\Program Files`, playOnlineRel),
@@ -50,6 +53,43 @@ func windowsCandidates() []string {
 		filepath.Join(`C:\Program Files (x86)\Steam`, steamGameRel),
 		filepath.Join(`C:\Program Files\Steam`, steamGameRel),
 	}
+	if config.RunningUnderWine() {
+		candidates = append(winePrefixCandidates(), candidates...)
+	}
+	return candidates
+}
+
+func winePrefixCandidates() []string {
+	const driveRel = "Program Files (x86)/PlayOnline/SquareEnix/FINAL FANTASY XI/USER"
+	prefix := strings.TrimSpace(os.Getenv("WINEPREFIX"))
+	if prefix != "" {
+		if strings.HasPrefix(prefix, "/") {
+			return []string{filepath.Join(prefix, "drive_c", driveRel)}
+		}
+	}
+	if home, ok := config.LinuxHomeForSharedConfig(); ok {
+		return prefixCandidatesUnderHome(home, driveRel)
+	}
+	return nil
+}
+
+func prefixCandidatesUnderHome(home, driveRel string) []string {
+	var out []string
+	games := filepath.Join(home, "Games")
+	if entries, err := os.ReadDir(games); err == nil {
+		names := make([]string, 0, len(entries))
+		for _, e := range entries {
+			if e.IsDir() {
+				names = append(names, e.Name())
+			}
+		}
+		sort.Strings(names)
+		for _, name := range names {
+			out = append(out, filepath.Join(games, name, "drive_c", driveRel))
+		}
+	}
+	out = append(out, filepath.Join(home, ".wine", "drive_c", driveRel))
+	return out
 }
 
 func linuxCandidates(home string) []string {

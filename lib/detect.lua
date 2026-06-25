@@ -96,7 +96,7 @@ function detect.suggest_install_name(path)
     if lower:find('steam', 1, true) then
         return 'steam'
     end
-    if lower:find('lutris', 1, true) then
+    if lower:find('lutris', 1, true) or lower:find('final-fantasy', 1, true) then
         return 'lutris'
     end
     if lower:find('wine', 1, true) or lower:find('%.wine', 1, true) then
