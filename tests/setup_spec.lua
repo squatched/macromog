@@ -96,6 +96,29 @@ describe('setup readiness', function()
         assert.are.equal('steam', cli_calls.add_install.name)
     end)
 
+    it('sends wine-native path to cli and accepts host-stored verify', function()
+        cli_calls.ffxi_root = 'C:/Program Files (x86)/PlayOnline/SquareEnix/FINAL FANTASY XI'
+        cli_calls.config_show_sequence = {
+            { config = {} },
+            {
+                config = {
+                    installs = {
+                        steam = {
+                            path = '/home/adventurer/Games/ffxi/drive_c/Program Files (x86)/FINAL FANTASY XI',
+                        },
+                    },
+                },
+            },
+        }
+        assert.is_true(setup.ensure_install())
+        assert.are.equal('steam', cli_calls.add_install.name)
+        assert.are.equal(
+            'C:/Program Files (x86)/PlayOnline/SquareEnix/FINAL FANTASY XI',
+            cli_calls.add_install.path
+        )
+        assert.is_nil(cli_calls.add_install.path:find('^/home/'))
+    end)
+
     it('ignores installs without a stored path', function()
         cli_calls.config_show_sequence = {
             { config = { installs = { lutris = { path = '' } } } },

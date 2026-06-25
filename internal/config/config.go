@@ -4,11 +4,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"sort"
 	"strings"
 
-	"github.com/squatched/macromog/internal/debug"
 	"gopkg.in/yaml.v3"
 )
 
@@ -43,43 +41,7 @@ type Character struct {
 // MACROMOG_CONFIG overrides the default when set to an absolute path.
 // Under Wine with a mapped Linux home, this is the host XDG path (/home/...).
 func Path() (string, error) {
-	if p := os.Getenv("MACROMOG_CONFIG"); p != "" {
-		debug.Logf("Path: MACROMOG_CONFIG override %q", p)
-		return p, nil
-	}
-	if dir, ok := sharedConfigDir(); ok {
-		p := normalizeHostPath(configFileInDir(dir))
-		debug.Logf("Path: shared XDG %q", p)
-		return p, nil
-	}
-	configDir, err := os.UserConfigDir()
-	if err != nil {
-		return "", err
-	}
-	path := filepath.Join(configDir, "macromog", "config.yml")
-	debug.Logf("Path: user config dir %q", path)
-	return path, nil
-}
-
-func sharedConfigDir() (string, bool) {
-	if runtime.GOOS != "windows" {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return "", false
-		}
-		return filepath.Join(home, ".config", "macromog"), true
-	}
-	if home, ok := LinuxHomeForSharedConfig(); ok {
-		return hostpath(home, ".config", "macromog"), true
-	}
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", false
-	}
-	if st, err := os.Stat(filepath.Join(home, ".config")); err == nil && st.IsDir() {
-		return filepath.Join(home, ".config", "macromog"), true
-	}
-	return "", false
+	return ActiveHostFS().ConfigPath()
 }
 
 func configFileInDir(dir string) string {
