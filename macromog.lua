@@ -7,22 +7,18 @@ _addon.version = '0.1.0'
 _addon.commands = { 'macromog', 'mmog' }
 
 local cli = require('lib/cli')
+local detect = require('lib/detect')
+local log = require('lib/log')
 local setup = require('lib/setup')
 
-local CHAT_COLOR = 207 -- moogle purple
-
-local function log(msg)
-    windower.add_to_chat(CHAT_COLOR, '[Macromog] ' .. tostring(msg))
-end
-
 local function usage()
-    log('Commands: export | import <file> | validate <file> | backup | help')
+    log.user('Commands: export | import <file> | validate <file> | backup | debug | diag | help')
 end
 
 local function require_ready()
     local msg = setup.ready_message()
     if msg then
-        log(msg)
+        log.user(msg)
         return false
     end
     return true
@@ -47,10 +43,10 @@ function handlers.export(filename)
     local path = windower.addon_path .. 'data/' .. filename
     local code, out = cli.export(path, name)
     if code ~= 0 then
-        log('Export failed: ' .. (out or ''))
+        log.user('Export failed: ' .. (out or ''))
         return
     end
-    log('Exported to ' .. filename .. ', kupo!')
+    log.user('Exported to ' .. filename .. ', kupo!')
 end
 
 function handlers.import(filename)
@@ -58,24 +54,24 @@ function handlers.import(filename)
         return
     end
     if not filename then
-        log('Usage: //mmog import <filename>')
+        log.user('Usage: //mmog import <filename>')
         return
     end
 
     local path = windower.addon_path .. 'data/' .. filename
     local f = io.open(path, 'r')
     if not f then
-        log('File not found: ' .. filename)
+        log.user('File not found: ' .. filename)
         return
     end
     f:close()
 
     local code, out = cli.import(path, char_name())
     if code ~= 0 then
-        log('Import failed: ' .. (out or ''))
+        log.user('Import failed: ' .. (out or ''))
         return
     end
-    log('Imported ' .. filename .. ' successfully, kupo!')
+    log.user('Imported ' .. filename .. ' successfully, kupo!')
 end
 
 function handlers.validate(filename)
@@ -83,23 +79,23 @@ function handlers.validate(filename)
         return
     end
     if not filename then
-        log('Usage: //mmog validate <filename>')
+        log.user('Usage: //mmog validate <filename>')
         return
     end
 
     local path = windower.addon_path .. 'data/' .. filename
     local f = io.open(path, 'r')
     if not f then
-        log('File not found: ' .. filename)
+        log.user('File not found: ' .. filename)
         return
     end
     f:close()
 
     local code, out = cli.validate(path)
     if code == 0 then
-        log('Validation passed, kupo!')
+        log.user('Validation passed, kupo!')
     else
-        log('Validation failed: ' .. (out or ''))
+        log.user('Validation failed: ' .. (out or ''))
     end
 end
 
@@ -109,10 +105,34 @@ function handlers.backup()
     end
     local code, out = cli.backup(char_name())
     if code ~= 0 then
-        log('Backup failed: ' .. (out or ''))
+        log.user('Backup failed: ' .. (out or ''))
         return
     end
-    log('Backup complete, kupo!')
+    log.user('Backup complete, kupo!')
+end
+
+function handlers.debug(mode)
+    mode = (mode or ''):lower()
+    if mode == 'on' then
+        log.enable_persist()
+        log.user('Debug logging enabled (data/.debug). Log: data/debug.log')
+        return
+    end
+    if mode == 'off' then
+        log.disable_persist()
+        log.end_session()
+        log.user('Debug logging disabled, kupo!')
+        return
+    end
+    log.user('Usage: //mmog debug on | off')
+end
+
+function handlers.diag()
+    log.begin_session()
+    log.reset_log()
+    detect.run_diag(log, cli)
+    log.end_session()
+    log.user('Wrote diag log to data/debug.log (and Windower console if debug is on)')
 end
 
 windower.register_event('addon command', function(cmd, ...)
@@ -127,17 +147,22 @@ windower.register_event('addon command', function(cmd, ...)
         handlers.validate(args[1])
     elseif cmd == 'backup' then
         handlers.backup()
+    elseif cmd == 'debug' then
+        handlers.debug(args[1])
+    elseif cmd == 'diag' then
+        handlers.diag()
     elseif cmd == 'help' or cmd == '' then
         usage()
     else
-        log('Unknown command: ' .. cmd)
+        log.user('Unknown command: ' .. cmd)
         usage()
     end
 end)
 
 windower.register_event('load', function()
+    log.refresh()
     setup.on_load()
-    log('Kupomog at your service, kupo! Type //mmog help for commands.')
+    log.user('Kupomog at your service, kupo! Type //mmog help for commands.')
 end)
 
 windower.register_event('login', function()

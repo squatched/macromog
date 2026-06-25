@@ -2,6 +2,7 @@
 
 local cli = require('lib/cli')
 local detect = require('lib/detect')
+local log = require('lib/log')
 
 local setup = {
     install_ready = false,
@@ -9,12 +10,6 @@ local setup = {
     noticed_zone = false,
     learned = {},
 }
-
-local CHAT_COLOR = 207
-
-local function log(msg)
-    windower.add_to_chat(CHAT_COLOR, '[Macromog] ' .. tostring(msg))
-end
 
 local function logged_in()
     local info = windower.ffxi.get_info()
@@ -83,24 +78,30 @@ end
 function setup.ensure_install()
     local cfg, err = cli.config_show()
     if not cfg then
-        log('Config check failed: ' .. (err or 'unknown'))
+        log.user('Config check failed: ' .. (err or 'unknown'))
+        log.debug('config_show failed: ' .. tostring(err))
         return false
     end
+    log.debug('config path: ' .. tostring(cfg.path))
     if any_install(cfg) then
         setup.install_ready = true
+        log.debug('install already configured')
         return true
     end
 
     local root = detect.ffxi_root(cli)
+    log.debug('detected ffxi root: ' .. tostring(root))
     if not root then
-        log('Could not detect FFXI install. Run macromog config add-install, kupo!')
+        log.user('Could not detect FFXI install. Run macromog config add-install, kupo!')
         return false
     end
 
     local name = detect.suggest_install_name(root)
+    log.debug('registering install name=' .. name .. ' path=' .. root)
     local code, out = cli.config_add_install(name, root)
     if code ~= 0 then
-        log('Install registration failed: ' .. (out or ''))
+        log.user('Install registration failed: ' .. (out or ''))
+        log.debug('add-install failed: ' .. tostring(out))
         return false
     end
     setup.install_ready = true
@@ -122,19 +123,19 @@ function setup.ensure_character(name)
 
     local list_data = cli.list_all()
     if not list_data or not list_data.characters or #list_data.characters == 0 then
-        log('No character folders found for alias setup, kupo!')
+        log.user('No character folders found for alias setup, kupo!')
         return false
     end
 
     local char_id = pick_char_id(list_data.user_dir, list_data.characters)
     if not char_id then
-        log('Could not determine character folder for ' .. name .. ', kupo!')
+        log.user('Could not determine character folder for ' .. name .. ', kupo!')
         return false
     end
 
     local code, out = cli.config_set_alias(char_id, name)
     if code ~= 0 then
-        log('Alias setup failed: ' .. (out or ''))
+        log.user('Alias setup failed: ' .. (out or ''))
         return false
     end
     setup.learned[name] = true
@@ -149,14 +150,15 @@ function setup.on_zone()
         if name then
             setup.ensure_character(name)
         end
-        log('Ready! Type //mmog help for commands, kupo!')
+        log.user('Ready! Type //mmog help for commands, kupo!')
     end
 end
 
 function setup.on_load()
+    log.refresh()
     setup.ensure_install()
     if logged_in() and not setup.zoned_since_load then
-        log('Zone once before using //mmog commands, kupo!')
+        log.user('Zone once before using //mmog commands, kupo!')
     end
 end
 

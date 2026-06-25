@@ -1,6 +1,7 @@
 -- Invoke the bundled macromog CLI binary.
 
 local json = require('lib/json')
+local log = require('lib/log')
 
 local cli = {}
 
@@ -23,13 +24,19 @@ local function quote(arg)
     return arg
 end
 
-function cli.run(args)
+function cli.run(args, opts)
+    opts = opts or {}
     local bin = cli.binary_path()
     local parts = { quote(bin) }
     for _, a in ipairs(args) do
         parts[#parts + 1] = quote(a)
     end
-    local cmd = table.concat(parts, ' ') .. ' 2>&1'
+    local prefix = ''
+    if log.active() or opts.debug then
+        prefix = 'set MACROMOG_DEBUG=1&& '
+    end
+    local cmd = prefix .. table.concat(parts, ' ') .. ' 2>&1'
+    log.debug('cli.run: ' .. cmd)
     local pipe = io.popen(cmd, 'r')
     if not pipe then
         return 1, '', 'failed to run CLI'
@@ -38,21 +45,23 @@ function cli.run(args)
     local ok, how, code = pipe:close()
     if not ok then
         if type(code) == 'number' then
+            log.debug('cli.run exit=' .. tostring(code))
             return code, out, nil
         end
         return 1, out, how or 'command failed'
     end
+    log.debug('cli.run exit=0')
     return 0, out, nil
 end
 
-function cli.run_json(args)
+function cli.run_json(args, opts)
     local full = {}
     for _, a in ipairs(args) do
         full[#full + 1] = a
     end
     full[#full + 1] = '--output'
     full[#full + 1] = 'json'
-    local code, out, err = cli.run(full)
+    local code, out, err = cli.run(full, opts)
     if code ~= 0 then
         return nil, out ~= '' and out or err
     end
@@ -61,6 +70,10 @@ function cli.run_json(args)
         return nil, perr or 'invalid json'
     end
     return data
+end
+
+function cli.debug_all()
+    return cli.run({ 'debug', 'all' }, { debug = true })
 end
 
 function cli.config_show()

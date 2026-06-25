@@ -3,6 +3,7 @@
 # Windower / FFXI specific
 data/settings.xml
 data/*.log
+data/.debug
 *.dat
 !internal/dat/testdata/**/*.dat
 *.dmp

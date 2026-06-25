@@ -91,6 +91,49 @@ function detect.ffxi_root(cli)
     return nil
 end
 
+function detect.run_diag(log, cli_mod)
+    log.debug('windower_path: ' .. tostring(windower.windower_path or ''))
+    log.debug('addon_path: ' .. tostring(windower.addon_path or ''))
+    log.debug('APPDATA: ' .. tostring(os.getenv('APPDATA') or ''))
+    log.debug('USERPROFILE: ' .. tostring(os.getenv('USERPROFILE') or ''))
+    log.debug('WINEPREFIX: ' .. tostring(os.getenv('WINEPREFIX') or ''))
+    log.debug('MACROMOG_CONFIG: ' .. tostring(os.getenv('MACROMOG_CONFIG') or ''))
+
+    for _, path in ipairs(detect.profile_candidates()) do
+        local content = read_file(path)
+        if content then
+            local game = extract_path_from_xml(content)
+            log.debug('profile ' .. path .. ' -> ' .. tostring(game))
+            if game then
+                log.debug('  has_user_dir=' .. tostring(has_user_dir(game)))
+            end
+        else
+            log.debug('profile missing: ' .. path)
+        end
+    end
+
+    local profile_root = detect.from_windower_profile()
+    log.debug('from_windower_profile: ' .. tostring(profile_root))
+
+    local list_data = cli_mod.list_all()
+    if list_data then
+        log.debug('list_all user_dir: ' .. tostring(list_data.user_dir))
+        log.debug('list_all characters: ' .. tostring(#(list_data.characters or {})))
+    else
+        log.debug('list_all: failed')
+    end
+
+    log.debug('ffxi_root: ' .. tostring(detect.ffxi_root(cli_mod)))
+
+    local code, out = cli_mod.debug_all()
+    log.debug('cli debug all exit=' .. tostring(code))
+    if out and out ~= '' then
+        for line in out:gmatch('[^\r\n]+') do
+            log.debug('cli: ' .. line)
+        end
+    end
+end
+
 function detect.suggest_install_name(path)
     local lower = path:lower()
     if lower:find('steam', 1, true) then
