@@ -35,34 +35,69 @@ Run the full suite before pushing or declaring a PR ready:
 make validate
 ```
 
-This runs `validate-lint`, `validate-format`, and `validate-coverage` in
-sequence. CI enforces exactly these same targets — if `make validate` passes
-locally, CI will pass.
+This runs `validate-plugin` and `validate-cli` in sequence. CI enforces the
+same targets — if `make validate` passes locally, CI will pass.
 
-## Validation targets
+Optional checks (see below) are not required for PRs.
+
+## Validation tiers
+
+| Tier | Target | Required? |
+|------|--------|-----------|
+| Gate | `make validate` | Yes — every PR |
+| Fast iteration | `make validate-plugin-test`, `make validate-cli-test` | No — while developing |
+| Optional | `make validate-wine-smoke` | No — Linux + Wine only |
+
+### Required targets (`make validate`)
 
 | Target | What it does |
 |--------|-------------|
-| `make validate` | Runs all checks below in sequence |
-| `make validate-lint` | Static analysis via luacheck |
-| `make validate-format` | Format check via StyLua (fails if files need formatting) |
-| `make validate-test` | Run test suite without coverage overhead (fast, local iteration) |
-| `make validate-coverage` | Run tests with luacov; fails if coverage drops below 80% |
+| `make validate` | Runs all checks below (trailing WS, plugin, CLI) |
+| `make validate-trailing-ws` | Fails on trailing whitespace or bad EOF newlines in tracked text files |
+| `make fix-trailing-ws` | Auto-fixes trailing whitespace and EOF newlines |
+| `make validate-plugin` | Lint, format, coverage, and package layout for the Lua addon |
+| `make validate-plugin-lint` | Static analysis via luacheck |
+| `make validate-plugin-format` | Format check via StyLua |
+| `make validate-plugin-test` | Busted tests without coverage (fast) |
+| `make validate-plugin-coverage` | Busted + luacov; fails below 80% plugin coverage |
+| `make validate-plugin-package` | Builds release zip and verifies `Macromog/` layout |
+| `make validate-cli` | Lint, format, tidy, test, and coverage for the Go CLI |
+| `make validate-cli-lint` | `go vet` |
+| `make validate-cli-format` | `gofmt` check |
+| `make validate-cli-tidy` | `go mod tidy` check |
+| `make validate-cli-test` | `go test` without coverage (fast) |
+| `make validate-cli-coverage` | `go test -coverprofile`; fails below 80% CLI coverage |
+
+### Optional targets
+
+| Target | What it does |
+|--------|-------------|
+| `make validate-wine-smoke` | Runs the cross-compiled Windows CLI under Wine; prints `SKIP` if Wine is not installed |
+
+`validate-wine-smoke` checks that the bundled `macromog-windows-amd64.exe`
+launches under Wine (`--help`). Shared-config read/write under Wine is covered
+by Go integration tests on the Linux host; **Windows contributors do not need
+Wine** — run `dist\bin\macromog-windows-amd64.exe --help` natively instead.
 
 ## Fix targets
 
-Fix targets are focused — apply the one you need, not all at once:
-
 | Target | What it fixes |
 |--------|--------------|
-| `make fix-format` | Auto-formats all Lua source files with StyLua |
+| `make fix` | Auto-fix plugin and CLI formatting |
+| `make fix-plugin-format` | StyLua on `macromog.lua` and `lib/` |
+| `make fix-cli-format` | `gofmt` on `cmd/` |
+| `make fix-cli-tidy` | `go mod tidy` |
 
-There is no blanket `fix` target. Lint errors require manual inspection;
-coverage gaps require new tests.
+Lint errors and coverage gaps still require manual fixes.
 
 ## Validation tools
 
-Install these once before running any `make validate-*` target:
+### Required for `make validate`
+
+**Go** — see `go.mod` for the minimum version. Install from
+[golang.org](https://go.dev/dl/) or your package manager.
+
+**Lua tooling** via luarocks:
 
 ```sh
 # luarocks (Arch)
@@ -75,8 +110,6 @@ sudo apt install luarocks
 brew install luarocks
 ```
 
-Then install the Lua packages:
-
 ```sh
 luarocks install luacheck
 luarocks install busted
@@ -84,14 +117,26 @@ luarocks install luacov
 luarocks install luacov-cobertura
 ```
 
-StyLua is a standalone binary — grab the latest release for your platform
-from [github.com/JohnnyMorganz/StyLua/releases](https://github.com/JohnnyMorganz/StyLua/releases)
-and put it on your `$PATH`. Or check your package manager.
+**StyLua** — standalone binary or package manager:
 
 ```sh
-# StyLua (Arch)
+# Arch
 sudo pacman -S stylua
 ```
+
+Other platforms: [github.com/JohnnyMorganz/StyLua/releases](https://github.com/JohnnyMorganz/StyLua/releases)
+
+### Optional for `make validate-wine-smoke`
+
+| Tool | Who needs it | Install |
+|------|----------------|---------|
+| Wine | Linux contributors testing the Windows `.exe` under Wine | Arch: `sudo pacman -S wine` · Debian/Ubuntu: `sudo apt install wine` |
+
+Not required on native Windows — use the `.exe` directly.
+
+The macromog CLI is a Go binary, not .NET. If Wine prompts to install a .NET
+runtime when you run the `.exe` manually, cancel it — the CLI does not need it.
+`make validate-wine-smoke` disables that stub automatically.
 
 ## Releases
 
@@ -99,8 +144,8 @@ Releases are fully automated — never push tags or edit `CHANGELOG.md` by hand.
 
 When releasable commits land on `main`, the Release Please bot opens (or updates) a
 **"Release vX.Y.Z" PR** that pre-writes the changelog entry and bumps `VERSION`. A
-maintainer merges it; that merge creates the tag and publishes the GitHub Release with
-the addon zip attached automatically.
+maintainer merges it; that merge creates the tag and publishes the GitHub Release
+with the addon zip and CLI binaries attached automatically.
 
 **The semver bump comes from your commit type:**
 
@@ -113,20 +158,13 @@ the addon zip attached automatically.
 
 Your only job is accurate commit messages — the rest is handled for you.
 
-## CI / branch protection
+## CI
 
-Every PR must pass all three CI jobs before it can merge:
+PRs must pass the workflows under `.github/workflows/`. All workflow steps call
+`make` targets directly — local `make validate` is the source of truth.
 
-| Status check | Workflow | What it runs |
-|---|---|---|
-| `Lint / luacheck` | `lint.yml` | `make validate-lint` |
-| `Lint / stylua` | `lint.yml` | `make validate-format` |
-| `Test / coverage` | `test.yml` | `make validate-coverage` |
-
-Coverage below 80% fails the `Test / coverage` job and blocks the merge.
-A comment on the PR will show the per-file breakdown and link to the
-uploaded `coverage.xml` artifact so you can see exactly which lines are
-missing.
+Coverage below 80% (plugin or CLI) fails CI. PR comments include a coverage
+summary when available.
 
 ## Commit messages
 

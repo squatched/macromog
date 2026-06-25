@@ -1,0 +1,17 @@
+name: Validate Trailing WS
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  trailing-ws:
+    name: validate-trailing-ws
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: validate-trailing-ws
+        run: make validate-trailing-ws

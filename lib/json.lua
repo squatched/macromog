@@ -59,8 +59,8 @@ local function parse_value(s, i)
     if c == '[' then
         return json.parse_array(s, i)
     end
-    if c:match('^%-?%d') then
-        local num = s:match('^%-?%d+%.?%d*', i)
+    local num = s:match('^%-?%d+%.?%d*', i)
+    if num then
         return tonumber(num), i + #num
     end
     if s:sub(i, i + 3) == 'true' then

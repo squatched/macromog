@@ -6,58 +6,121 @@ import (
 	"testing"
 )
 
-func TestCanonicalForWine_DrivePath(t *testing.T) {
+func TestCanonicalForWine_Table(t *testing.T) {
 	home := "/home/adventurer"
 	prefix := filepath.Join(home, ".wine")
 	t.Setenv("WINEPREFIX", prefix)
 
-	got, err := canonicalForWine(`C:\Program Files (x86)\PlayOnline\SquareEnix\FINAL FANTASY XI`)
-	if err != nil {
-		t.Fatal(err)
+	tests := []struct {
+		name    string
+		input   string
+		want    string
+		wantErr bool
+	}{
+		{
+			name:  "drive_c path",
+			input: `C:\Program Files (x86)\PlayOnline\SquareEnix\FINAL FANTASY XI`,
+			want:  "/home/adventurer/.wine/drive_c/Program Files (x86)/PlayOnline/SquareEnix/FINAL FANTASY XI",
+		},
+		{
+			name:  "z drive path",
+			input: `Z:\home\adventurer\.steam\steamapps\compatdata\230330\pfx\drive_c\FFXI`,
+			want:  "/home/adventurer/.steam/steamapps/compatdata/230330/pfx/drive_c/FFXI",
+		},
+		{
+			name:  "posix passthrough",
+			input: "/home/adventurer/Games/ffxi/drive_c/Program Files (x86)/FINAL FANTASY XI",
+			want:  "/home/adventurer/Games/ffxi/drive_c/Program Files (x86)/FINAL FANTASY XI",
+		},
+		{
+			name:    "empty path",
+			input:   "  ",
+			wantErr: true,
+		},
+		{
+			name:  "drive d path",
+			input: `D:\Games\FINAL FANTASY XI`,
+			want:  "/home/adventurer/.wine/drive_d/Games/FINAL FANTASY XI",
+		},
 	}
-	want := "/home/adventurer/.wine/drive_c/Program Files (x86)/PlayOnline/SquareEnix/FINAL FANTASY XI"
-	if got != want {
-		t.Errorf("got %q, want %q", got, want)
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := canonicalForWine(tc.input)
+			if tc.wantErr {
+				if err == nil {
+					t.Fatal("expected error")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got != tc.want {
+				t.Errorf("got %q, want %q", got, tc.want)
+			}
+		})
 	}
 }
 
-func TestCanonicalForWine_ZDrive(t *testing.T) {
-	got, err := canonicalForWine(`Z:\home\adventurer\.steam\steamapps\compatdata\230330\pfx\drive_c\FFXI`)
-	if err != nil {
-		t.Fatal(err)
+func TestResolveForWine_Table(t *testing.T) {
+	tests := []struct {
+		name    string
+		stored  string
+		want    string
+		wantErr bool
+	}{
+		{
+			name:   "posix to z drive",
+			stored: "/home/adventurer/.wine/drive_c/Program Files (x86)/FINAL FANTASY XI",
+			want:   `Z:\home\adventurer\.wine\drive_c\Program Files (x86)\FINAL FANTASY XI`,
+		},
+		{
+			name:    "empty path",
+			stored:  "",
+			wantErr: true,
+		},
 	}
-	want := "/home/adventurer/.steam/steamapps/compatdata/230330/pfx/drive_c/FFXI"
-	if got != want {
-		t.Errorf("got %q, want %q", got, want)
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := resolveForWine(tc.stored)
+			if tc.wantErr {
+				if err == nil {
+					t.Fatal("expected error")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got != tc.want {
+				t.Errorf("got %q, want %q", got, tc.want)
+			}
+		})
 	}
 }
 
-func TestCanonicalForWine_PosixPassthrough(t *testing.T) {
-	in := "/home/adventurer/Games/ffxi/drive_c/Program Files (x86)/FINAL FANTASY XI"
-	got, err := canonicalForWine(in)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got != in {
-		t.Errorf("got %q, want %q", got, in)
-	}
-}
+func TestWinePathRoundTrip(t *testing.T) {
+	home := "/home/adventurer"
+	t.Setenv("WINEPREFIX", filepath.Join(home, ".wine"))
 
-func TestResolveForWine_PosixToZ(t *testing.T) {
-	stored := "/home/adventurer/.wine/drive_c/Program Files (x86)/FINAL FANTASY XI"
-	got, err := resolveForWine(stored)
+	original := `C:\Program Files (x86)\PlayOnline\SquareEnix\FINAL FANTASY XI`
+	stored, err := canonicalForWine(original)
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := `Z:\home\adventurer\.wine\drive_c\Program Files (x86)\FINAL FANTASY XI`
-	if got != want {
-		t.Errorf("got %q, want %q", got, want)
+	access, err := resolveForWine(stored)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := `Z:\home\adventurer\.wine\drive_c\Program Files (x86)\PlayOnline\SquareEnix\FINAL FANTASY XI`
+	if access != want {
+		t.Errorf("access = %q, want %q", access, want)
 	}
 }
 
 func TestResolveForWine_BackslashHostPath(t *testing.T) {
-	// filepath.Join on Windows/Wine turns /home/... into \home\...; ToSlash
-	// must still map through Z: instead of falling back to drive_c/home/...
 	got, err := resolveForWine(`\home\squatched\.config\macromog\config.yml`)
 	if err != nil {
 		t.Fatal(err)
@@ -131,13 +194,6 @@ func TestCanonicalInstallPath_LinuxNative(t *testing.T) {
 	}
 	if got != want {
 		t.Errorf("got %q, want %q", got, want)
-	}
-}
-
-func TestCanonicalForWine_EmptyPath(t *testing.T) {
-	_, err := canonicalForWine("")
-	if err == nil {
-		t.Fatal("expected error for empty path")
 	}
 }
 
