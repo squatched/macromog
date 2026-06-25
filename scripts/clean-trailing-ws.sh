@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# clean-trailing-ws.sh — remove trailing spaces/tabs from tracked text files
+# clean-trailing-ws.sh — remove trailing spaces/tabs from text files
 #
-# Strips trailing whitespace from lines in git-tracked text files and ensures
+# Strips trailing whitespace from lines in tracked and untracked text files
+# (respecting .gitignore) and ensures
 # a single trailing newline at EOF (no trailing blank lines).
 #
 # Usage:
@@ -44,7 +45,7 @@ declare -a FILES=()
 
 case "$MODE" in
   all)
-    while IFS= read -r -d '' f; do FILES+=("$f"); done < <(git ls-files -z)
+    while IFS= read -r -d '' f; do FILES+=("$f"); done < <(git ls-files -z --others --exclude-standard)
     ;;
   staged)
     while IFS= read -r -d '' f; do FILES+=("$f"); done < <(git diff --cached --name-only -z --diff-filter=ACMR)
