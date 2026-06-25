@@ -143,9 +143,10 @@ runtime when you run the `.exe` manually, cancel it — the CLI does not need it
 Releases are fully automated — never push tags or edit `CHANGELOG.md` by hand.
 
 When releasable commits land on `main`, the Release Please bot opens (or updates) a
-**"Release vX.Y.Z" PR** that pre-writes the changelog entry and bumps `VERSION`. A
-maintainer merges it; that merge creates the tag and publishes the GitHub Release
-with the addon zip and CLI binaries attached automatically.
+**"Release vX.Y.Z" PR** that pre-writes the changelog entry and bumps `version.txt`
+(and `_addon.version` in `macromog.lua`). A maintainer merges it; that merge creates
+the tag and publishes the GitHub Release with `dist/macromog-<version>.zip` plus the
+four bare CLI binaries (`linux`/`windows`, `amd64`/`386`) attached automatically.
 
 **The semver bump comes from your commit type:**
 
