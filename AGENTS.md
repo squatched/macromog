@@ -230,9 +230,11 @@ Before writing a single line of code:
 ## Before Pushing / Calling Work Complete
 
 Execute the full suite in a shell tool before declaring a task done or pushing
-to a branch:
+to a branch. Stage new files first (`git add`) so `validate-trailing-ws` scans
+the same paths CI will check after commit:
 
 ```sh
+git add -A
 make validate
 ```
 
