@@ -19,7 +19,7 @@ func TestIntegration_ExportValidateImportReexport(t *testing.T) {
 
 	// Step 1: Export from testdata character directory.
 	yamlPath := filepath.Join(tmp, "macros.yml")
-	if got := runExport([]string{"--char-dir", testdata.CharDir(), "-o", yamlPath}, newTextPrinter()); got != 0 {
+	if got := runExport([]string{"--char-dir", testdata.CharDir(), yamlPath}, newTextPrinter()); got != 0 {
 		t.Fatalf("export: exit %d", got)
 	}
 
@@ -36,7 +36,7 @@ func TestIntegration_ExportValidateImportReexport(t *testing.T) {
 
 	// Step 4: Re-export from the destination directory.
 	reexportPath := filepath.Join(tmp, "reexport.yml")
-	if got := runExport([]string{"--char-dir", destDir, "-o", reexportPath}, newTextPrinter()); got != 0 {
+	if got := runExport([]string{"--char-dir", destDir, reexportPath}, newTextPrinter()); got != 0 {
 		t.Fatalf("re-export: exit %d", got)
 	}
 

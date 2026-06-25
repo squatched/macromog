@@ -16,8 +16,9 @@ func TestRunTemplate_Help(t *testing.T) {
 }
 
 func TestRunTemplate_NoArgs(t *testing.T) {
-	if got := runTemplate(nil, newTextPrinter()); got != 1 {
-		t.Errorf("runTemplate(nil) = %d, want 1", got)
+	// No output path → write template to stdout; command must succeed.
+	if got := runTemplate(nil, newTextPrinter()); got != 0 {
+		t.Errorf("runTemplate(nil) = %d, want 0", got)
 	}
 }
 

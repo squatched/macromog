@@ -52,7 +52,7 @@ func TestIntegration_ConfigWorkflow(t *testing.T) {
 	}
 
 	out := filepath.Join(t.TempDir(), "macros.yml")
-	if got := runExport([]string{"--install", "steam", "--char-name", "Squatched", "-o", out}, newTextPrinter()); got != 0 {
+	if got := runExport([]string{"--install", "steam", "--char-name", "Squatched", out}, newTextPrinter()); got != 0 {
 		t.Fatalf("export = %d", got)
 	}
 	data, err := os.ReadFile(out)
