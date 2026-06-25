@@ -251,4 +251,45 @@ describe('cli.run_json', function()
         assert.is_nil(data)
         assert.is_string(err)
     end)
+
+    it('returns nil err when command fails with empty stdout', function()
+        io.popen = function()
+            return {
+                read = function()
+                    return ''
+                end,
+                close = function()
+                    return false, 'exit', 1
+                end,
+            }
+        end
+        local data, err = cli.run_json({ 'config', 'show' })
+        assert.is_nil(data)
+        assert.is_nil(err)
+    end)
+end)
+
+describe('cli.run close failures', function()
+    local orig_popen = io.popen
+
+    after_each(function()
+        io.popen = orig_popen
+    end)
+
+    it('returns how when close fails without numeric code', function()
+        io.popen = function()
+            return {
+                read = function()
+                    return 'broken pipe'
+                end,
+                close = function()
+                    return false, 'signal', nil
+                end,
+            }
+        end
+        local code, out, err = cli.run({ 'list' })
+        assert.are.equal(1, code)
+        assert.are.equal('broken pipe', out)
+        assert.are.equal('signal', err)
+    end)
 end)

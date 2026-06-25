@@ -139,4 +139,64 @@ describe('setup readiness', function()
         setup.on_load()
         assert.is_true(msgs[#msgs]:find('Zone once', 1, true) ~= nil)
     end)
+
+    it('fails ensure_install when config_show errors', function()
+        cli_calls.config_show = nil
+        local msgs = {}
+        windower.add_to_chat = function(_, msg)
+            msgs[#msgs + 1] = msg
+        end
+        assert.is_false(setup.ensure_install())
+        assert.is_true(msgs[#msgs]:find('Config check failed', 1, true) ~= nil)
+    end)
+
+    it('fails ensure_install when add-install fails', function()
+        cli_calls.config_show = { config = {} }
+        cli_calls.ffxi_root = 'C:/ffxi'
+        cli_calls.add_install_code = 1
+        cli_calls.add_install_out = 'duplicate install'
+        local msgs = {}
+        windower.add_to_chat = function(_, msg)
+            msgs[#msgs + 1] = msg
+        end
+        assert.is_false(setup.ensure_install())
+        assert.is_true(msgs[#msgs]:find('registration failed', 1, true) ~= nil)
+    end)
+
+    it('fails ensure_install when ffxi root is unknown', function()
+        cli_calls.config_show = { config = {} }
+        cli_calls.ffxi_root = nil
+        local msgs = {}
+        windower.add_to_chat = function(_, msg)
+            msgs[#msgs + 1] = msg
+        end
+        assert.is_false(setup.ensure_install())
+        assert.is_true(msgs[#msgs]:find('Could not detect FFXI', 1, true) ~= nil)
+    end)
+
+    it('fails ensure_character when list_all has no characters', function()
+        cli_calls.list_all = { user_dir = 'C:/ffxi/USER', characters = {} }
+        local msgs = {}
+        windower.add_to_chat = function(_, msg)
+            msgs[#msgs + 1] = msg
+        end
+        assert.is_false(setup.ensure_character('Squatched'))
+        assert.is_true(msgs[#msgs]:find('No character folders', 1, true) ~= nil)
+    end)
+
+    it('skips ensure_character when alias already exists', function()
+        cli_calls.config_show = {
+            config = {
+                installs = {
+                    steam = {
+                        path = 'C:/ffxi',
+                        characters = { a1b2c3d4 = { name = 'Squatched' } },
+                    },
+                },
+            },
+        }
+        assert.is_true(setup.ensure_character('Squatched'))
+        assert.is_true(setup.learned.Squatched)
+        assert.is_nil(cli_calls.set_alias)
+    end)
 end)

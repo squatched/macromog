@@ -112,3 +112,90 @@ func TestCanonicalInstallPath_LinuxNative(t *testing.T) {
 		t.Errorf("got %q, want %q", got, want)
 	}
 }
+
+func TestCanonicalForWine_EmptyPath(t *testing.T) {
+	_, err := canonicalForWine("")
+	if err == nil {
+		t.Fatal("expected error for empty path")
+	}
+}
+
+func TestResolveInstallPath_Empty(t *testing.T) {
+	_, err := ResolveInstallPath("")
+	if err == nil {
+		t.Fatal("expected error for empty path")
+	}
+}
+
+func TestLinuxHomeFromPath_Negative(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+	}{
+		{name: "empty", in: ""},
+		{name: "windows drive only", in: `C:\Users\adventurer`},
+		{name: "posix outside home", in: "/var/lib/wine"},
+		{name: "home segment missing", in: "/home"},
+		{name: "garbage", in: "not-a-path"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			_, ok := linuxHomeFromPath(tc.in)
+			if ok {
+				t.Fatalf("linuxHomeFromPath(%q) = ok, want false", tc.in)
+			}
+		})
+	}
+}
+
+func TestLinuxHomeForSharedConfig_FromWINEPREFIX(t *testing.T) {
+	t.Setenv("WINEPREFIX", "/home/adventurer/Games/final-fantasy-xi-online")
+
+	got, ok := LinuxHomeForSharedConfig()
+	if !ok {
+		t.Fatal("expected ok")
+	}
+	if got != "/home/adventurer" {
+		t.Errorf("got %q, want /home/adventurer", got)
+	}
+}
+
+func TestFindWinePrefixUnderHome_PrefersFFXIUser(t *testing.T) {
+	home := t.TempDir()
+	games := filepath.Join(home, "Games")
+	prefixOnly := filepath.Join(games, "aaa-no-user")
+	prefixWithUser := filepath.Join(games, "zzz-has-user")
+	userDir := filepath.Join(prefixWithUser, ffxiUserSuffix)
+
+	for _, dir := range []string{prefixOnly, filepath.Join(prefixOnly, "drive_c"), userDir} {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	got, ok := findWinePrefixUnderHome(home)
+	if !ok {
+		t.Fatal("expected prefix")
+	}
+	if got != prefixWithUser {
+		t.Errorf("got %q, want %q", got, prefixWithUser)
+	}
+}
+
+func TestFindWinePrefixUnderHome_FallsBackToDriveC(t *testing.T) {
+	home := t.TempDir()
+	prefix := filepath.Join(home, "Games", "wine-prefix")
+	driveC := filepath.Join(prefix, "drive_c")
+	if err := os.MkdirAll(driveC, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	got, ok := findWinePrefixUnderHome(home)
+	if !ok {
+		t.Fatal("expected prefix")
+	}
+	if got != prefix {
+		t.Errorf("got %q, want %q", got, prefix)
+	}
+}
