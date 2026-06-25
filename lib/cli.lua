@@ -17,6 +17,7 @@ function cli.run(args, opts)
     -- only enable it for explicit debug probes — never for --output json calls.
     log.debug('cli.run: ' .. bin .. ' ' .. table.concat(args, ' '))
     local pipe = process.popen(bin, args, opts)
+    log.debug('cli.run backend: ' .. tostring(process.last_backend))
     if not pipe then
         return 1, '', 'failed to run CLI'
     end
