@@ -3,6 +3,7 @@
 local json = require('lib/json')
 local log = require('lib/log')
 local process = require('lib/process')
+local agent = require('lib/agent')
 
 local cli = {}
 
@@ -13,11 +14,24 @@ end
 function cli.run(args, opts)
     opts = opts or {}
     local bin = cli.binary_path()
-    -- MACROMOG_DEBUG writes to stderr; we merge stderr into stdout (2>&1), so
-    -- only enable it for explicit debug probes — never for --output json calls.
     log.debug('cli.run: ' .. bin .. ' ' .. table.concat(args, ' '))
+
+    if agent.available() then
+        local code, out, err = agent.run(bin, args, opts)
+        if code ~= nil then
+            log.debug('cli.run backend: ' .. tostring(agent.last_backend))
+            if code ~= 0 then
+                log.debug('cli.run exit=' .. tostring(code))
+                return code, out or '', err
+            end
+            log.debug('cli.run exit=0')
+            return 0, out or '', nil
+        end
+        log.debug('cli.run backend: agent-unavailable')
+    end
+
     local pipe = process.popen(bin, args, opts)
-    log.debug('cli.run backend: ' .. tostring(process.last_backend))
+    log.debug('cli.run backend: ' .. tostring(process.last_backend) .. ' (' .. tostring(process.spawn_reason) .. ')')
     if not pipe then
         return 1, '', 'failed to run CLI'
     end

@@ -165,6 +165,7 @@ build-plugin: build-release-bins ## Stage the Windower addon tree under dist/Mac
 	cp macromog.lua $(PLUGIN_STAGE)/
 	cp -r lib/. $(PLUGIN_STAGE)/lib/
 	cp $(DIST_DIR)/bin/macromog.exe $(PLUGIN_STAGE)/bin/
+	cp $(DIST_DIR)/bin/macromog $(PLUGIN_STAGE)/bin/macromog-host
 
 package-plugin: build-plugin ## Create dist/macromog-<version>.zip from the staged addon
 	@mkdir -p $(DIST_DIR)

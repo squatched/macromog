@@ -2,6 +2,7 @@
 
 local process = {
     last_backend = 'shell',
+    spawn_reason = 'not-initialized',
 }
 
 local win_spawn -- false = unavailable, function = ready
@@ -58,6 +59,7 @@ local function init_win_spawn()
     end
 
     if not is_windows() then
+        process.spawn_reason = 'not-windows'
         win_spawn = false
         return false
     end
@@ -68,6 +70,7 @@ local function init_win_spawn()
 
     local ok, ffi = pcall(require, 'ffi')
     if not ok then
+        process.spawn_reason = 'ffi-unavailable: ' .. tostring(ffi)
         win_spawn = false
         return false
     end
@@ -223,6 +226,7 @@ local function init_win_spawn()
         kernel32.CloseHandle(write_pipe[0])
 
         if created == 0 then
+            process.spawn_reason = 'CreateProcess failed: error ' .. tostring(kernel32.GetLastError())
             kernel32.CloseHandle(read_pipe[0])
             return nil
         end
@@ -255,6 +259,7 @@ local function init_win_spawn()
         }
     end
 
+    process.spawn_reason = 'ffi-ready'
     return true
 end
 
@@ -268,6 +273,7 @@ function process.popen(bin, args, opts)
     end
 
     process.last_backend = 'shell'
+    process.spawn_reason = process.spawn_reason or 'ffi-fallback'
     return io.popen(shell_command(bin, args, opts), 'r')
 end
 

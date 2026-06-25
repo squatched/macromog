@@ -49,6 +49,7 @@ func newRootCmd() (*cobra.Command, *cliState) {
 		newListCmd(state),
 		newConfigCmd(state),
 		newDebugCmd(state),
+		newAgentCmd(),
 	)
 
 	return root, state
