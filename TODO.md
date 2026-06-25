@@ -24,7 +24,11 @@ Ultimately, we should have 5 things available in this release:
 - Provide user documentation.
 - Package the plugin as a release.
 
-## v1+
+## Bugs/Rough Edges
+- Every time the CLI is invoked, a cmd window pops up very briefly. Not polished/is distracting.
+- Remove the x64 version of the Windows build of the CLI. FFXI is a 32 bit application so if they can play FFXI, they can run the 32 bit version and it's not like we need the provisions x64 affords.
+
+# v1+
 - CLI config: `color: auto|always|never`
 - CLI config: `default_output_format: text|json`
 - CLI config: backup directory preference
