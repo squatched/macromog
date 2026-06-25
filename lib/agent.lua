@@ -56,6 +56,14 @@ local function read_portfile()
     return line
 end
 
+local function loopback_host(host)
+    if not host then
+        return false
+    end
+    host = host:lower()
+    return host == '127.0.0.1' or host == 'localhost' or host == '::1'
+end
+
 local function parse_addr(addr)
     local host, port = addr:match('^%[(.+)%]:(%d+)$')
     if host then
@@ -70,7 +78,7 @@ local function probe_addr(addr)
         return false
     end
     local host, port = parse_addr(addr)
-    if not host or not port then
+    if not host or not port or not loopback_host(host) then
         return false
     end
     local sock = socket.tcp()
@@ -168,6 +176,10 @@ function agent.run(bin, args, opts)
     end
 
     local host, port = parse_addr(addr)
+    if not loopback_host(host) then
+        log.debug('agent.run: refusing non-loopback address ' .. tostring(addr))
+        return nil
+    end
     local sock = socket.tcp()
     sock:settimeout(5)
     if sock:connect(host, port) ~= 1 then
@@ -200,6 +212,39 @@ function agent.run(bin, args, opts)
     end
 
     return tonumber(resp.code) or 1, out, nil
+end
+
+function agent.shutdown()
+    if not socket_ok then
+        return
+    end
+
+    local addr = read_portfile()
+    if not addr then
+        return
+    end
+
+    local host, port = parse_addr(addr)
+    if not loopback_host(host) then
+        log.debug('agent.shutdown: refusing non-loopback address ' .. tostring(addr))
+        return
+    end
+
+    log.debug('agent.shutdown: ' .. addr)
+    local sock = socket.tcp()
+    sock:settimeout(1)
+    if sock:connect(host, port) == 1 then
+        sock:send('{"shutdown":true}\n')
+        sock:receive('*a')
+        sock:close()
+    end
+
+    local path = port_path()
+    os.remove(path)
+    local host_path = agent.host_path(path)
+    if host_path ~= path then
+        os.remove(host_path)
+    end
 end
 
 return agent

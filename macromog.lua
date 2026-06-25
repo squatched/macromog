@@ -6,6 +6,7 @@ _addon.author = 'Squatched'
 _addon.version = '0.0.0' -- x-release-please-version
 _addon.commands = { 'macromog', 'mmog' }
 
+local agent = require('lib/agent')
 local cli = require('lib/cli')
 local detect = require('lib/detect')
 local log = require('lib/log')
@@ -173,4 +174,9 @@ windower.register_event('incoming chunk', function(id)
     if id == 0x0A and not setup.zoned_since_load then
         setup.on_zone()
     end
+end)
+
+windower.register_event('unload', function()
+    log.debug('addon unload: stopping macromog agent')
+    agent.shutdown()
 end)
