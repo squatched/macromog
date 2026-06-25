@@ -1,86 +1,82 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"os"
 
+	"github.com/spf13/cobra"
 	"github.com/squatched/macromog/internal/export"
 	"github.com/squatched/macromog/internal/scope"
 	tmpl "github.com/squatched/macromog/internal/template"
 )
 
-const templateUsage = `Usage: macromog template [flags] <output>
+func newTemplateCmd(state *cliState) *cobra.Command {
+	var (
+		charName string
+		scopeSel []string
+	)
 
-Generate a blank YAML template pre-structured for a given scope.
+	cmd := &cobra.Command{
+		Use:   "template [output]",
+		Short: "generate a blank YAML template for a given scope",
+		Long: `Generate a blank YAML template pre-structured for a given scope.
 Every macro slot within scope is present with an empty name and six empty
 content lines, ready to fill in.
 
-Arguments:
-  <output>              output YAML file (required)
-
-Flags:
-  --scope <selector>    scope selector (repeatable; default: full scope)
-  --char-name <name>    embed character name in template
+Without an output argument, the template is written to stdout.
 
 Examples:
+  macromog template
   macromog template out.yml
-  macromog template out.yml --scope B1S3
+  macromog template --scope B1S3 out.yml
   macromog template out.yml --scope B1S3A1,C2
-  macromog template out.yml --char-name Squatched
-`
+  macromog template --char-name Squatched out.yml`,
+		Args: cobra.RangeArgs(0, 1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			p := state.printer
+			sc, err := scope.ParseSelectors(scopeSel)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "macromog template: invalid --scope: %v\n", err)
+				state.code = 1
+				return nil
+			}
+
+			doc := tmpl.Generate(sc, charName)
+			data, err := export.MarshalYAMLWithPlaceholders(doc)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "macromog template: %v\n", err)
+				state.code = 1
+				return nil
+			}
+
+			if len(args) == 0 {
+				if _, err := state.out.Write(data); err != nil {
+					fmt.Fprintf(os.Stderr, "macromog template: %v\n", err)
+					state.code = 1
+				}
+				return nil
+			}
+
+			outPath := args[0]
+			if err := os.WriteFile(outPath, data, 0o644); err != nil {
+				fmt.Fprintf(os.Stderr, "macromog template: %v\n", err)
+				state.code = 1
+				return nil
+			}
+			p.Text(func(tw *TextWriter) {
+				fmt.Fprintf(tw, "template written to %s\n", tw.Success(outPath))
+			})
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&charName, "char-name", "", "embed character name in template")
+	cmd.Flags().StringArrayVar(&scopeSel, "scope", nil, "scope selector (repeatable; e.g. B1S3, B1S3A1,C2)")
+
+	return cmd
+}
 
 func runTemplate(args []string, p *Printer) int {
-	if len(args) > 0 && (args[0] == "--help" || args[0] == "-h") {
-		fmt.Fprint(os.Stdout, templateUsage)
-		return 0
-	}
-
-	fs := flag.NewFlagSet("template", flag.ContinueOnError)
-	fs.SetOutput(os.Stderr)
-	charName := fs.String("char-name", "", "character name for template metadata")
-	var scopeSel scopeFlags
-	fs.Var(&scopeSel, "scope", "scope selector (repeatable)")
-
-	if err := fs.Parse(args); err != nil {
-		return 1
-	}
-
-	// Go's flag package stops at the first non-flag argument, so flags that
-	// follow the output path are not parsed. Re-parse the tail so users can
-	// place flags and the output file in any order.
-	remaining := fs.Args()
-	if len(remaining) == 0 {
-		fmt.Fprint(os.Stderr, templateUsage)
-		fmt.Fprintln(os.Stderr, "macromog template: output file required")
-		return 1
-	}
-	outPath := remaining[0]
-	if len(remaining) > 1 {
-		if err := fs.Parse(remaining[1:]); err != nil {
-			return 1
-		}
-	}
-
-	sc, err := scope.ParseSelectors([]string(scopeSel))
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "macromog template: invalid --scope: %v\n", err)
-		return 1
-	}
-
-	doc := tmpl.Generate(sc, *charName)
-	data, err := export.MarshalYAMLWithPlaceholders(doc)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "macromog template: %v\n", err)
-		return 1
-	}
-	if err := os.WriteFile(outPath, data, 0o644); err != nil {
-		fmt.Fprintf(os.Stderr, "macromog template: %v\n", err)
-		return 1
-	}
-
-	p.Text(func(tw *TextWriter) {
-		fmt.Fprintf(tw, "template written to %s\n", tw.Success(outPath))
-	})
-	return 0
+	state := &cliState{printer: p, out: os.Stdout}
+	return execWithState(newTemplateCmd(state), args, state)
 }

@@ -5,65 +5,16 @@ import (
 	"os"
 )
 
-const usage = `Usage: macromog [--output <format>] <command> [flags]
-
-Commands:
-  config    manage installs, character aliases, and CLI preferences
-  export    export macros from .dat files to YAML
-  import    import macros from YAML into .dat files (auto-backups first)
-  template  generate a blank YAML template for a given scope
-  validate  validate a YAML file against the schema
-  backup    create a timestamped backup of all macro .dat files
-  list      list detected characters and macro books
-
-Global flags:
-  --output <format>   output format: text (default) or json
-  --ffxi-path <path>  path to FFXI install root (raw path only)
-  --install <name>    named FFXI install from config
-  --char-dir <id>     character folder (hex ID or path)
-  --char-name <name>  friendly character name from config
-
-Run 'macromog <command> --help' for command-specific flags.
-`
-
 func main() {
 	os.Exit(run(os.Args))
 }
 
 func run(args []string) int {
-	format, args, err := extractOutputFormat(args)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
+	root, state := newRootCmd()
+	root.SetArgs(args[1:])
+	if err := root.Execute(); err != nil {
+		fmt.Fprintln(os.Stderr, "macromog: "+err.Error())
 		return 1
 	}
-
-	if len(args) < 2 {
-		fmt.Fprint(os.Stderr, usage)
-		return 1
-	}
-
-	p := NewPrinter(os.Stdout, format)
-
-	switch args[1] {
-	case "config":
-		return runConfig(args[2:], p)
-	case "export":
-		return runExport(args[2:], p)
-	case "import":
-		return runImport(args[2:], p)
-	case "template":
-		return runTemplate(args[2:], p)
-	case "validate":
-		return runValidate(args[2:], p)
-	case "backup":
-		return runBackup(args[2:], p)
-	case "list":
-		return runList(args[2:], p)
-	case "--help", "-h", "help":
-		fmt.Fprint(os.Stdout, usage)
-		return 0
-	default:
-		fmt.Fprintf(os.Stderr, "macromog: unknown command %q\n\n%s", args[1], usage)
-		return 1
-	}
+	return state.code
 }

@@ -16,8 +16,9 @@ func TestRunTemplate_Help(t *testing.T) {
 }
 
 func TestRunTemplate_NoArgs(t *testing.T) {
-	if got := runTemplate(nil, newTextPrinter()); got != 1 {
-		t.Errorf("runTemplate(nil) = %d, want 1", got)
+	// No output path → write template to stdout; command must succeed.
+	if got := runTemplate(nil, newTextPrinter()); got != 0 {
+		t.Errorf("runTemplate(nil) = %d, want 0", got)
 	}
 }
 
@@ -156,6 +157,23 @@ func TestRunTemplate_ScopeAfterOutputPath(t *testing.T) {
 	}
 	if strings.Contains(s, "level: full") {
 		t.Errorf("scope after positional: scope was ignored (level: full):\n%s", s)
+	}
+}
+
+func TestRunTemplate_MultipleScopes(t *testing.T) {
+	dir := t.TempDir()
+	out := filepath.Join(dir, "multi.yml")
+	args := []string{"--scope", "B1", "--scope", "B2", out}
+	if got := runTemplate(args, newTextPrinter()); got != 0 {
+		t.Fatalf("runTemplate(multi scope) = %d, want 0", got)
+	}
+	data, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := string(data)
+	if !strings.Contains(s, "book: 1") || !strings.Contains(s, "book: 2") {
+		t.Errorf("multi-scope template missing expected books:\n%s", s)
 	}
 }
 

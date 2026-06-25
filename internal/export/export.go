@@ -2,6 +2,7 @@ package export
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"slices"
@@ -469,7 +470,8 @@ func replacePlaceholders(data []byte) []byte {
 }
 
 // WriteFile exports macros from opts.CharacterDir and writes YAML to outputPath.
-func WriteFile(opts Options, outputPath string) error {
+// WriteTo writes an export document to w.
+func WriteTo(w io.Writer, opts Options) error {
 	doc, err := FromCharacterDir(opts)
 	if err != nil {
 		return err
@@ -478,5 +480,18 @@ func WriteFile(opts Options, outputPath string) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(outputPath, data, 0o644)
+	_, err = w.Write(data)
+	return err
+}
+
+func WriteFile(opts Options, outputPath string) error {
+	f, err := os.OpenFile(outputPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o644)
+	if err != nil {
+		return err
+	}
+	if err := WriteTo(f, opts); err != nil {
+		f.Close()
+		return err
+	}
+	return f.Close()
 }

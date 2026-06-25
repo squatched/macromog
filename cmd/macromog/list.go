@@ -1,65 +1,14 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
 
+	"github.com/spf13/cobra"
 	"github.com/squatched/macromog/internal/config"
 	"github.com/squatched/macromog/internal/lister"
 )
-
-const listUsage = `Usage: macromog list [flags]
-
-List detected FFXI characters and their macro books.
-
-Without --char-dir or --char-name, scans the FFXI USER directory and lists
-every detected character with a populated-book count. Register character
-aliases with 'macromog config set-alias' to display friendly names.
-
-Flags:
-  --ffxi-path <path>    FFXI install root (auto-detected if omitted)
-  --install <name>      named FFXI install from config
-  --char-dir <path>     character USER directory; lists books for that character
-  --char-name <name>    friendly character name from config; lists books for that character
-
-Examples:
-  macromog list
-  macromog list --install steam
-  macromog list --char-dir /path/to/USER/a1b2c3d4
-  macromog list --char-name Squatched
-`
-
-func runList(args []string, p *Printer) int {
-	if len(args) > 0 && (args[0] == "--help" || args[0] == "-h") {
-		fmt.Fprint(os.Stdout, listUsage)
-		return 0
-	}
-
-	fs := flag.NewFlagSet("list", flag.ContinueOnError)
-	fs.SetOutput(os.Stderr)
-	ffxiPath := fs.String("ffxi-path", "", "FFXI install root")
-	installName := fs.String("install", "", "named FFXI install from config")
-	charDir := fs.String("char-dir", "", "character USER directory")
-	charName := fs.String("char-name", "", "friendly character name from config")
-
-	if err := fs.Parse(args); err != nil {
-		return 1
-	}
-
-	if *charDir != "" || *charName != "" {
-		dir, err := resolveCharDir(charSelectOpts{
-			charDir: *charDir, charName: *charName, ffxiPath: *ffxiPath, installName: *installName,
-		})
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "macromog list: %v\n", err)
-			return 1
-		}
-		return runListChar(dir, p)
-	}
-	return runListAll(*ffxiPath, *installName, p)
-}
 
 type listCharResult struct {
 	Character string          `json:"character"`
@@ -82,6 +31,46 @@ type listCharEntry struct {
 	ID        string `json:"id"`
 	Name      string `json:"name,omitempty"`
 	BookCount int    `json:"book_count"`
+}
+
+func newListCmd(state *cliState) *cobra.Command {
+	var chars charSelectOpts
+
+	cmd := &cobra.Command{
+		Use:   "list",
+		Short: "list detected characters and macro books",
+		Long: `List detected FFXI characters and their macro books.
+
+Without --char-dir or --char-name, scans the FFXI USER directory and lists
+every detected character with a populated-book count. Register character
+aliases with 'macromog config set-alias' to display friendly names.
+
+Examples:
+  macromog list
+  macromog list --install steam
+  macromog list --char-dir /path/to/USER/a1b2c3d4
+  macromog list --char-name Squatched`,
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			p := state.printer
+			if chars.charDir != "" || chars.charName != "" {
+				dir, err := resolveCharDir(chars)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "macromog list: %v\n", err)
+					state.code = 1
+					return nil
+				}
+				state.code = runListChar(dir, p)
+				return nil
+			}
+			state.code = runListAll(chars.ffxiPath, chars.installName, p)
+			return nil
+		},
+	}
+
+	addCharFlags(cmd, &chars)
+
+	return cmd
 }
 
 func runListChar(charDir string, p *Printer) int {
@@ -195,4 +184,9 @@ func runListAll(ffxiPath, installName string, p *Printer) int {
 	p.JSON(listAllResult{UserDir: userDir, Characters: entries})
 
 	return 0
+}
+
+func runList(args []string, p *Printer) int {
+	state := &cliState{printer: p, out: os.Stdout}
+	return execWithState(newListCmd(state), args, state)
 }
