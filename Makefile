@@ -12,6 +12,7 @@ CLI_COV_MIN      := 80
 GO_SRC           := ./...
 CLI_DIRS         := ./cmd
 CLI_MAIN         := ./cmd/macromog
+WINDOWS_LDFLAGS  := -ldflags="-H windowsgui -s -w"
 BINARY           := bin/macromog
 DIST_DIR         := dist
 PLUGIN_STAGE     := $(DIST_DIR)/Macromog
@@ -156,7 +157,7 @@ build-cli-all: ## Cross-compile the CLI for all release platforms (compilation c
 build-release-bins: ## Cross-compile release CLI binaries into dist/bin/
 	@mkdir -p $(DIST_DIR)/bin
 	GOOS=linux GOARCH=amd64 $(GO) build -o $(DIST_DIR)/bin/macromog $(CLI_MAIN)
-	GOOS=windows GOARCH=386 $(GO) build -o $(DIST_DIR)/bin/macromog.exe $(CLI_MAIN)
+	GOOS=windows GOARCH=386 $(GO) build $(WINDOWS_LDFLAGS) -o $(DIST_DIR)/bin/macromog.exe $(CLI_MAIN)
 
 build-plugin: build-release-bins ## Stage the Windower addon tree under dist/Macromog/
 	@rm -rf $(PLUGIN_STAGE)

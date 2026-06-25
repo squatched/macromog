@@ -3,6 +3,7 @@
 local cli = require('lib/cli')
 local detect = require('lib/detect')
 local log = require('lib/log')
+local process = require('lib/process')
 
 local setup = {
     install_ready = false,
@@ -51,13 +52,7 @@ local function alias_exists(cfg, name)
 end
 
 local function file_mtime(path)
-    local handle = io.popen('cmd /c for %I in ("' .. path:gsub('"', '') .. '") do @echo %~tI')
-    if not handle then
-        return nil
-    end
-    local line = handle:read('*l')
-    handle:close()
-    return line
+    return process.file_mtime(path)
 end
 
 local function pick_char_id(user_dir, characters)
