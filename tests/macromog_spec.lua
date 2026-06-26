@@ -128,12 +128,12 @@ describe('macromog command routing', function()
 
     it('shows help for empty command', function()
         events['addon command']('')
-        assert.is_true(last_chat():find('Commands:', 1, true) ~= nil)
+        assert.is_true(table.concat(chat_msgs, '\n'):find('Commands:', 1, true) ~= nil)
     end)
 
     it('shows help for help command', function()
         events['addon command']('help')
-        assert.is_true(last_chat():find('export', 1, true) ~= nil)
+        assert.is_true(table.concat(chat_msgs, '\n'):find('export', 1, true) ~= nil)
     end)
 
     it('rejects unknown commands', function()
@@ -274,16 +274,14 @@ describe('macromog lifecycle events', function()
             },
         }
 
+        -- Login now eagerly registers the new character.
         events.login()
-        assert.is_false(setup.zoned_since_load)
-
-        events['incoming chunk'](0x0A)
-
-        windower.ffxi.get_player = orig_get_player
-
+        assert.is_true(setup.zoned_since_load)
         assert.is_true(setup.learned.Altchar)
         assert.are.equal('b2c3d4e5', cli_calls.set_alias.char_id)
         assert.are.equal('Altchar', cli_calls.set_alias.name)
+
+        windower.ffxi.get_player = orig_get_player
     end)
 end)
 
@@ -370,6 +368,43 @@ describe('import command', function()
         events['addon command']('import', 'mybook.yml')
         assert.are.equal('Squatched', cli_calls.import.name)
         assert.is_true(cli_calls.import.path:find('mybook.yml', 1, true) ~= nil)
+    end)
+end)
+
+describe('backup command', function()
+    before_each(reset_state)
+
+    it('does not call cli when not ready', function()
+        events['addon command']('backup')
+        assert.is_nil(cli_calls.backup)
+        assert.is_true(last_chat():find('not configured', 1, true) ~= nil)
+    end)
+
+    it('reports backup location from cli output', function()
+        setup.install_ready = true
+        setup.zoned_since_load = true
+        cli_calls.backup_out = 'backed up to C:\\ffxi\\USER\\a1b2c3d4\\backups\\a1b2c3d4_20240101_120000'
+        events['addon command']('backup')
+        assert.is_not_nil(cli_calls.backup)
+        assert.is_true(last_chat():find('backed up to', 1, true) ~= nil)
+    end)
+
+    it('falls back to generic message when cli output is empty', function()
+        setup.install_ready = true
+        setup.zoned_since_load = true
+        cli_calls.backup_out = ''
+        events['addon command']('backup')
+        assert.is_true(last_chat():find('Backup complete', 1, true) ~= nil)
+    end)
+
+    it('surfaces backup CLI failure to user', function()
+        setup.install_ready = true
+        setup.zoned_since_load = true
+        cli_calls.backup_code = 1
+        cli_calls.backup_out = 'no character found'
+        events['addon command']('backup')
+        assert.is_true(last_chat():find('Backup failed', 1, true) ~= nil)
+        assert.is_true(last_chat():find('no character found', 1, true) ~= nil)
     end)
 end)
 

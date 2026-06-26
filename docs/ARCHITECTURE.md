@@ -115,6 +115,37 @@ The DLL is loaded via `package.loadlib` with the full path derived from
 `windower.addon_path`. This bypasses `package.cpath`, which under Windower points
 to `plugins/libs/` rather than the addon directory.
 
+## Character–hex-ID association
+
+FFXI stores each character's macro DAT files under a folder named after their
+hex character ID (e.g. `USER\a1b2c3d4\`). The game does not expose the mapping
+from character name to hex ID through any accessible API, so macromog discovers
+it heuristically via `file_mtime`.
+
+**How it works:**
+
+1. `cli list` returns all character folders under the FFXI `USER` directory.
+2. `setup.ensure_character` is called with the logged-in character's name
+   (from `windower.ffxi.get_player()`).
+3. If only one folder exists, it is used directly.
+4. With multiple folders, `pick_char_id` picks whichever has the most-recently
+   modified `mcr.dat` — the game updates this file when the character is active,
+   so the currently-logged-in character almost always wins.
+5. The name→hex-ID pair is written to `config.yml` via `config set-alias` and
+   reused on every subsequent login; the heuristic is never run again for that
+   character.
+
+**Known limitation — mtime race:**
+
+If you load (or reload) the addon while logged in as character A, but another
+character's `mcr.dat` was written more recently (e.g. you ran `//mmog import`
+against their folder right before loading), `pick_char_id` may associate the
+wrong hex ID with character A's name. The incorrect mapping is then persisted to
+`config.yml` and will not self-correct on future loads.
+
+Fix: run `macromog config set-alias <correct-hex-id> <char-name>` to overwrite
+the bad entry. This is the intended escape hatch for any mis-registration.
+
 ## Why 32-bit Windows and 64-bit Linux
 
 **Windows (`windows/386`):** FFXI is a 32-bit game. Windower hooks into FFXI's

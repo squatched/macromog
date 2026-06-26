@@ -28,7 +28,7 @@ func resolveInstall(session *configSession, opts installOpts) (installContext, e
 	}
 
 	if opts.ffxiPath != "" {
-		return resolveExplicitPath(session, opts.ffxiPath)
+		return resolveExplicitPath(session, opts.ffxiPath, true)
 	}
 	if opts.installName != "" {
 		return resolveNamedInstall(session, opts.installName)
@@ -43,7 +43,7 @@ func resolveInstall(session *configSession, opts installOpts) (installContext, e
 	detected, err := lister.DetectUserDir()
 	if err == nil {
 		ffxiPath := filepath.Dir(detected)
-		return resolveExplicitPath(session, ffxiPath)
+		return resolveExplicitPath(session, ffxiPath, false)
 	}
 
 	names := config.InstallNames(&session.cfg)
@@ -54,7 +54,7 @@ func resolveInstall(session *configSession, opts installOpts) (installContext, e
 	return installContext{}, fmt.Errorf("FFXI install not found; run 'macromog config add-install' or use --ffxi-path")
 }
 
-func resolveExplicitPath(session *configSession, rawPath string) (installContext, error) {
+func resolveExplicitPath(session *configSession, rawPath string, explicit bool) (installContext, error) {
 	norm, err := config.CanonicalInstallPath(rawPath)
 	if err != nil {
 		return installContext{}, err
@@ -74,7 +74,7 @@ func resolveExplicitPath(session *configSession, rawPath string) (installContext
 	if inst != nil {
 		return installContext{ffxiPath: access, installName: name, install: inst}, nil
 	}
-	return maybeRegisterInstall(session, norm)
+	return maybeRegisterInstall(session, norm, explicit)
 }
 
 func resolveNamedInstall(session *configSession, name string) (installContext, error) {
@@ -101,16 +101,25 @@ func installFromName(session *configSession, name string) (installContext, error
 	return installContext{ffxiPath: access, installName: name, install: &inst}, nil
 }
 
-func maybeRegisterInstall(session *configSession, canonicalPath string) (installContext, error) {
+// maybeRegisterInstall offers to register canonicalPath if stdin is a TTY. In
+// CI mode, auto-detected (explicit=false) unregistered paths produce an error;
+// explicitly-supplied paths are trusted and used as-is.
+func maybeRegisterInstall(session *configSession, canonicalPath string, explicit bool) (installContext, error) {
 	access, err := config.ResolveInstallPath(canonicalPath)
 	if err != nil {
 		return installContext{}, err
 	}
 	if !stdinIsTerminal() {
+		if !explicit && isCI() {
+			return installContext{}, fmt.Errorf(
+				"auto-detected FFXI install at %s is not in config; run 'macromog config add-install' or use --ffxi-path",
+				canonicalPath,
+			)
+		}
 		return installContext{ffxiPath: access}, nil
 	}
 	ew := newErrWriter()
-	fmt.Fprint(ew, "Path not in config. Register as install? [Y/n] ")
+	fmt.Fprintf(ew, "Auto-detected FFXI install at %s, not in config. Register? [Y/n] ", ew.Highlight(canonicalPath))
 	answerLine, ok := readStdinLine()
 	if !ok {
 		return installContext{ffxiPath: access}, nil

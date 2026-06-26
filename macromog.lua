@@ -13,6 +13,7 @@ local setup = require('lib/setup')
 
 local function usage()
     log.user('Commands: export | import <file> | validate <file> | backup | debug | diag | help')
+    log.user('File paths for import/validate are relative to the addon data/ folder, kupo!')
 end
 
 local function require_ready()
@@ -54,14 +55,14 @@ function handlers.import(filename)
         return
     end
     if not filename then
-        log.user('Usage: //mmog import <filename>')
+        log.user('Usage: //mmog import <filename>  (relative to addon data/ folder)')
         return
     end
 
     local path = windower.addon_path .. 'data/' .. filename
     local f = io.open(path, 'r')
     if not f then
-        log.user('File not found: ' .. filename)
+        log.user('File not found: ' .. filename .. '  (paths are relative to the addon data/ folder)')
         return
     end
     f:close()
@@ -79,14 +80,14 @@ function handlers.validate(filename)
         return
     end
     if not filename then
-        log.user('Usage: //mmog validate <filename>')
+        log.user('Usage: //mmog validate <filename>  (relative to addon data/ folder)')
         return
     end
 
     local path = windower.addon_path .. 'data/' .. filename
     local f = io.open(path, 'r')
     if not f then
-        log.user('File not found: ' .. filename)
+        log.user('File not found: ' .. filename .. '  (paths are relative to the addon data/ folder)')
         return
     end
     f:close()
@@ -108,7 +109,8 @@ function handlers.backup()
         log.user('Backup failed: ' .. (out or ''))
         return
     end
-    log.user('Backup complete, kupo!')
+    local msg = (out or ''):match('^(.-)%s*$')
+    log.user(msg ~= '' and msg or 'Backup complete, kupo!')
 end
 
 function handlers.debug(mode)
@@ -165,8 +167,8 @@ windower.register_event('load', function()
     log.user('Kupomog at your service, kupo! Type //mmog help for commands.')
 end)
 
-windower.register_event('login', function()
-    setup.on_login()
+windower.register_event('login', function(name)
+    setup.on_login(name)
 end)
 
 windower.register_event('incoming chunk', function(id)

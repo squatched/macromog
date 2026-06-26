@@ -96,6 +96,9 @@ func TestBackup_EmptyDir(t *testing.T) {
 }
 
 func TestBackup_UnreadableSourceFile(t *testing.T) {
+	if os.Getuid() == 0 {
+		t.Skip("root bypasses file permissions; skipping unreadable-file test")
+	}
 	tmp := t.TempDir()
 	datPath := filepath.Join(tmp, "mcr.dat")
 	if err := os.WriteFile(datPath, []byte("data"), 0o644); err != nil {
