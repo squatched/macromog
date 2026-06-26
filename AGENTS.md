@@ -262,6 +262,22 @@ When working in this repo, agents must follow this workflow for every commit:
    - The proposed commit message (following Conventional Commits above)
 4. **Wait for explicit approval** — only commit after the user approves the message. Do not proceed to the next task until the commit is made and acknowledged.
 
+## CLI Flag Style
+
+When invoking the `macromog` CLI binary (in Lua wrappers, shell scripts, docs,
+or tests), always use **full long flags** — never short single-letter flags:
+
+```lua
+-- Correct
+cli.run({ 'export', '--char-name', char_name, output })
+
+-- Wrong — short flags hide intent from code readers
+cli.run({ 'export', '-n', char_name, '-o', output })
+```
+
+This applies everywhere: Lua `cli.*` wrappers, Makefile targets, shell scripts,
+Go test helpers, and documentation examples.
+
 ## PR Workflow
 
 All work lands on `main` via pull request — never direct-push.

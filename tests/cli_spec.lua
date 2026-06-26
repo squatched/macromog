@@ -289,3 +289,96 @@ describe('cli.run close failures', function()
         assert.are.equal('signal', err)
     end)
 end)
+
+describe('export/import/validate arg construction', function()
+    local orig_popen = io.popen
+    local last_cmd
+
+    before_each(function()
+        last_cmd = nil
+    end)
+
+    after_each(function()
+        io.popen = orig_popen
+        last_cmd = nil
+    end)
+
+    local function mock_ok(output)
+        io.popen = function(cmd)
+            last_cmd = cmd
+            return {
+                read = function() return output or '' end,
+                close = function() return true, 'exit', 0 end,
+            }
+        end
+    end
+
+    local function mock_fail(output, code)
+        io.popen = function(cmd)
+            last_cmd = cmd
+            return {
+                read = function() return output or '' end,
+                close = function() return false, 'exit', code or 1 end,
+            }
+        end
+    end
+
+    it('export passes --char-name and output path as positional arg', function()
+        mock_ok('')
+        cli.export('/tmp/out.yml', 'Squatched')
+        assert.is_true(last_cmd:find('--char-name', 1, true) ~= nil)
+        assert.is_true(last_cmd:find('Squatched', 1, true) ~= nil)
+        assert.is_true(last_cmd:find('out.yml', 1, true) ~= nil)
+    end)
+
+    it('import passes path and --char-name flag', function()
+        mock_ok('')
+        cli.import('/tmp/in.yml', 'Squatched')
+        assert.is_true(last_cmd:find('import', 1, true) ~= nil)
+        assert.is_true(last_cmd:find('in.yml', 1, true) ~= nil)
+        assert.is_true(last_cmd:find('--char-name', 1, true) ~= nil)
+        assert.is_true(last_cmd:find('Squatched', 1, true) ~= nil)
+    end)
+
+    it('validate passes path argument', function()
+        mock_ok('')
+        cli.validate('/tmp/check.yml')
+        assert.is_true(last_cmd:find('validate', 1, true) ~= nil)
+        assert.is_true(last_cmd:find('check.yml', 1, true) ~= nil)
+    end)
+
+    it('export propagates non-zero exit code', function()
+        mock_fail('disk error', 1)
+        local code, out = cli.export('/tmp/out.yml', 'Squatched')
+        assert.are.equal(1, code)
+        assert.are.equal('disk error', out)
+    end)
+
+    it('import propagates non-zero exit code', function()
+        mock_fail('invalid data', 2)
+        local code, out = cli.import('/tmp/bad.yml', 'Squatched')
+        assert.are.equal(2, code)
+        assert.are.equal('invalid data', out)
+    end)
+
+    it('validate propagates non-zero exit code', function()
+        mock_fail('version: must be 1', 1)
+        local code, out = cli.validate('/tmp/bad.yml')
+        assert.are.equal(1, code)
+        assert.are.equal('version: must be 1', out)
+    end)
+
+    it('export quotes filename with spaces', function()
+        mock_ok('')
+        cli.export('/tmp/my macros.yml', 'Squatched')
+        assert.is_true(last_cmd:find('"', 1, true) ~= nil)
+        assert.is_true(last_cmd:find('my macros.yml', 1, true) ~= nil)
+    end)
+
+    it('import quotes filename with spaces', function()
+        mock_ok('')
+        cli.import('/tmp/my macros.yml', 'Squatched')
+        assert.is_true(last_cmd:find('"', 1, true) ~= nil)
+        assert.is_true(last_cmd:find('my macros.yml', 1, true) ~= nil)
+    end)
+end)

@@ -286,3 +286,152 @@ describe('macromog lifecycle events', function()
         assert.are.equal('Altchar', cli_calls.set_alias.name)
     end)
 end)
+
+describe('export command', function()
+    before_each(reset_state)
+
+    it('generates timestamped filename when no filename given', function()
+        setup.install_ready = true
+        setup.zoned_since_load = true
+        events['addon command']('export')
+        assert.is_not_nil(cli_calls.export)
+        assert.is_true(cli_calls.export.path:find('data/', 1, true) ~= nil)
+        assert.is_true(last_chat():find('Exported', 1, true) ~= nil)
+    end)
+
+    it('surfaces export CLI failure to user', function()
+        setup.install_ready = true
+        setup.zoned_since_load = true
+        cli_calls.export_code = 1
+        cli_calls.export_out = 'disk full'
+        events['addon command']('export', 'out.yml')
+        assert.is_true(last_chat():find('Export failed', 1, true) ~= nil)
+        assert.is_true(last_chat():find('disk full', 1, true) ~= nil)
+    end)
+
+    it('passes filename in path and char name to cli', function()
+        setup.install_ready = true
+        setup.zoned_since_load = true
+        events['addon command']('export', 'out.yml')
+        assert.are.equal('Squatched', cli_calls.export.name)
+        assert.is_true(cli_calls.export.path:find('out.yml', 1, true) ~= nil)
+    end)
+
+    it('does not call cli when not ready', function()
+        events['addon command']('export', 'out.yml')
+        assert.is_nil(cli_calls.export)
+    end)
+end)
+
+describe('import command', function()
+    local orig_io_open
+
+    before_each(function()
+        reset_state()
+        orig_io_open = io.open
+    end)
+
+    after_each(function()
+        io.open = orig_io_open
+    end)
+
+    it('does not call cli when not ready', function()
+        io.open = function() return { close = function() end } end
+        events['addon command']('import', 'macros.yml')
+        assert.is_true(last_chat():find('not configured', 1, true) ~= nil)
+        assert.is_nil(cli_calls.import)
+    end)
+
+    it('imports file successfully', function()
+        setup.install_ready = true
+        setup.zoned_since_load = true
+        io.open = function() return { close = function() end } end
+        events['addon command']('import', 'macros.yml')
+        assert.is_not_nil(cli_calls.import)
+        assert.is_true(last_chat():find('Imported', 1, true) ~= nil)
+        assert.is_true(last_chat():find('successfully', 1, true) ~= nil)
+    end)
+
+    it('surfaces import CLI failure to user', function()
+        setup.install_ready = true
+        setup.zoned_since_load = true
+        cli_calls.import_code = 1
+        cli_calls.import_out = 'invalid macro data'
+        io.open = function() return { close = function() end } end
+        events['addon command']('import', 'macros.yml')
+        assert.is_true(last_chat():find('Import failed', 1, true) ~= nil)
+        assert.is_true(last_chat():find('invalid macro data', 1, true) ~= nil)
+    end)
+
+    it('passes path with filename and char name to cli', function()
+        setup.install_ready = true
+        setup.zoned_since_load = true
+        io.open = function() return { close = function() end } end
+        events['addon command']('import', 'mybook.yml')
+        assert.are.equal('Squatched', cli_calls.import.name)
+        assert.is_true(cli_calls.import.path:find('mybook.yml', 1, true) ~= nil)
+    end)
+end)
+
+describe('validate command', function()
+    local orig_io_open
+
+    before_each(function()
+        reset_state()
+        orig_io_open = io.open
+    end)
+
+    after_each(function()
+        io.open = orig_io_open
+    end)
+
+    it('does not call cli when not ready', function()
+        io.open = function() return { close = function() end } end
+        events['addon command']('validate', 'macros.yml')
+        assert.is_true(last_chat():find('not configured', 1, true) ~= nil)
+        assert.is_nil(cli_calls.validate)
+    end)
+
+    it('shows usage when no filename given', function()
+        setup.install_ready = true
+        setup.zoned_since_load = true
+        events['addon command']('validate')
+        assert.is_true(last_chat():find('Usage:', 1, true) ~= nil)
+        assert.is_nil(cli_calls.validate)
+    end)
+
+    it('reports file not found for missing file', function()
+        setup.install_ready = true
+        setup.zoned_since_load = true
+        events['addon command']('validate', 'nofile.yml')
+        assert.is_true(last_chat():find('File not found', 1, true) ~= nil)
+        assert.is_nil(cli_calls.validate)
+    end)
+
+    it('reports validation passed', function()
+        setup.install_ready = true
+        setup.zoned_since_load = true
+        io.open = function() return { close = function() end } end
+        events['addon command']('validate', 'macros.yml')
+        assert.is_true(last_chat():find('Validation passed', 1, true) ~= nil)
+    end)
+
+    it('surfaces validation failure to user', function()
+        setup.install_ready = true
+        setup.zoned_since_load = true
+        cli_calls.validate_code = 1
+        cli_calls.validate_out = 'version: must be 1, got 99'
+        io.open = function() return { close = function() end } end
+        events['addon command']('validate', 'bad.yml')
+        assert.is_true(last_chat():find('Validation failed', 1, true) ~= nil)
+        assert.is_true(last_chat():find('version', 1, true) ~= nil)
+    end)
+
+    it('passes path with filename to cli', function()
+        setup.install_ready = true
+        setup.zoned_since_load = true
+        io.open = function() return { close = function() end } end
+        events['addon command']('validate', 'check.yml')
+        assert.is_true(cli_calls.validate.path:find('check.yml', 1, true) ~= nil)
+    end)
+end)
