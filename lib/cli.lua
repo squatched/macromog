@@ -77,7 +77,7 @@ function cli.list_all()
 end
 
 function cli.export(output, char_name)
-    return cli.run({ 'export', '--char-name', char_name, '-o', output })
+    return cli.run({ 'export', '--char-name', char_name, output })
 end
 
 function cli.import(yaml_path, char_name)
