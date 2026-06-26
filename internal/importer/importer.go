@@ -20,9 +20,11 @@ type Options struct {
 	CharacterDir string
 	YAMLPath     string
 	// Scope overrides the scope embedded in the YAML. Zero = use YAML scope.
-	Scope  scope.Scope
-	Backup bool // create a timestamped backup before writing (default: true)
-	DryRun bool // validate and plan without writing any files
+	Scope    scope.Scope
+	Backup   bool   // create a timestamped backup before writing (default: true)
+	DryRun   bool   // validate and plan without writing any files
+	CharName string // friendly name for backup folder; empty = charID only
+	BackupDir string // backup destination directory; empty = <CharacterDir>/backups
 }
 
 // SetInfo describes one macro set that was (or would be) written.
@@ -117,7 +119,11 @@ func Import(opts Options) (Result, error) {
 	// Backup before any writes.
 	var backupDir string
 	if opts.Backup {
-		backupDir, err = backup.Backup(opts.CharacterDir, filepath.Join(opts.CharacterDir, "backups"))
+		destDir := opts.BackupDir
+		if destDir == "" {
+			destDir = filepath.Join(opts.CharacterDir, "backups")
+		}
+		backupDir, err = backup.Backup(opts.CharacterDir, destDir, opts.CharName)
 		if err != nil {
 			return Result{BackupDir: backupDir, Sets: sets}, fmt.Errorf("backup: %w", err)
 		}

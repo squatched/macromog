@@ -29,8 +29,8 @@ Ultimately, we should have 3 things available in this release:
 - ~~//mmog import -> Should probably ask for confirmation since this is destructive~~
 - ~~Nowhere in the interface does it tell me that the file paths are in the data folder only. Might be worth surfacing.~~
 - ~~Need confirmation when we zone that a character has been associated with their hex id for this install (name it, "install <alias>").~~
-- Backups go to CHAR folder rather than into Macromog/data dir.
-- Importing in game doesn't work. The macros never get updated, then when you load, the old macros are re-written into the macro.dat files (subsequent exports after loading don't show the imported macros)
+- ~~Backups go to CHAR folder rather than into Macromog/data dir.~~ ✓ now write to addon data/ dir; folder named `<charName>_<charID>_backup_<ts>` (charName dropped if unknown)
+- ~~Importing in game doesn't work. The macros never get updated, then when you load, the old macros are re-written into the macro.dat files (subsequent exports after loading don't show the imported macros)~~ ✓ re-write .dat files on zone-in (0x0A) so they land after FFXI's zone-out flush but before its zone-in read
 
 ## To Test
 - //mmog import -> Confirm the macros change. When? Only after zoning? Does zoning overwrite them with what's in the game client so the export command is useless?

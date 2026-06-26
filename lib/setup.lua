@@ -10,6 +10,7 @@ local setup = {
     zoned_since_load = false,
     noticed_zone = false,
     learned = {},
+    pending_import = nil,
 }
 
 local function logged_in()
