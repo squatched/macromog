@@ -116,7 +116,7 @@ func maybeRegisterInstall(session *configSession, canonicalPath string) (install
 		return installContext{ffxiPath: access}, nil
 	}
 	ew := newErrWriter()
-	fmt.Fprintf(ew, "Auto-detected FFXI install at %s, not in config. Register? [Y/n] ", canonicalPath)
+	fmt.Fprintf(ew, "Auto-detected FFXI install at %s, not in config. Register? [Y/n] ", ew.Highlight(canonicalPath))
 	answerLine, ok := readStdinLine()
 	if !ok {
 		return installContext{ffxiPath: access}, nil
