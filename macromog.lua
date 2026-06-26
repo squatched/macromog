@@ -11,8 +11,6 @@ local detect = require('lib/detect')
 local log = require('lib/log')
 local setup = require('lib/setup')
 
-local import_pending = {}
-
 local function usage()
     log.user('Commands: export | import <file> | validate <file> | backup | debug | diag | help')
     log.user('File paths for import/validate are relative to the addon data/ folder, kupo!')
@@ -68,15 +66,6 @@ function handlers.import(filename)
         return
     end
     f:close()
-
-    local now = os.time()
-    local pending = import_pending[filename]
-    if not pending or (now - pending) > 10 then
-        import_pending[filename] = now
-        log.user('Warning: import will overwrite your current macros! Run the command again to confirm, kupo!')
-        return
-    end
-    import_pending[filename] = nil
 
     local code, out = cli.import(path, char_name())
     if code ~= 0 then

@@ -340,21 +340,10 @@ describe('import command', function()
         assert.is_nil(cli_calls.import)
     end)
 
-    it('shows confirmation prompt on first import', function()
+    it('imports file successfully', function()
         setup.install_ready = true
         setup.zoned_since_load = true
         io.open = function() return { close = function() end } end
-        events['addon command']('import', 'confirm.yml')
-        assert.is_nil(cli_calls.import)
-        assert.is_true(last_chat():find('confirm', 1, true) ~= nil)
-    end)
-
-    it('imports file successfully after confirmation', function()
-        setup.install_ready = true
-        setup.zoned_since_load = true
-        io.open = function() return { close = function() end } end
-        events['addon command']('import', 'macros.yml')
-        assert.is_nil(cli_calls.import)
         events['addon command']('import', 'macros.yml')
         assert.is_not_nil(cli_calls.import)
         assert.is_true(last_chat():find('Imported', 1, true) ~= nil)
@@ -367,8 +356,7 @@ describe('import command', function()
         cli_calls.import_code = 1
         cli_calls.import_out = 'invalid macro data'
         io.open = function() return { close = function() end } end
-        events['addon command']('import', 'fail.yml')
-        events['addon command']('import', 'fail.yml')
+        events['addon command']('import', 'macros.yml')
         assert.is_true(last_chat():find('Import failed', 1, true) ~= nil)
         assert.is_true(last_chat():find('invalid macro data', 1, true) ~= nil)
     end)
@@ -377,7 +365,6 @@ describe('import command', function()
         setup.install_ready = true
         setup.zoned_since_load = true
         io.open = function() return { close = function() end } end
-        events['addon command']('import', 'mybook.yml')
         events['addon command']('import', 'mybook.yml')
         assert.are.equal('Squatched', cli_calls.import.name)
         assert.is_true(cli_calls.import.path:find('mybook.yml', 1, true) ~= nil)
