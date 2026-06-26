@@ -11,8 +11,11 @@ local detect = require('lib/detect')
 local log = require('lib/log')
 local setup = require('lib/setup')
 
+local import_pending = {}
+
 local function usage()
     log.user('Commands: export | import <file> | validate <file> | backup | debug | diag | help')
+    log.user('File paths for import/validate are relative to the addon data/ folder, kupo!')
 end
 
 local function require_ready()
@@ -54,17 +57,26 @@ function handlers.import(filename)
         return
     end
     if not filename then
-        log.user('Usage: //mmog import <filename>')
+        log.user('Usage: //mmog import <filename>  (relative to addon data/ folder)')
         return
     end
 
     local path = windower.addon_path .. 'data/' .. filename
     local f = io.open(path, 'r')
     if not f then
-        log.user('File not found: ' .. filename)
+        log.user('File not found: ' .. filename .. '  (paths are relative to the addon data/ folder)')
         return
     end
     f:close()
+
+    local now = os.time()
+    local pending = import_pending[filename]
+    if not pending or (now - pending) > 10 then
+        import_pending[filename] = now
+        log.user('Warning: import will overwrite your current macros! Run the command again to confirm, kupo!')
+        return
+    end
+    import_pending[filename] = nil
 
     local code, out = cli.import(path, char_name())
     if code ~= 0 then
@@ -79,14 +91,14 @@ function handlers.validate(filename)
         return
     end
     if not filename then
-        log.user('Usage: //mmog validate <filename>')
+        log.user('Usage: //mmog validate <filename>  (relative to addon data/ folder)')
         return
     end
 
     local path = windower.addon_path .. 'data/' .. filename
     local f = io.open(path, 'r')
     if not f then
-        log.user('File not found: ' .. filename)
+        log.user('File not found: ' .. filename .. '  (paths are relative to the addon data/ folder)')
         return
     end
     f:close()
@@ -108,7 +120,8 @@ function handlers.backup()
         log.user('Backup failed: ' .. (out or ''))
         return
     end
-    log.user('Backup complete, kupo!')
+    local msg = (out or ''):match('^(.-)%s*$')
+    log.user(msg ~= '' and msg or 'Backup complete, kupo!')
 end
 
 function handlers.debug(mode)

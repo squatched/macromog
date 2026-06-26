@@ -23,12 +23,12 @@ Ultimately, we should have 3 things available in this release:
 - Package the plugin as a release.
 
 ## Bugs
-- I logged in, I've obviously zoned because the character is registered, but I can't do any //mmog commands? "Zone once before using any macromog commands, kupo!"
+- ~~I logged in, I've obviously zoned because the character is registered, but I can't do any //mmog commands? "Zone once before using any macromog commands, kupo!"~~
 - ~~//mmog export -> unknown shorthand flag: 'o' in -o~~
-- //mmog backup -> Doesn't tell me where/what the backup is.
-- //mmog import -> Should probably ask for confirmation since this is destructive
-- Nowhere in the interface does it tell me that the file paths are in the data folder only. Might be worth surfacing.
-- Need confirmation when we zone that a character has been associated with their hex id for this install (name it, "install <alias>").
+- ~~//mmog backup -> Doesn't tell me where/what the backup is.~~
+- ~~//mmog import -> Should probably ask for confirmation since this is destructive~~
+- ~~Nowhere in the interface does it tell me that the file paths are in the data folder only. Might be worth surfacing.~~
+- ~~Need confirmation when we zone that a character has been associated with their hex id for this install (name it, "install <alias>").~~
 
 ## To Test
 - //mmog import -> Confirm the macros change. When? Only after zoning? Does zoning overwrite them with what's in the game client so the export command is useless?

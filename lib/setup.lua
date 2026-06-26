@@ -153,6 +153,7 @@ function setup.ensure_character(name)
         log.user('Alias setup failed: ' .. (out or ''))
         return false
     end
+    log.user("Character '" .. name .. "' has been registered with this install, kupo!")
     setup.learned[name] = true
     return true
 end
@@ -172,8 +173,14 @@ end
 function setup.on_load()
     log.refresh()
     setup.ensure_install()
-    if logged_in() and not setup.zoned_since_load then
-        log.user('Zone once before using //mmog commands, kupo!')
+    if logged_in() then
+        local name = player_name()
+        if setup.install_ready and name and setup.ensure_character(name) then
+            setup.zoned_since_load = true
+            setup.noticed_zone = true
+        elseif not setup.zoned_since_load then
+            log.user('Zone once before using //mmog commands, kupo!')
+        end
     end
 end
 

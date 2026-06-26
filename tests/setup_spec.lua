@@ -174,16 +174,63 @@ describe('setup readiness', function()
         assert.is_nil(cli_calls.set_alias)
     end)
 
-    it('on_load warns when logged in without zone', function()
+    it('on_load warns when player name unavailable at load', function()
         windower.ffxi.get_info = function()
             return { logged_in = true }
+        end
+        local orig_get_player = windower.ffxi.get_player
+        windower.ffxi.get_player = function()
+            return nil
         end
         local msgs = {}
         windower.add_to_chat = function(_, msg)
             msgs[#msgs + 1] = msg
         end
         setup.on_load()
+        windower.ffxi.get_player = orig_get_player
         assert.is_true(msgs[#msgs]:find('Zone once', 1, true) ~= nil)
+    end)
+
+    it('on_load skips zone requirement when character is already registered', function()
+        windower.ffxi.get_info = function()
+            return { logged_in = true }
+        end
+        cli_calls.config_show = {
+            config = {
+                installs = {
+                    steam = {
+                        path = '/ffxi',
+                        characters = { a1b2c3d4 = { name = 'Squatched' } },
+                    },
+                },
+            },
+        }
+        local msgs = {}
+        windower.add_to_chat = function(_, msg)
+            msgs[#msgs + 1] = msg
+        end
+        setup.on_load()
+        assert.is_true(setup.zoned_since_load)
+        for _, msg in ipairs(msgs) do
+            assert.is_false(msg:find('Zone once', 1, true) ~= nil)
+        end
+    end)
+
+    it('on_load eagerly registers unregistered character and skips zone requirement', function()
+        windower.ffxi.get_info = function()
+            return { logged_in = true }
+        end
+        cli_calls.config_show = { config = { installs = { steam = { path = '/ffxi' } } } }
+        local msgs = {}
+        windower.add_to_chat = function(_, msg)
+            msgs[#msgs + 1] = msg
+        end
+        setup.on_load()
+        assert.is_true(setup.zoned_since_load)
+        assert.are.equal('a1b2c3d4', cli_calls.set_alias.char_id)
+        for _, msg in ipairs(msgs) do
+            assert.is_false(msg:find('Zone once', 1, true) ~= nil)
+        end
     end)
 
     it('fails ensure_install when config_show errors', function()
@@ -364,6 +411,41 @@ describe('setup readiness', function()
         end
         assert.is_false(setup.ensure_character('Squatched'))
         assert.is_true(msgs[#msgs]:find('Alias setup failed', 1, true) ~= nil)
+    end)
+
+    it('announces character when newly registered', function()
+        cli_calls.config_show = { config = { installs = { steam = {} } } }
+        local msgs = {}
+        windower.add_to_chat = function(_, msg)
+            msgs[#msgs + 1] = msg
+        end
+        assert.is_true(setup.ensure_character('Squatched'))
+        local found = false
+        for _, msg in ipairs(msgs) do
+            if msg:find('Squatched', 1, true) and msg:find('registered', 1, true) then
+                found = true
+            end
+        end
+        assert.is_true(found)
+    end)
+
+    it('does not announce when character was already registered', function()
+        cli_calls.config_show = {
+            config = {
+                installs = {
+                    steam = {
+                        path = '/ffxi',
+                        characters = { a1b2c3d4 = { name = 'Squatched' } },
+                    },
+                },
+            },
+        }
+        local msgs = {}
+        windower.add_to_chat = function(_, msg)
+            msgs[#msgs + 1] = msg
+        end
+        assert.is_true(setup.ensure_character('Squatched'))
+        assert.are.equal(0, #msgs)
     end)
 
     it('ensure_character returns false when config_show fails', function()
