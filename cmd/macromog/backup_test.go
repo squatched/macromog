@@ -156,6 +156,9 @@ func TestRunBackup_JSON(t *testing.T) {
 }
 
 func TestRunBackup_OutBadPath(t *testing.T) {
+	if os.Getuid() == 0 {
+		t.Skip("root can create arbitrary paths; skipping bad-out-path test")
+	}
 	tmp := prepBackupCharDir(t)
 	args := []string{"--char-dir", tmp, "--out", "/nonexistent/cannot/create"}
 	if got := runBackup(args, newTextPrinter()); got != 1 {

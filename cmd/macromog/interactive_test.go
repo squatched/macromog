@@ -55,7 +55,7 @@ func TestMaybeRegisterInstall(t *testing.T) {
 			session := testSession(t, config.Empty())
 			setInteractiveStdin(t, tc.input)
 
-			ctx, err := maybeRegisterInstall(session, ffxiDir)
+			ctx, err := maybeRegisterInstall(session, ffxiDir, false)
 			if err != nil {
 				t.Fatalf("maybeRegisterInstall: %v", err)
 			}
@@ -89,7 +89,7 @@ func TestMaybeRegisterInstall_CI(t *testing.T) {
 	ffxiDir, _, _ := makeFFXITree(t, "a1b2c3d4")
 	session := testSession(t, config.Empty())
 
-	_, err := maybeRegisterInstall(session, ffxiDir)
+	_, err := maybeRegisterInstall(session, ffxiDir, false)
 	if err == nil {
 		t.Fatal("expected error in CI mode, got nil")
 	}
@@ -112,7 +112,7 @@ func TestMaybeRegisterInstall_SecondDoesNotChangeDefault(t *testing.T) {
 	session := testSession(t, cfg)
 	setInteractiveStdin(t, "\nother\n")
 
-	ctx, err := maybeRegisterInstall(session, ffxiB)
+	ctx, err := maybeRegisterInstall(session, ffxiB, false)
 	if err != nil {
 		t.Fatal(err)
 	}
