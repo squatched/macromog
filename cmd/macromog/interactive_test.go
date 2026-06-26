@@ -82,6 +82,22 @@ func TestMaybeRegisterInstall(t *testing.T) {
 	}
 }
 
+func TestMaybeRegisterInstall_CI(t *testing.T) {
+	t.Setenv("CI", "1")
+	t.Cleanup(restoreInteractiveStdin)
+
+	ffxiDir, _, _ := makeFFXITree(t, "a1b2c3d4")
+	session := testSession(t, config.Empty())
+
+	_, err := maybeRegisterInstall(session, ffxiDir)
+	if err == nil {
+		t.Fatal("expected error in CI mode, got nil")
+	}
+	if !strings.Contains(err.Error(), ffxiDir) {
+		t.Errorf("error should mention detected path; got: %v", err)
+	}
+}
+
 func TestMaybeRegisterInstall_SecondDoesNotChangeDefault(t *testing.T) {
 	ffxiA, _, _ := makeFFXITree(t, "a1b2c3d4")
 	ffxiB, _, _ := makeFFXITree(t, "e5f6a7b8")

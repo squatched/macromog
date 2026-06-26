@@ -107,10 +107,16 @@ func maybeRegisterInstall(session *configSession, canonicalPath string) (install
 		return installContext{}, err
 	}
 	if !stdinIsTerminal() {
+		if isCI() {
+			return installContext{}, fmt.Errorf(
+				"auto-detected FFXI install at %s is not in config; run 'macromog config add-install' or use --ffxi-path",
+				canonicalPath,
+			)
+		}
 		return installContext{ffxiPath: access}, nil
 	}
 	ew := newErrWriter()
-	fmt.Fprint(ew, "Path not in config. Register as install? [Y/n] ")
+	fmt.Fprintf(ew, "Auto-detected FFXI install at %s, not in config. Register? [Y/n] ", canonicalPath)
 	answerLine, ok := readStdinLine()
 	if !ok {
 		return installContext{ffxiPath: access}, nil
