@@ -274,16 +274,14 @@ describe('macromog lifecycle events', function()
             },
         }
 
+        -- Login now eagerly registers the new character.
         events.login()
-        assert.is_false(setup.zoned_since_load)
-
-        events['incoming chunk'](0x0A)
-
-        windower.ffxi.get_player = orig_get_player
-
+        assert.is_true(setup.zoned_since_load)
         assert.is_true(setup.learned.Altchar)
         assert.are.equal('b2c3d4e5', cli_calls.set_alias.char_id)
         assert.are.equal('Altchar', cli_calls.set_alias.name)
+
+        windower.ffxi.get_player = orig_get_player
     end)
 end)
 

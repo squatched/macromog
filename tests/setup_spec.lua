@@ -342,6 +342,30 @@ describe('setup readiness', function()
         assert.is_false(setup.noticed_zone)
     end)
 
+    it('on_login skips zone requirement when character is already registered', function()
+        setup.install_ready = true
+        cli_calls.config_show = {
+            config = {
+                installs = {
+                    steam = {
+                        path = '/ffxi',
+                        characters = { a1b2c3d4 = { name = 'Squatched' } },
+                    },
+                },
+            },
+        }
+        setup.on_login('Squatched')
+        assert.is_true(setup.zoned_since_load)
+        assert.is_true(setup.noticed_zone)
+    end)
+
+    it('on_login skips zone requirement when registering a new character', function()
+        setup.install_ready = true
+        setup.on_login('Squatched')
+        assert.is_true(setup.zoned_since_load)
+        assert.are.equal('a1b2c3d4', cli_calls.set_alias.char_id)
+    end)
+
     it('skips already-aliased characters when picking folder', function()
         cli_calls.config_show = { config = { installs = { steam = {} } } }
         cli_calls.list_all = {

@@ -178,8 +178,8 @@ windower.register_event('load', function()
     log.user('Kupomog at your service, kupo! Type //mmog help for commands.')
 end)
 
-windower.register_event('login', function()
-    setup.on_login()
+windower.register_event('login', function(name)
+    setup.on_login(name)
 end)
 
 windower.register_event('incoming chunk', function(id)

@@ -184,9 +184,16 @@ function setup.on_load()
     end
 end
 
-function setup.on_login()
+function setup.on_login(name)
     setup.zoned_since_load = false
     setup.noticed_zone = false
+    if setup.install_ready then
+        local n = name or player_name()
+        if n and setup.ensure_character(n) then
+            setup.zoned_since_load = true
+            setup.noticed_zone = true
+        end
+    end
 end
 
 function setup.ready()
