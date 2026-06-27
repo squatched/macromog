@@ -6,6 +6,10 @@ Macromog allows you to manage your entire collection of FFXI macros using simple
 
 Perfect for players with 40 macro books full of job-specific setups, gear swaps, and complex commands.
 
+
+## WARNING
+While Macromog does **not** alter packets or interfere with or automate any game operations, it is still technically against the terms of service so, use at your own risk.
+
 ## Features
 
 - Export your current in-game macros (including custom book names) to a structured `.yml` file! Super easy to read and understand instead of that pesky `.dat` format, you're not a machine. Are you?
@@ -72,7 +76,7 @@ The format is straightforward (use spaces, not tabs):
 ```yaml
 books:
   1:
-    name: WHM75NIN
+    name: MyMacros
     sets:
       1:
         ctrl:
@@ -80,6 +84,11 @@ books:
             name: Cure
             contents:
               - /ma "Cure IV" <t>
+        alt:
+          1:
+            name: Dia
+            contents:
+              - /ma "Dia" <t>
 ```
 
 Macro titles are limited to 8 characters; each macro can have up to 6 lines. The default export is a full snapshot of all your macro books — import treats it the same way, so books you remove from the YAML will be cleared in-game. Edit freely within what's there, and don't delete books, sets, or macros you want to keep!

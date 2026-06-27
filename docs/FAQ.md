@@ -161,3 +161,17 @@ Yes. Macromog reads and writes the same `.dat` and `.ttl` file format that retai
 ### Does Macromog support both the English and Japanese FFXI clients?
 
 Yes. Both the EN and JP clients use the same binary DAT format with Shift-JIS text encoding. Macromog handles both. Macro adventures know no borders, kupo!
+
+### Does Macromog handle macros with auto-translate in them?
+
+Yes. Macromog does not interpret them for you, but if you have macros with something like `/ma <Cure III> <t>` in them, that will get exported using special syntax `≺[07021203]≻` in the macro. This will import just fine too.
+
+### Does Macromog understand auto-translate tokens or help me to see what they are beyond their ID number?
+
+No. Macromog does not know that `≺[07021203]≻` is actually `<Cure III>` and there is currently no way to author an auto-translate token in YAML without first exporting it. If you happen to remember that `07021203` is the ID for the `Cure III` auto-translate token, then sure, feel free to type out `<[07021203]>` into your  macro to get `<Cure III>`, that will work! But Macromog can't help you make that association.
+
+**Hear This Well**: Should you decide to alter a line in a macro with an auto-translate token, macromog can _NOT_ ensure your macro fits within the line length limitations of macros. It's entirely up to you to ensure that the resulting macro line is less than the limit (60 characters, including each character in the token, so `<Dia>` counts for 3x chars and `<Good luck!>' counts for 10 but their token IDs are both 8 digits) and if you mess it up, we don't know for sure how the game client will react so _DO THIS AT YOUR OWN RISK._
+
+### Will Macromog appropriately handle length of macros with auto translate tokens in them?
+
+No. The FFXI game client knows that `07021203` is actually `<Cure III>` so it factors that into character limits for your macro lines. Since Macromog has no way of kknowing that, it can only assume that number is from the game client already so it will not validate their length.
