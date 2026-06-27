@@ -423,7 +423,7 @@ Reads a YAML file, validates it, and writes macros to `.dat` files. A timestampe
 
 **Flags:**
 - `--ffxi-path`, `--install`, `--char-dir`, `--char-name`, `--all` — see [Global Flags](#global-flags) and [Configuration](#configuration)
-- `--no-backup` — skip the automatic backup (use with care)
+- `--no-backup` — skip the automatic backup (use with care; see [FAQ](FAQ.md#backups-and-recovery))
 - `--dry-run` — validate the YAML and show what would be written, without writing anything
 - `--scope <selector>` — override the scope embedded in the YAML (repeatable; see [Scope Selectors](#scope-selectors))
 

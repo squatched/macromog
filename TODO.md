@@ -23,6 +23,7 @@ Ultimately, we should have 3 things available in this release:
 - Package the plugin as a release.
 
 ## Bugs
+- `--dry-run` only reports which `.dat` files would be written; it does not show which books/sets would be deleted by the import scope, nor any diff of macro content. It should show a full picture of what would change (writes + clears).
 - ~~I logged in, I've obviously zoned because the character is registered, but I can't do any //mmog commands? "Zone once before using any macromog commands, kupo!"~~
 - ~~//mmog export -> unknown shorthand flag: 'o' in -o~~
 - ~~//mmog backup -> Doesn't tell me where/what the backup is.~~
@@ -31,12 +32,12 @@ Ultimately, we should have 3 things available in this release:
 - ~~Need confirmation when we zone that a character has been associated with their hex id for this install (name it, "install <alias>").~~
 - ~~Backups go to CHAR folder rather than into Macromog/data dir.~~ ✓ now write to addon data/ dir; folder named `<charName>_<charID>_backup_<ts>` (charName dropped if unknown)
 - ~~Importing in game doesn't work. The macros never get updated, then when you load, the old macros are re-written into the macro.dat files (subsequent exports after loading don't show the imported macros)~~ ✓ re-write .dat files on zone-in (0x0A) so they land after FFXI's zone-out flush but before its zone-in read
-
-## To Test
-- //mmog import -> Confirm the macros change. When? Only after zoning? Does zoning overwrite them with what's in the game client so the export command is useless?
+- `bin/macromog export --char-name=Maathilda --scope B1S1C*` outputs 10x `selections`. `{book: 1, set: 1, type: ctrl, key: 0}` instead of simply `{book: 1, set: 1, type: ctrl}` (there's one for each `key` 0-9).
+- 2x characters with the same name on different servers requires manual configuration intervention, we should think of a way to server namespace them (maybe adding a `server` config entry and then prompting to disambiguate if they aren't specified something like `<character name>@<server>`).
 
 # v1+
 - CLI config: `color: auto|always|never`
 - CLI config: `default_output_format: text|json`
 - CLI config: backup directory preference
 - CLI config healing: on validation failure, try removing the offending key and re-validating; if still invalid, remove its parent and retry; escalate until valid or empty; offer full reset only as last resort
+- CLI backup restore functionality (we create the backup files, why not make it easy to restore from them)
