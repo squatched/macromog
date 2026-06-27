@@ -5,6 +5,13 @@ All notable changes to Macromog will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.1](https://github.com/squatched/macromog/compare/v1.0.0...v1.0.1) (2026-06-27)
+
+
+### Bug Fixes
+
+* **ci:** make linux elf executable ([99845d7](https://github.com/squatched/macromog/commit/99845d729c270ce56d31fb050df9cde7b4fff323))
+
 ## 1.0.0 (2026-06-27)
 
 

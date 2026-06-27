@@ -3,7 +3,7 @@
 
 _addon.name = 'Macromog'
 _addon.author = 'Squatched'
-_addon.version = '1.0.0' -- x-release-please-version
+_addon.version = '1.0.1' -- x-release-please-version
 _addon.commands = { 'macromog', 'mmog' }
 
 local cli = require('lib/cli')
