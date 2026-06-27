@@ -38,10 +38,11 @@ type importSetInfo struct {
 
 func newImportCmd(state *cliState) *cobra.Command {
 	var (
-		chars    charSelectOpts
-		noBackup bool
-		dryRun   bool
-		scopeSel []string
+		chars           charSelectOpts
+		noBackup        bool
+		dryRun          bool
+		scopeSel        []string
+		importBackupDir string
 	)
 
 	cmd := &cobra.Command{
@@ -110,11 +111,17 @@ Examples:
 
 			for _, dir := range charDirs {
 				charID := filepath.Base(dir)
+				charName := chars.charName
+				if charName == "" {
+					charName = lookupCharName(filepath.Dir(dir), charID)
+				}
 				result, ierr := importer.Import(importer.Options{
 					CharacterDir: dir,
 					YAMLPath:     yamlAbs,
 					Scope:        importScope,
 					Backup:       !noBackup,
+					BackupDir:    importBackupDir,
+					CharName:     charName,
 					DryRun:       dryRun,
 				})
 				if ierr != nil {
@@ -193,6 +200,7 @@ Examples:
 	addCharFlags(cmd, &chars)
 	cmd.Flags().BoolVar(&chars.all, "all", false, "import into all discovered characters without prompting")
 	cmd.Flags().BoolVar(&noBackup, "no-backup", false, "skip automatic backup before writing")
+	cmd.Flags().StringVar(&importBackupDir, "backup-dir", "", "directory for the pre-import backup (default: <char-dir>/backups)")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "validate and show what would be written, without writing")
 	cmd.Flags().StringArrayVar(&scopeSel, "scope", nil, "override import scope (repeatable; e.g. B1, B1S3)")
 

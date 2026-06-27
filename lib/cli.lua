@@ -80,16 +80,31 @@ function cli.export(output, char_name)
     return cli.run({ 'export', '--char-name', char_name, output })
 end
 
-function cli.import(yaml_path, char_name)
-    return cli.run({ 'import', yaml_path, '--char-name', char_name })
+function cli.import(yaml_path, char_name, backup_dir, no_backup)
+    local args = { 'import', yaml_path, '--char-name', char_name }
+    if backup_dir then
+        args[#args + 1] = '--backup-dir'
+        args[#args + 1] = backup_dir
+    end
+    if no_backup then
+        args[#args + 1] = '--no-backup'
+    end
+    return cli.run(args)
 end
 
 function cli.validate(yaml_path)
     return cli.run({ 'validate', yaml_path })
 end
 
-function cli.backup(char_name)
-    return cli.run({ 'backup', '--char-name', char_name, '--in-place' })
+function cli.backup(char_name, dest_dir)
+    local args = { 'backup', '--char-name', char_name }
+    if dest_dir then
+        args[#args + 1] = '--out'
+        args[#args + 1] = dest_dir
+    else
+        args[#args + 1] = '--in-place'
+    end
+    return cli.run(args)
 end
 
 return cli

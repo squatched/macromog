@@ -67,12 +67,16 @@ function handlers.import(filename)
     end
     f:close()
 
-    local code, out = cli.import(path, char_name())
+    local code, out = cli.validate(path)
     if code ~= 0 then
-        log.user('Import failed: ' .. (out or ''))
+        log.user('Import validation failed: ' .. (out or ''))
         return
     end
-    log.user('Imported ' .. filename .. ' successfully, kupo!')
+
+    local name = char_name()
+    local data_dir = windower.addon_path .. 'data'
+    setup.pending_import = { path = path, name = name, backup_dir = data_dir }
+    log.user('Staged ' .. filename .. '. Zone once to apply in-game, kupo!')
 end
 
 function handlers.validate(filename)
@@ -104,7 +108,7 @@ function handlers.backup()
     if not require_ready() then
         return
     end
-    local code, out = cli.backup(char_name())
+    local code, out = cli.backup(char_name(), windower.addon_path .. 'data')
     if code ~= 0 then
         log.user('Backup failed: ' .. (out or ''))
         return
@@ -172,7 +176,25 @@ windower.register_event('login', function(name)
 end)
 
 windower.register_event('incoming chunk', function(id)
-    if id == 0x0A and not setup.zoned_since_load then
-        setup.on_zone()
+    if id == 0x0A then
+        if not setup.zoned_since_load then
+            setup.on_zone()
+        end
+        if setup.pending_import then
+            local pi = setup.pending_import
+            setup.pending_import = nil
+            local code, out = cli.import(pi.path, pi.name, pi.backup_dir)
+            if code == 0 then
+                local backup_path = (out or ''):match('backed up to ([^\n\r]+)')
+                if backup_path then
+                    local backup_name = backup_path:match('[^\\/]+$') or backup_path
+                    log.user('Macros successfully applied, kupo! (Pre-import backup at ' .. backup_name .. ')')
+                else
+                    log.user('Macros successfully applied, kupo!')
+                end
+            else
+                log.user('Zone-in macro apply failed: ' .. (out or '') .. '. Re-run //mmog import, kupo!')
+            end
+        end
     end
 end)

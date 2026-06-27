@@ -9,11 +9,18 @@ import (
 )
 
 // Backup copies all *.dat and *.ttl files from charDir into a new subdirectory
-// of destDir named "<charID>_YYYYMMDD_HHMMSS" and returns that subdirectory's path.
-func Backup(charDir, destDir string) (string, error) {
+// of destDir. The subdirectory is named "<charName>_<charID>_backup_YYYYMMDD_HHMMSS"
+// when charName is known and different from charID, otherwise "<charID>_backup_YYYYMMDD_HHMMSS".
+func Backup(charDir, destDir, charName string) (string, error) {
 	charID := filepath.Base(charDir)
 	stamp := time.Now().UTC().Format("20060102_150405")
-	backupDir := filepath.Join(destDir, charID+"_"+stamp)
+	var folderName string
+	if charName != "" && charName != charID {
+		folderName = charName + "_" + charID + "_backup_" + stamp
+	} else {
+		folderName = charID + "_backup_" + stamp
+	}
+	backupDir := filepath.Join(destDir, folderName)
 	if err := os.MkdirAll(backupDir, 0o755); err != nil {
 		return "", err
 	}

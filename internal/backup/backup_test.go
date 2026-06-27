@@ -14,7 +14,7 @@ func TestBackup_CreatesNamedDirectory(t *testing.T) {
 	tmp := prepCharDir(t)
 	dest := t.TempDir()
 
-	dir, err := backup.Backup(tmp, dest)
+	dir, err := backup.Backup(tmp, dest, "")
 	if err != nil {
 		t.Fatalf("Backup: %v", err)
 	}
@@ -27,10 +27,28 @@ func TestBackup_CreatesNamedDirectory(t *testing.T) {
 		t.Errorf("backup dir %s not directly under dest %s", dir, dest)
 	}
 
-	// Name must start with the char ID (basename of the source dir).
+	// Without charName: name is "<charID>_backup_<stamp>".
 	charID := filepath.Base(tmp)
-	if !strings.HasPrefix(filepath.Base(dir), charID+"_") {
-		t.Errorf("backup dir name %q does not start with %q", filepath.Base(dir), charID+"_")
+	base := filepath.Base(dir)
+	if !strings.HasPrefix(base, charID+"_backup_") {
+		t.Errorf("backup dir name %q does not match %q", base, charID+"_backup_<stamp>")
+	}
+}
+
+func TestBackup_CreatesNamedDirectory_WithCharName(t *testing.T) {
+	tmp := prepCharDir(t)
+	dest := t.TempDir()
+
+	dir, err := backup.Backup(tmp, dest, "Squatched")
+	if err != nil {
+		t.Fatalf("Backup: %v", err)
+	}
+
+	charID := filepath.Base(tmp)
+	base := filepath.Base(dir)
+	wantPrefix := "Squatched_" + charID + "_backup_"
+	if !strings.HasPrefix(base, wantPrefix) {
+		t.Errorf("backup dir name %q does not match %q", base, wantPrefix+"<stamp>")
 	}
 }
 
@@ -39,7 +57,7 @@ func TestBackup_CopiesDatAndTtlFiles(t *testing.T) {
 	tmp := prepCharDir(t)
 	dest := t.TempDir()
 
-	backupDir, err := backup.Backup(tmp, dest)
+	backupDir, err := backup.Backup(tmp, dest, "")
 	if err != nil {
 		t.Fatalf("Backup: %v", err)
 	}
@@ -61,7 +79,7 @@ func TestBackup_SkipsSubdirectoriesAndOtherFiles(t *testing.T) {
 	_ = os.WriteFile(filepath.Join(tmp, "notes.txt"), []byte("ignore me"), 0o644)
 	_ = os.MkdirAll(filepath.Join(tmp, "subdir"), 0o755)
 
-	backupDir, err := backup.Backup(tmp, dest)
+	backupDir, err := backup.Backup(tmp, dest, "")
 	if err != nil {
 		t.Fatalf("Backup: %v", err)
 	}
@@ -82,7 +100,7 @@ func TestBackup_EmptyDir(t *testing.T) {
 	tmp := t.TempDir()
 	dest := t.TempDir()
 
-	dir, err := backup.Backup(tmp, dest)
+	dir, err := backup.Backup(tmp, dest, "")
 	if err != nil {
 		t.Fatalf("Backup empty dir: %v", err)
 	}
@@ -110,7 +128,7 @@ func TestBackup_UnreadableSourceFile(t *testing.T) {
 	t.Cleanup(func() { _ = os.Chmod(datPath, 0o644) })
 
 	dest := t.TempDir()
-	if _, err := backup.Backup(tmp, dest); err == nil {
+	if _, err := backup.Backup(tmp, dest, ""); err == nil {
 		t.Error("expected error when source file is unreadable")
 	}
 }

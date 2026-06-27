@@ -84,11 +84,15 @@ Examples:
 
 			for _, dir := range charDirs {
 				charID := filepath.Base(dir)
+				charName := chars.charName
+				if charName == "" {
+					charName = lookupCharName(filepath.Dir(dir), charID)
+				}
 				destDir := baseDestDir
 				if inPlace {
 					destDir = filepath.Join(dir, "backups")
 				}
-				backupDir, berr := backup.Backup(dir, destDir)
+				backupDir, berr := backup.Backup(dir, destDir, charName)
 				if berr != nil {
 					if !p.IsJSON() {
 						ew := p.Err()
