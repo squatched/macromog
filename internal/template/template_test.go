@@ -101,8 +101,8 @@ func TestGenerate_MacroScope(t *testing.T) {
 	sc := scope.Scope{
 		Level: scope.LevelMacro,
 		Selections: []scope.Selection{
-			{Book: 1, Set: 3, Type: scope.TypeAlt, Key: 1},
-			{Book: 1, Set: 3, Type: scope.TypeCtrl, Key: 2},
+			{Book: 1, Set: 3, Type: scope.TypeAlt, Key: keyPtr(1)},
+			{Book: 1, Set: 3, Type: scope.TypeCtrl, Key: keyPtr(2)},
 		},
 	}
 	doc := tmpl.Generate(sc, "")
@@ -160,3 +160,5 @@ func TestGenerate_ValidatesClean(t *testing.T) {
 		t.Error("template output should not contain exported_at")
 	}
 }
+
+func keyPtr(n int) *int { return &n }

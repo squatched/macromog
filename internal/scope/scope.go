@@ -30,12 +30,15 @@ const (
 //
 //	book:  Book only
 //	set:   Book, Set
-//	macro: Book, Set, Type, Key
+//	macro: Book, Set, Type, and optionally Key
+//
+// At macro level, a nil Key matches all keys of the given Type (wildcard).
+// A non-nil Key matches that specific key (0–9).
 type Selection struct {
 	Book int       `yaml:"book"`
 	Set  int       `yaml:"set,omitempty"`
 	Type MacroType `yaml:"type,omitempty"`
-	Key  int       `yaml:"key,omitempty"`
+	Key  *int      `yaml:"key,omitempty"`
 }
 
 // Scope is the authority boundary embedded in a YAML document.
@@ -132,12 +135,15 @@ func inferLevel(sels []Selection) Level {
 //	selector   = book_seg ( ',' sibling )*
 //	book_seg   = 'B' numspec [ set_seg ]
 //	set_seg    = 'S' numspec [ key_seg ]
-//	key_seg    = ( 'C' | 'A' ) numspec
+//	key_seg    = ( 'C' | 'A' ) [ numspec ]
 //	numspec    = '*' | number [ '-' number ]
 //	sibling    = book_seg | set_seg | key_seg | numspec   (inherits parent type)
 //
 // Wildcards at the book level ('B*') signal full scope.
 // Wildcards at the set level ('B<n>S*') produce a book-level selection.
+// C and A may omit numspec only at end-of-input or before a type-letter sibling
+// (e.g. "B1S3C,A" = all ctrl + all alt). A digit sibling after a bare C or A
+// is invalid for the same reason "B,1" is: the type letter needs a numspec.
 // Multiple books before S or multiple sets before C/A are disallowed; use
 // separate --scope flags instead.
 type parser struct {
@@ -150,6 +156,14 @@ func (p *parser) peek() byte {
 		return 0
 	}
 	return p.input[p.pos]
+}
+
+func (p *parser) peekAt(offset int) byte {
+	pos := p.pos + offset
+	if pos >= len(p.input) {
+		return 0
+	}
+	return p.input[pos]
 }
 
 func (p *parser) atEnd() bool { return p.pos >= len(p.input) }
@@ -259,23 +273,29 @@ func (p *parser) parse() ([]Selection, error) {
 				return nil, fmt.Errorf("C (ctrl) requires a preceding S (set) component")
 			}
 			p.consume()
-			nums, wild, err := p.parseNumSpec(0, 9)
-			if err != nil {
-				return nil, fmt.Errorf("ctrl: %w", err)
-			}
 			c.lastTag = 'C'
 			if c.depth != 0 && c.depth != 'M' {
 				return nil, fmt.Errorf("cannot mix macro-level selector with other-level selectors in one --scope value")
 			}
 			c.depth = 'M'
+			// Bare C with no numspec is allowed only at end-of-input or before a
+			// type-letter sibling (",C" or ",A"). "C,3" is invalid for the same
+			// reason "B,1" is: the type letter requires a numspec or a type-letter
+			// sibling, not a bare digit.
+			if p.atEnd() || (p.peek() == ',' && (p.peekAt(1) == 'C' || p.peekAt(1) == 'A')) {
+				sels = append(sels, Selection{Book: c.book, Set: c.set, Type: TypeCtrl})
+				break
+			}
+			nums, wild, err := p.parseNumSpec(0, 9)
+			if err != nil {
+				return nil, fmt.Errorf("ctrl: %w", err)
+			}
 			if wild {
-				for k := 0; k <= 9; k++ {
-					sels = append(sels, Selection{Book: c.book, Set: c.set, Type: TypeCtrl, Key: k})
-				}
+				sels = append(sels, Selection{Book: c.book, Set: c.set, Type: TypeCtrl})
 				break
 			}
 			for _, n := range nums {
-				sels = append(sels, Selection{Book: c.book, Set: c.set, Type: TypeCtrl, Key: n})
+				sels = append(sels, Selection{Book: c.book, Set: c.set, Type: TypeCtrl, Key: &n})
 			}
 
 		// --- Alt key component ---
@@ -284,23 +304,26 @@ func (p *parser) parse() ([]Selection, error) {
 				return nil, fmt.Errorf("A (alt) requires a preceding S (set) component")
 			}
 			p.consume()
-			nums, wild, err := p.parseNumSpec(0, 9)
-			if err != nil {
-				return nil, fmt.Errorf("alt: %w", err)
-			}
 			c.lastTag = 'A'
 			if c.depth != 0 && c.depth != 'M' {
 				return nil, fmt.Errorf("cannot mix macro-level selector with other-level selectors in one --scope value")
 			}
 			c.depth = 'M'
+			// Same rule as bare C — see comment there.
+			if p.atEnd() || (p.peek() == ',' && (p.peekAt(1) == 'C' || p.peekAt(1) == 'A')) {
+				sels = append(sels, Selection{Book: c.book, Set: c.set, Type: TypeAlt})
+				break
+			}
+			nums, wild, err := p.parseNumSpec(0, 9)
+			if err != nil {
+				return nil, fmt.Errorf("alt: %w", err)
+			}
 			if wild {
-				for k := 0; k <= 9; k++ {
-					sels = append(sels, Selection{Book: c.book, Set: c.set, Type: TypeAlt, Key: k})
-				}
+				sels = append(sels, Selection{Book: c.book, Set: c.set, Type: TypeAlt})
 				break
 			}
 			for _, n := range nums {
-				sels = append(sels, Selection{Book: c.book, Set: c.set, Type: TypeAlt, Key: n})
+				sels = append(sels, Selection{Book: c.book, Set: c.set, Type: TypeAlt, Key: &n})
 			}
 
 		// --- Bare number: sibling inheriting lastTag ---
@@ -338,7 +361,7 @@ func (p *parser) parse() ([]Selection, error) {
 				c.set = nums[len(nums)-1]
 				c.hasSet = true
 			case 'C':
-				nums, _, err := p.parseNumSpec(0, 9)
+				nums, wild, err := p.parseNumSpec(0, 9)
 				if err != nil {
 					return nil, fmt.Errorf("ctrl sibling: %w", err)
 				}
@@ -346,11 +369,15 @@ func (p *parser) parse() ([]Selection, error) {
 					return nil, fmt.Errorf("cannot mix macro-level selector with other-level selectors in one --scope value")
 				}
 				c.depth = 'M'
-				for _, n := range nums {
-					sels = append(sels, Selection{Book: c.book, Set: c.set, Type: TypeCtrl, Key: n})
+				if wild {
+					sels = append(sels, Selection{Book: c.book, Set: c.set, Type: TypeCtrl})
+				} else {
+					for _, n := range nums {
+						sels = append(sels, Selection{Book: c.book, Set: c.set, Type: TypeCtrl, Key: &n})
+					}
 				}
 			case 'A':
-				nums, _, err := p.parseNumSpec(0, 9)
+				nums, wild, err := p.parseNumSpec(0, 9)
 				if err != nil {
 					return nil, fmt.Errorf("alt sibling: %w", err)
 				}
@@ -358,8 +385,12 @@ func (p *parser) parse() ([]Selection, error) {
 					return nil, fmt.Errorf("cannot mix macro-level selector with other-level selectors in one --scope value")
 				}
 				c.depth = 'M'
-				for _, n := range nums {
-					sels = append(sels, Selection{Book: c.book, Set: c.set, Type: TypeAlt, Key: n})
+				if wild {
+					sels = append(sels, Selection{Book: c.book, Set: c.set, Type: TypeAlt})
+				} else {
+					for _, n := range nums {
+						sels = append(sels, Selection{Book: c.book, Set: c.set, Type: TypeAlt, Key: &n})
+					}
 				}
 			}
 
@@ -468,7 +499,8 @@ func (s Scope) ContainsMacro(book, set int, mtype MacroType, key int) bool {
 		return s.ContainsSet(book, set)
 	case LevelMacro:
 		for _, sel := range s.Selections {
-			if sel.Book == book && sel.Set == set && sel.Type == mtype && sel.Key == key {
+			if sel.Book == book && sel.Set == set && sel.Type == mtype &&
+				(sel.Key == nil || *sel.Key == key) {
 				return true
 			}
 		}
@@ -502,9 +534,22 @@ func (s Scope) Exceeds(other Scope) bool {
 	return false
 }
 
+func selectionEqual(a, b Selection) bool {
+	if a.Book != b.Book || a.Set != b.Set || a.Type != b.Type {
+		return false
+	}
+	if a.Key == nil && b.Key == nil {
+		return true
+	}
+	if a.Key == nil || b.Key == nil {
+		return false
+	}
+	return *a.Key == *b.Key
+}
+
 func (s Scope) containsSelection(sel Selection) bool {
 	for _, existing := range s.Selections {
-		if existing == sel {
+		if selectionEqual(existing, sel) {
 			return true
 		}
 	}
