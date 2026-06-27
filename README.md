@@ -29,6 +29,7 @@ Full setup and command walkthroughs will live in `docs/` once implemented, kupo!
 - [Behavior specification](docs/SPEC.md) — YAML schema, CLI/plugin commands, constraints
 - [DAT file format](docs/DAT-FORMAT.md) — FFXI macro `.dat` and `.ttl` binary layout
 - [Contributing](docs/CONTRIBUTING.md) — setup, validation, PR workflow
+- [FAQ](docs/FAQ.md) — backups, recovery, common mistakes
 
 ## Repository Structure
 
