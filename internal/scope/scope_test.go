@@ -99,34 +99,34 @@ func TestParseSelectionsMacro(t *testing.T) {
 	}{
 		{
 			[]string{"B1S3C2"},
-			[]scope.Selection{{Book: 1, Set: 3, Type: scope.TypeCtrl, Key: 2}},
+			[]scope.Selection{{Book: 1, Set: 3, Type: scope.TypeCtrl, Key: keyPtr(2)}},
 		},
 		{
 			[]string{"B1S3A1"},
-			[]scope.Selection{{Book: 1, Set: 3, Type: scope.TypeAlt, Key: 1}},
+			[]scope.Selection{{Book: 1, Set: 3, Type: scope.TypeAlt, Key: keyPtr(1)}},
 		},
 		{
 			// Comma sibling: A1 then C2, same B1S3 context.
 			[]string{"B1S3A1,C2"},
 			[]scope.Selection{
-				{Book: 1, Set: 3, Type: scope.TypeAlt, Key: 1},
-				{Book: 1, Set: 3, Type: scope.TypeCtrl, Key: 2},
+				{Book: 1, Set: 3, Type: scope.TypeAlt, Key: keyPtr(1)},
+				{Book: 1, Set: 3, Type: scope.TypeCtrl, Key: keyPtr(2)},
 			},
 		},
 		{
 			// Bare number sibling: A1,3 = alt keys 1 and 3.
 			[]string{"B1S3A1,3"},
 			[]scope.Selection{
-				{Book: 1, Set: 3, Type: scope.TypeAlt, Key: 1},
-				{Book: 1, Set: 3, Type: scope.TypeAlt, Key: 3},
+				{Book: 1, Set: 3, Type: scope.TypeAlt, Key: keyPtr(1)},
+				{Book: 1, Set: 3, Type: scope.TypeAlt, Key: keyPtr(3)},
 			},
 		},
 		{
 			// Multiple --scope flags.
 			[]string{"B1S3A1", "B5S2C4"},
 			[]scope.Selection{
-				{Book: 1, Set: 3, Type: scope.TypeAlt, Key: 1},
-				{Book: 5, Set: 2, Type: scope.TypeCtrl, Key: 4},
+				{Book: 1, Set: 3, Type: scope.TypeAlt, Key: keyPtr(1)},
+				{Book: 5, Set: 2, Type: scope.TypeCtrl, Key: keyPtr(4)},
 			},
 		},
 	}
@@ -152,12 +152,67 @@ func TestParseSelectorsCtrlWildcard(t *testing.T) {
 	if s.Level != scope.LevelMacro {
 		t.Errorf("level = %q, want macro", s.Level)
 	}
-	if len(s.Selections) != 10 {
-		t.Errorf("want 10 ctrl selections, got %d", len(s.Selections))
+	if len(s.Selections) != 1 {
+		t.Fatalf("want 1 ctrl selection (wildcard), got %d: %v", len(s.Selections), s.Selections)
 	}
-	for i, sel := range s.Selections {
-		if sel.Book != 1 || sel.Set != 3 || sel.Type != scope.TypeCtrl || sel.Key != i {
-			t.Errorf("selection[%d] = %v, unexpected", i, sel)
+	sel := s.Selections[0]
+	if sel.Book != 1 || sel.Set != 3 || sel.Type != scope.TypeCtrl || sel.Key != nil {
+		t.Errorf("selection = %v, want {Book:1, Set:3, Type:ctrl, Key:nil}", sel)
+	}
+}
+
+func TestParseSelectorsAltWildcard(t *testing.T) {
+	s, err := scope.ParseSelectors([]string{"B1S3A*"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.Level != scope.LevelMacro {
+		t.Errorf("level = %q, want macro", s.Level)
+	}
+	if len(s.Selections) != 1 {
+		t.Fatalf("want 1 alt selection (wildcard), got %d: %v", len(s.Selections), s.Selections)
+	}
+	sel := s.Selections[0]
+	if sel.Book != 1 || sel.Set != 3 || sel.Type != scope.TypeAlt || sel.Key != nil {
+		t.Errorf("selection = %v, want {Book:1, Set:3, Type:alt, Key:nil}", sel)
+	}
+}
+
+func TestParseSelectorsImplicitWildcard(t *testing.T) {
+	// Bare C or A with no numspec is equivalent to C* / A*.
+	tests := []struct {
+		flag string
+		want []scope.Selection
+	}{
+		// Single type, no numspec
+		{"B1S3C", []scope.Selection{{Book: 1, Set: 3, Type: scope.TypeCtrl}}},
+		{"B1S3A", []scope.Selection{{Book: 1, Set: 3, Type: scope.TypeAlt}}},
+		// Both types — the primary use case (C,A = all ctrl and all alt)
+		{"B1S3C,A", []scope.Selection{
+			{Book: 1, Set: 3, Type: scope.TypeCtrl},
+			{Book: 1, Set: 3, Type: scope.TypeAlt},
+		}},
+		// Reversed order
+		{"B1S3A,C", []scope.Selection{
+			{Book: 1, Set: 3, Type: scope.TypeAlt},
+			{Book: 1, Set: 3, Type: scope.TypeCtrl},
+		}},
+		// Mix of explicit wildcard and implicit wildcard
+		{"B1S3C*,A", []scope.Selection{
+			{Book: 1, Set: 3, Type: scope.TypeCtrl},
+			{Book: 1, Set: 3, Type: scope.TypeAlt},
+		}},
+	}
+	for _, tt := range tests {
+		s, err := scope.ParseSelectors([]string{tt.flag})
+		if err != nil {
+			t.Fatalf("%q: unexpected error: %v", tt.flag, err)
+		}
+		if s.Level != scope.LevelMacro {
+			t.Errorf("%q: level = %q, want macro", tt.flag, s.Level)
+		}
+		if !selectionsEqual(s.Selections, tt.want) {
+			t.Errorf("%q: selections = %v, want %v", tt.flag, s.Selections, tt.want)
 		}
 	}
 }
@@ -171,16 +226,18 @@ func TestParseSelectionsMixedLevelsError(t *testing.T) {
 
 func TestParseSelectorsErrors(t *testing.T) {
 	bad := []string{
-		"B41",        // book out of range
-		"B1S11",      // set out of range
-		"B1S3C10",    // ctrl key out of range
-		"S3",         // S without B
-		"C2",         // C without S
-		"A2",         // A without S
-		"B1,2S3",     // multiple books before S
-		"B1S2,3C4",   // multiple sets before C
-		"B1X",        // unknown component
-		"",           // empty
+		"B41",       // book out of range
+		"B1S11",     // set out of range
+		"B1S3C10",   // ctrl key out of range
+		"S3",        // S without B
+		"C2",        // C without S
+		"A2",        // A without S
+		"B1,2S3",    // multiple books before S
+		"B1S2,3C4",  // multiple sets before C
+		"B1X",       // unknown component
+		"",          // empty
+		"B1S3C,3",   // bare C before digit sibling — inconsistent with B,1 rule
+		"B1S3A,3",   // bare A before digit sibling — same rule
 	}
 	for _, flag := range bad {
 		_, err := scope.ParseSelectors([]string{flag})
@@ -304,9 +361,9 @@ func TestParseSelectorsRangeBoundaries(t *testing.T) {
 		// B1S10 — maximum set index
 		{"B1S10", []scope.Selection{{Book: 1, Set: 10}}},
 		// B1S3C0 — key 0 is valid
-		{"B1S3C0", []scope.Selection{{Book: 1, Set: 3, Type: scope.TypeCtrl, Key: 0}}},
+		{"B1S3C0", []scope.Selection{{Book: 1, Set: 3, Type: scope.TypeCtrl, Key: keyPtr(0)}}},
 		// B1S3A9 — key 9 is valid
-		{"B1S3A9", []scope.Selection{{Book: 1, Set: 3, Type: scope.TypeAlt, Key: 9}}},
+		{"B1S3A9", []scope.Selection{{Book: 1, Set: 3, Type: scope.TypeAlt, Key: keyPtr(9)}}},
 	}
 	for _, tt := range tests {
 		s, err := scope.ParseSelectors([]string{tt.flag})
@@ -387,12 +444,68 @@ func TestContainsMacroFullScope(t *testing.T) {
 	}
 }
 
+func TestContainsMacroWildKey(t *testing.T) {
+	// A macro-level scope with nil Key (from C* or A*) must match every key of that type.
+	s := scope.Scope{
+		Level: scope.LevelMacro,
+		Selections: []scope.Selection{
+			{Book: 1, Set: 3, Type: scope.TypeCtrl}, // Key == nil → all ctrl
+		},
+	}
+	for k := 0; k <= 9; k++ {
+		if !s.ContainsMacro(1, 3, scope.TypeCtrl, k) {
+			t.Errorf("wildcard ctrl should contain key %d", k)
+		}
+	}
+	// Must not match alt keys.
+	if s.ContainsMacro(1, 3, scope.TypeAlt, 0) {
+		t.Error("wildcard ctrl should not match alt")
+	}
+	// Must not match a different set.
+	if s.ContainsMacro(1, 4, scope.TypeCtrl, 0) {
+		t.Error("wildcard ctrl should not match set 4")
+	}
+}
+
+func TestParseSelectorsCtrlWildcardSibling(t *testing.T) {
+	// B1S3A1,C* = A1 plus all ctrl keys; C* as a sibling must collapse to one selection.
+	s, err := scope.ParseSelectors([]string{"B1S3A1,C*"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.Level != scope.LevelMacro {
+		t.Errorf("level = %q, want macro", s.Level)
+	}
+	want := []scope.Selection{
+		{Book: 1, Set: 3, Type: scope.TypeAlt, Key: keyPtr(1)},
+		{Book: 1, Set: 3, Type: scope.TypeCtrl}, // wildcard, no key
+	}
+	if !selectionsEqual(s.Selections, want) {
+		t.Errorf("selections = %v, want %v", s.Selections, want)
+	}
+}
+
+func keyPtr(n int) *int { return &n }
+
+func selEqual(a, b scope.Selection) bool {
+	if a.Book != b.Book || a.Set != b.Set || a.Type != b.Type {
+		return false
+	}
+	if a.Key == nil && b.Key == nil {
+		return true
+	}
+	if a.Key == nil || b.Key == nil {
+		return false
+	}
+	return *a.Key == *b.Key
+}
+
 func selectionsEqual(a, b []scope.Selection) bool {
 	if len(a) != len(b) {
 		return false
 	}
 	for i := range a {
-		if a[i] != b[i] {
+		if !selEqual(a[i], b[i]) {
 			return false
 		}
 	}

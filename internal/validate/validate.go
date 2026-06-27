@@ -44,7 +44,7 @@ type docSelection struct {
 	Book int    `yaml:"book"`
 	Set  int    `yaml:"set"`
 	Type string `yaml:"type"`
-	Key  int    `yaml:"key"`
+	Key  *int   `yaml:"key"`
 }
 
 type book struct {
@@ -276,10 +276,10 @@ func validateScope(s *docScope) []Error {
 					Message: fmt.Sprintf("must be ctrl or alt, got %q", sel.Type),
 				})
 			}
-			if sel.Key < 0 || sel.Key > 9 {
+			if sel.Key != nil && (*sel.Key < 0 || *sel.Key > 9) {
 				errs = append(errs, Error{
 					Path:    selPath + ".key",
-					Message: fmt.Sprintf("must be 0–9, got %d", sel.Key),
+					Message: fmt.Sprintf("must be 0–9, got %d", *sel.Key),
 				})
 			}
 		} else {

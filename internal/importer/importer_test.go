@@ -333,7 +333,7 @@ books:
               - /echo changed
 `)
 
-	if _, err := Import(Options{CharacterDir: destDir, YAMLPath: macroYAML, Scope: scope.Scope{Level: scope.LevelMacro, Selections: []scope.Selection{{Book: 6, Set: 10, Type: scope.TypeCtrl, Key: 1}}}, Backup: false}); err != nil {
+	if _, err := Import(Options{CharacterDir: destDir, YAMLPath: macroYAML, Scope: scope.Scope{Level: scope.LevelMacro, Selections: []scope.Selection{{Book: 6, Set: 10, Type: scope.TypeCtrl, Key: keyPtr(1)}}}, Backup: false}); err != nil {
 		t.Fatalf("macro import: %v", err)
 	}
 
@@ -491,3 +491,5 @@ books:
 		t.Errorf("B2S1 should not be cleared in legacy write-only mode: %v", err)
 	}
 }
+
+func keyPtr(n int) *int { return &n }

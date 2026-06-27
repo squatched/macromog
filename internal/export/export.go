@@ -319,8 +319,8 @@ func selectionNode(sel scope.Selection) *yaml.Node {
 	if sel.Type != "" {
 		addKV(n, "type", scalarNode(string(sel.Type)))
 	}
-	if sel.Type != "" {
-		addKV(n, "key", intNode(sel.Key))
+	if sel.Key != nil {
+		addKV(n, "key", intNode(*sel.Key))
 	}
 	return n
 }
