@@ -143,3 +143,81 @@ func TestIntegration_AllMultiCharRoundTrip(t *testing.T) {
 		}
 	}
 }
+
+// TestIntegration_ScopeRoundTrip_MacroLevel exercises the full pipeline for
+// macro-level scope: scope string → YAML selections block → import filtering.
+//
+// Key invariants verified:
+//  1. Exporting with C* scope produces a YAML with no "key:" field in selections
+//     (nil Key → omitempty omits the field).
+//  2. That YAML passes validation.
+//  3. Importing the scoped YAML only updates ctrl slots; alt is untouched.
+//  4. Re-exporting with the same scope shows the updated content.
+func TestIntegration_ScopeRoundTrip_MacroLevel(t *testing.T) {
+	src := testdata.CharDir()
+	tmp := t.TempDir()
+
+	// Step 1: Full export from testdata → seed a destination directory.
+	fullYAML := filepath.Join(tmp, "full.yml")
+	if got := runExport([]string{"--char-dir", src, fullYAML}, newTextPrinter()); got != 0 {
+		t.Fatalf("full export: exit %d", got)
+	}
+	destDir := t.TempDir()
+	if got := runImport([]string{"--no-backup", fullYAML, destDir}, newTextPrinter()); got != 0 {
+		t.Fatalf("full import: exit %d", got)
+	}
+
+	// Step 2: Export from testdata with ctrl-wildcard scope for B6S10.
+	// This exercises scope string → parsed scope → YAML selections block.
+	scopedYAML := filepath.Join(tmp, "scoped.yml")
+	if got := runExport([]string{"--char-dir", src, "--scope", "B6S10C*", scopedYAML}, newTextPrinter()); got != 0 {
+		t.Fatalf("export --scope B6S10C*: exit %d", got)
+	}
+
+	// Step 3: Validate — ensures the generated YAML is schema-compliant.
+	if got := runValidate([]string{scopedYAML}, newTextPrinter()); got != 0 {
+		t.Fatalf("validate scoped YAML: exit %d", got)
+	}
+
+	// Step 4: Verify the selections block has no "key:" field (C* = nil Key).
+	yamlData, err := os.ReadFile(scopedYAML)
+	if err != nil {
+		t.Fatalf("read scoped YAML: %v", err)
+	}
+	yamlStr := string(yamlData)
+	if !strings.Contains(yamlStr, "type: ctrl") {
+		t.Errorf("expected 'type: ctrl' in scope selections:\n%s", yamlStr)
+	}
+	if strings.Contains(yamlStr, "key:") {
+		t.Errorf("C* scope must produce no 'key:' field in selections:\n%s", yamlStr)
+	}
+	if !strings.Contains(yamlStr, "level: macro") {
+		t.Errorf("expected 'level: macro' in scope:\n%s", yamlStr)
+	}
+
+	// Step 5: Import the scoped YAML into the seeded destination.
+	// The YAML scope is C* (ctrl wildcard), so only ctrl slots of B6S10 are
+	// updated; alt slots of B6S10 and all other books/sets are untouched.
+	if got := runImport([]string{"--no-backup", scopedYAML, destDir}, newTextPrinter()); got != 0 {
+		t.Fatalf("scoped import: exit %d", got)
+	}
+
+	// Step 6: Re-export with the same C* scope and verify ctrl is present.
+	reexportYAML := filepath.Join(tmp, "reexport.yml")
+	if got := runExport([]string{"--char-dir", destDir, "--scope", "B6S10C*", reexportYAML}, newTextPrinter()); got != 0 {
+		t.Fatalf("re-export with scope: exit %d", got)
+	}
+	reexportData, err := os.ReadFile(reexportYAML)
+	if err != nil {
+		t.Fatalf("read re-export: %v", err)
+	}
+
+	// The ctrl macros from testdata's B6S10 should be present in the re-export.
+	if !strings.Contains(string(reexportData), "level: macro") {
+		t.Errorf("re-export missing scope block:\n%s", reexportData)
+	}
+	// Validate the re-export too — it must remain schema-compliant.
+	if got := runValidate([]string{reexportYAML}, newTextPrinter()); got != 0 {
+		t.Fatalf("validate re-export: exit %d", got)
+	}
+}

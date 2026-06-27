@@ -13,6 +13,7 @@ import (
 	"github.com/squatched/macromog/internal/export"
 	"github.com/squatched/macromog/internal/scope"
 	"github.com/squatched/macromog/internal/validate"
+	"gopkg.in/yaml.v3"
 )
 
 func TestFromCharacterDir_Book33(t *testing.T) {
@@ -552,4 +553,140 @@ func TestMarshalYAML_ContentLastLineOnly(t *testing.T) {
 			t.Errorf("dense last-line: content on line 6 missing:\n%s", s)
 		}
 	})
+}
+
+// ---------------------------------------------------------------------------
+// Scope serialization: nil Key ↔ absent "key:" field round-trip.
+// ---------------------------------------------------------------------------
+
+func TestMarshalYAML_ScopeSelectionKeyField(t *testing.T) {
+	kp := func(n int) *int { return &n }
+	tests := []struct {
+		name       string
+		sel        scope.Selection
+		wantKey    bool
+		wantKeyVal string
+	}{
+		{
+			name:    "ctrl wildcard (nil Key): no key field",
+			sel:     scope.Selection{Book: 1, Set: 1, Type: scope.TypeCtrl},
+			wantKey: false,
+		},
+		{
+			name:    "alt wildcard (nil Key): no key field",
+			sel:     scope.Selection{Book: 1, Set: 1, Type: scope.TypeAlt},
+			wantKey: false,
+		},
+		{
+			name:       "ctrl key 0: key: 0 present",
+			sel:        scope.Selection{Book: 1, Set: 1, Type: scope.TypeCtrl, Key: kp(0)},
+			wantKey:    true,
+			wantKeyVal: "0",
+		},
+		{
+			name:       "ctrl key 9: key: 9 present",
+			sel:        scope.Selection{Book: 1, Set: 1, Type: scope.TypeCtrl, Key: kp(9)},
+			wantKey:    true,
+			wantKeyVal: "9",
+		},
+		{
+			name:       "alt key 0: key: 0 present",
+			sel:        scope.Selection{Book: 1, Set: 1, Type: scope.TypeAlt, Key: kp(0)},
+			wantKey:    true,
+			wantKeyVal: "0",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			doc := export.Document{
+				Version: 1,
+				Scope:   scope.Scope{Level: scope.LevelMacro, Selections: []scope.Selection{tt.sel}},
+			}
+			data, err := export.MarshalYAML(doc)
+			if err != nil {
+				t.Fatalf("MarshalYAML: %v", err)
+			}
+			yamlStr := string(data)
+			if tt.wantKey {
+				if !strings.Contains(yamlStr, "key: "+tt.wantKeyVal) {
+					t.Errorf("expected 'key: %s' in YAML:\n%s", tt.wantKeyVal, yamlStr)
+				}
+			} else {
+				if strings.Contains(yamlStr, "key:") {
+					t.Errorf("wildcard selection must have no 'key:' field:\n%s", yamlStr)
+				}
+			}
+		})
+	}
+}
+
+// TestMarshalYAML_ScopeKeyRoundTrip verifies the critical invariant:
+// nil Key → absent "key:" field → nil Key after unmarshal.
+// This is distinct from Key: &0, which must survive as key: 0.
+func TestMarshalYAML_ScopeKeyRoundTrip(t *testing.T) {
+	kp := func(n int) *int { return &n }
+	sc := scope.Scope{
+		Level: scope.LevelMacro,
+		Selections: []scope.Selection{
+			{Book: 1, Set: 1, Type: scope.TypeCtrl},        // wildcard
+			{Book: 1, Set: 1, Type: scope.TypeAlt, Key: kp(0)}, // key 0
+			{Book: 1, Set: 1, Type: scope.TypeAlt, Key: kp(9)}, // key 9
+		},
+	}
+	doc := export.Document{Version: 1, Scope: sc}
+	data, err := export.MarshalYAML(doc)
+	if err != nil {
+		t.Fatalf("MarshalYAML: %v", err)
+	}
+
+	var parsed export.Document
+	if err := yaml.Unmarshal(data, &parsed); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+
+	sels := parsed.Scope.Selections
+	if len(sels) != 3 {
+		t.Fatalf("got %d selections, want 3", len(sels))
+	}
+	if sels[0].Key != nil {
+		t.Errorf("sel[0] (wildcard): Key = %v, want nil", sels[0].Key)
+	}
+	if sels[1].Key == nil {
+		t.Error("sel[1] (key 0): Key is nil, want &0")
+	} else if *sels[1].Key != 0 {
+		t.Errorf("sel[1] (key 0): *Key = %d, want 0", *sels[1].Key)
+	}
+	if sels[2].Key == nil {
+		t.Error("sel[2] (key 9): Key is nil, want &9")
+	} else if *sels[2].Key != 9 {
+		t.Errorf("sel[2] (key 9): *Key = %d, want 9", *sels[2].Key)
+	}
+}
+
+// TestMarshalYAML_TwoTypeWildcardScope verifies the C,A pattern serializes
+// as two selections with no key field in either.
+func TestMarshalYAML_TwoTypeWildcardScope(t *testing.T) {
+	sc := scope.Scope{
+		Level: scope.LevelMacro,
+		Selections: []scope.Selection{
+			{Book: 40, Set: 10, Type: scope.TypeCtrl},
+			{Book: 40, Set: 10, Type: scope.TypeAlt},
+		},
+	}
+	doc := export.Document{Version: 1, Scope: sc}
+	data, err := export.MarshalYAML(doc)
+	if err != nil {
+		t.Fatalf("MarshalYAML: %v", err)
+	}
+	yamlStr := string(data)
+	if strings.Contains(yamlStr, "key:") {
+		t.Errorf("two-type wildcard scope must produce no key field:\n%s", yamlStr)
+	}
+	if !strings.Contains(yamlStr, "type: ctrl") {
+		t.Errorf("expected 'type: ctrl' in output:\n%s", yamlStr)
+	}
+	if !strings.Contains(yamlStr, "type: alt") {
+		t.Errorf("expected 'type: alt' in output:\n%s", yamlStr)
+	}
 }
