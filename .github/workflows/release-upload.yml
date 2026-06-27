@@ -29,6 +29,15 @@ jobs:
           echo "VERSION=${VERSION}" >> "$GITHUB_ENV"
           make package-plugin VERSION="$VERSION"
 
+      - name: Create release if missing
+        run: |
+          TAG="v${VERSION}"
+          if ! gh release view "$TAG" > /dev/null 2>&1; then
+            gh release create "$TAG" --title "Release $TAG" --generate-notes
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Upload to release
         run: |
           gh release upload "v${VERSION}" \
