@@ -1,0 +1,86 @@
+name: Build and Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Release tag name (e.g., v1.2.0)'
+        required: true
+        default: ''  # Leave blank to auto-detect from version.txt
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Install mingw-w64 (for Windows builds)
+        run: sudo apt-get update -y && sudo apt-get install -y gcc-mingw-w64-i686
+
+      - name: Determine version
+        id: version
+        run: |
+          if [[ "${{ github.event.inputs.tag_name }}" != "" ]]; then
+            VERSION="${{ github.event.inputs.tag_name }}"
+            echo "tag=${VERSION}" >> $GITHUB_OUTPUT
+          else
+            VERSION=$(cat version.txt)
+            TAG="v${VERSION}"
+            echo "tag=${TAG}" >> $GITHUB_OUTPUT
+            echo "Using version.txt value: ${VERSION}"
+          fi
+
+      - name: Display resolved version
+        run: |
+          echo "Building release: ${{ steps.version.outputs.tag }}"
+
+      # Build Go binaries (Linux + Windows)
+      - name: Build Release Binaries
+        env:
+          VERSION: ${{ steps.version.outputs.tag }}
+        run: make build-release-bins VERSION="$VERSION"
+
+      # Package plugin (generates ZIP with bundled DLL and assets)
+      - name: Package Plugin
+        env:
+          VERSION: ${{ steps.version.outputs.tag }}
+        run: make package-plugin VERSION="$VERSION"
+
+      # Validate the package before uploading
+      - name: Validate Plugin Package
+        run: make validate-plugin-package
+
+      # List artifacts for verification
+      - name: List Generated Artifacts
+        run: |
+          echo "=== dist/bin ==="
+          ls -lh dist/bin/
+          echo "=== dist/*.zip ==="
+          ls -lh dist/*.zip
+
+      # Create GitHub Release
+      - name: Create GitHub Release
+        run: |
+          gh release create "${{ steps.version.outputs.tag }}" \
+            --title "Release ${{ steps.version.outputs.tag }}" \
+            --draft=false \
+            --generate-notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Upload all release assets
+      - name: Upload to Release
+        run: |
+          gh release upload "${{ steps.version.outputs.tag }}" \
+            "dist/macromog-${{ steps.version.outputs.tag }}.zip" \
+            dist/bin/macromog \
+            dist/bin/macromog.exe
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
