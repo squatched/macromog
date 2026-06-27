@@ -341,52 +341,58 @@ describe('import command', function()
         assert.is_nil(cli_calls.import)
     end)
 
-    it('imports file successfully and sets pending import', function()
+    it('validates and stages import without writing', function()
         setup.install_ready = true
         setup.zoned_since_load = true
         io.open = function() return { close = function() end } end
         events['addon command']('import', 'macros.yml')
-        assert.is_not_nil(cli_calls.import)
-        assert.is_true(last_chat():find('Imported', 1, true) ~= nil)
+        assert.is_nil(cli_calls.import)
+        assert.is_not_nil(cli_calls.validate)
+        assert.is_true(last_chat():find('Staged', 1, true) ~= nil)
         assert.is_true(last_chat():find('Zone', 1, true) ~= nil)
         assert.is_not_nil(setup.pending_import)
+        assert.is_not_nil(setup.pending_import.backup_dir)
     end)
 
-    it('zone-in applies pending import and clears it', function()
+    it('zone-in writes macros with backup and reports backup path', function()
         setup.install_ready = true
         setup.zoned_since_load = true
+        cli_calls.import_out = 'backed up to C:\\Macromog\\data\\Squatched_a1b2c3d4_backup_20240101\nimported 1 macro set(s) from macros.yml\n'
         io.open = function() return { close = function() end } end
         events['addon command']('import', 'macros.yml')
         assert.is_not_nil(setup.pending_import)
-        cli_calls.import = nil
 
         events['incoming chunk'](0x0A)
 
         assert.is_not_nil(cli_calls.import)
-        assert.is_true(cli_calls.import.no_backup)
+        assert.is_nil(cli_calls.import.no_backup)
         assert.is_nil(setup.pending_import)
-        assert.is_true(last_chat():find('applied', 1, true) ~= nil)
+        assert.is_true(last_chat():find('successfully applied', 1, true) ~= nil)
+        assert.is_true(last_chat():find('Pre-import backup at', 1, true) ~= nil)
+        assert.is_true(last_chat():find('Squatched_a1b2c3d4_backup', 1, true) ~= nil)
     end)
 
-    it('surfaces import CLI failure to user', function()
+    it('surfaces validation failure to user at import time', function()
         setup.install_ready = true
         setup.zoned_since_load = true
-        cli_calls.import_code = 1
-        cli_calls.import_out = 'invalid macro data'
+        cli_calls.validate_code = 1
+        cli_calls.validate_out = 'invalid macro data'
         io.open = function() return { close = function() end } end
         events['addon command']('import', 'macros.yml')
-        assert.is_true(last_chat():find('Import failed', 1, true) ~= nil)
+        assert.is_nil(setup.pending_import)
+        assert.is_true(last_chat():find('validation failed', 1, true) ~= nil)
         assert.is_true(last_chat():find('invalid macro data', 1, true) ~= nil)
     end)
 
-    it('passes path with filename, char name, and backup_dir to cli', function()
+    it('stages path, char name, and backup_dir for zone-in apply', function()
         setup.install_ready = true
         setup.zoned_since_load = true
         io.open = function() return { close = function() end } end
         events['addon command']('import', 'mybook.yml')
-        assert.are.equal('Squatched', cli_calls.import.name)
-        assert.is_true(cli_calls.import.path:find('mybook.yml', 1, true) ~= nil)
-        assert.is_true((cli_calls.import.backup_dir or ''):find('data', 1, true) ~= nil)
+        assert.is_not_nil(setup.pending_import)
+        assert.are.equal('Squatched', setup.pending_import.name)
+        assert.is_true(setup.pending_import.path:find('mybook.yml', 1, true) ~= nil)
+        assert.is_true(setup.pending_import.backup_dir:find('data', 1, true) ~= nil)
     end)
 end)
 

@@ -67,15 +67,16 @@ function handlers.import(filename)
     end
     f:close()
 
-    local name = char_name()
-    local data_dir = windower.addon_path .. 'data'
-    local code, out = cli.import(path, name, data_dir)
+    local code, out = cli.validate(path)
     if code ~= 0 then
-        log.user('Import failed: ' .. (out or ''))
+        log.user('Import validation failed: ' .. (out or ''))
         return
     end
-    setup.pending_import = { path = path, name = name }
-    log.user('Imported ' .. filename .. '. Zone to apply macros in-game, kupo!')
+
+    local name = char_name()
+    local data_dir = windower.addon_path .. 'data'
+    setup.pending_import = { path = path, name = name, backup_dir = data_dir }
+    log.user('Staged ' .. filename .. '. Zone once to apply in-game, kupo!')
 end
 
 function handlers.validate(filename)
@@ -182,9 +183,15 @@ windower.register_event('incoming chunk', function(id)
         if setup.pending_import then
             local pi = setup.pending_import
             setup.pending_import = nil
-            local code, out = cli.import(pi.path, pi.name, nil, true)
+            local code, out = cli.import(pi.path, pi.name, pi.backup_dir)
             if code == 0 then
-                log.user('Macros applied in-game, kupo!')
+                local backup_path = (out or ''):match('backed up to ([^\n\r]+)')
+                if backup_path then
+                    local backup_name = backup_path:match('[^\\/]+$') or backup_path
+                    log.user('Macros successfully applied, kupo! (Pre-import backup at ' .. backup_name .. ')')
+                else
+                    log.user('Macros successfully applied, kupo!')
+                end
             else
                 log.user('Zone-in macro apply failed: ' .. (out or '') .. '. Re-run //mmog import, kupo!')
             end
