@@ -1,11 +1,7 @@
 name: Build and Release
 
 on:
-  workflow_dispatch:
-    inputs:
-      tag_name:
-        description: 'Release tag name (e.g., v1.2.0)'
-        default: ''  # Leave blank to auto-detect from version.txt
+  workflow_dispatch: # Trigger this manually after a release-please PR is merged.
 
 jobs:
   build-and-release:
@@ -23,22 +19,13 @@ jobs:
       - name: Install mingw-w64 (for Windows builds)
         run: sudo apt-get update -y && sudo apt-get install -y gcc-mingw-w64-i686
 
-      - name: Determine version
+      - name: Read version from version.txt
         id: version
         run: |
-          if [[ "${{ github.event.inputs.tag_name }}" != "" ]]; then
-            VERSION="${{ github.event.inputs.tag_name }}"
-            echo "tag=${VERSION}" >> $GITHUB_OUTPUT
-          else
-            VERSION=$(cat version.txt)
-            TAG="v${VERSION}"
-            echo "tag=${TAG}" >> $GITHUB_OUTPUT
-            echo "Using version.txt value: ${VERSION}"
-          fi
-
-      - name: Display resolved version
-        run: |
-          echo "Building release: ${{ steps.version.outputs.tag }}"
+          VERSION=$(cat version.txt)
+          TAG="v${VERSION}"
+          echo "tag=${TAG}" >> $GITHUB_OUTPUT
+          echo "Release version detected: ${VERSION} (${TAG})"
 
       # Build Go binaries (Linux + Windows)
       - name: Build Release Binaries
