@@ -19,7 +19,6 @@ jobs:
       - uses: googleapis/release-please-action@v5
         id: release
         with:
-          command: manifest
 
   package:
     needs: release-please
