@@ -50,6 +50,7 @@ jobs:
           cp dist/bin/macromog artifacts/macromog-linux-amd64
           cp dist/bin/macromog.exe artifacts/macromog-windows-386.exe
           cp dist/macromog-*.zip artifacts/
+          chmod +x artifacts/macromog-linux-amd64
 
           echo "=== artifacts ==="
           ls -lh artifacts/
