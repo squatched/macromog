@@ -24,6 +24,7 @@ Ultimately, we should have 3 things available in this release:
 
 ## Bugs
 - `--dry-run` only reports which `.dat` files would be written; it does not show which books/sets would be deleted by the import scope, nor any diff of macro content. It should show a full picture of what would change (writes + clears).
+- Non-resource extension markers (`≺element:N≻`, `≺autotrans:start≻`, `≺byte:XX≻`) do not exempt lines from the 60-character length check, but their placeholder strings are longer than the underlying binary. A line that would pass the game's limit may fail macromog validation. Consider exempting lines containing any `≺...≻` marker, or at minimum skipping the check when any marker is present.
 - ~~I logged in, I've obviously zoned because the character is registered, but I can't do any //mmog commands? "Zone once before using any macromog commands, kupo!"~~
 - ~~//mmog export -> unknown shorthand flag: 'o' in -o~~
 - ~~//mmog backup -> Doesn't tell me where/what the backup is.~~

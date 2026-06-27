@@ -120,7 +120,7 @@ Your macros are updated, kupo! For CLI workflows, configuration details, and adv
 - [User Guide](docs/GUIDE.md) — workflows, configuration system, advanced features
 - [FAQ](docs/FAQ.md) — backups, recovery, common mistakes
 - [CLI Reference](docs/CLI.md) — full command and flag reference
-- [Behavior specification](docs/SPEC.md) — YAML schema, CLI/plugin commands, constraints
+- [YAML Reference](docs/YAML.md) — macro file and config.yml field-by-field schema
 - [DAT file format](docs/DAT-FORMAT.md) — FFXI macro `.dat` and `.ttl` binary layout
 - [Contributing](docs/CONTRIBUTING.md) — setup, validation, PR workflow
 
