@@ -1,32 +1,17 @@
-name: Release Please
+name: Upload Release Artifacts
 
 on:
-  push:
-    branches: [main]
-
-permissions:
-  contents: write
-  pull-requests: write
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to build and upload (e.g. 1.0.1); defaults to version.txt"
+        required: false
 
 jobs:
-  release-please:
+  upload:
     runs-on: ubuntu-latest
-    outputs:
-      release_created: ${{ steps.release.outputs.release_created }}
-      version: ${{ steps.release.outputs.version }}
-    steps:
-      - uses: googleapis/release-please-action@v5
-        id: release
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          target-branch: main
-          manifest-file: .release-please-manifest.json
-          config-file: release-please-config.json
-
-  package:
-    needs: release-please
-    if: ${{ needs.release-please.outputs.release_created }}
-    runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v5
 
@@ -39,7 +24,8 @@ jobs:
 
       - name: Build release binaries and addon zip
         run: |
-          VERSION="${{ needs.release-please.outputs.version }}"
+          VERSION="${{ inputs.version }}"
+          VERSION="${VERSION:-$(tr -d '\n\r' < version.txt)}"
           echo "VERSION=${VERSION}" >> "$GITHUB_ENV"
           make package-plugin VERSION="$VERSION"
 
