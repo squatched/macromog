@@ -127,7 +127,8 @@ Append `!` after the type for a **breaking change** (major bump): `feat!:`, `fix
 
 ### Scopes (optional but encouraged)
 
-`core`, `yaml`, `macros`, `validate`, `ci`, `docs`, `plugin`, `cli`, `spawn`
+`core`, `yaml`, `macros`, `validate`, `ci`, `docs`, `plugin`, `cli`, `spawn`,
+`scope`, `export`, `import`, `dat`, `template`
 
 ### Examples
 
