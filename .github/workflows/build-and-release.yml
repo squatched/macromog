@@ -5,7 +5,6 @@ on:
     inputs:
       tag_name:
         description: 'Release tag name (e.g., v1.2.0)'
-        required: true
         default: ''  # Leave blank to auto-detect from version.txt
 
 jobs:
