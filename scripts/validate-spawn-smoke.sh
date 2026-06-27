@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-BIN="$ROOT/dist/bin/macromog.exe"
+BIN="$ROOT/dist/bin/macromog-windows-386.exe"
 if [[ ! -f "$BIN" ]]; then
   echo "FAIL: missing $BIN (run make build-release-bins first)" >&2
   exit 1

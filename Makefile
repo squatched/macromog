@@ -23,7 +23,9 @@ endif
 endif
 PLUGIN_ZIP       := $(DIST_DIR)/macromog-$(VERSION).zip
 BUILD_PLATFORMS  := linux/amd64 windows/386
-RELEASE_BINS     := macromog macromog.exe
+LINUX_BIN        := $(DIST_DIR)/bin/macromog-linux-amd64
+WIN_BIN          := $(DIST_DIR)/bin/macromog-windows-386.exe
+RELEASE_BINS     := $(LINUX_BIN) $(WIN_BIN)
 SPAWN_CC         := i686-w64-mingw32-gcc
 SPAWN_SRC        := spawn/macromog_spawn.c
 SPAWN_DEF        := spawn/LuaCore.def
@@ -212,10 +214,10 @@ build-cli-all: ## Cross-compile the CLI for all release platforms (compilation c
 	done
 	@printf "All platforms: OK\n"
 
-build-release-bins: ## Cross-compile release CLI binaries into dist/bin/
+build-release-bins: ## Cross-compile release CLI binaries into dist/bin/ with os/arch in filenames
 	@mkdir -p $(DIST_DIR)/bin
-	GOOS=linux GOARCH=amd64 $(GO) build -o $(DIST_DIR)/bin/macromog $(CLI_MAIN)
-	GOOS=windows GOARCH=386 $(GO) build -ldflags="-H windowsgui -s -w" -o $(DIST_DIR)/bin/macromog.exe $(CLI_MAIN)
+	GOOS=linux GOARCH=amd64 $(GO) build -o $(LINUX_BIN) $(CLI_MAIN)
+	GOOS=windows GOARCH=386 $(GO) build -ldflags="-H windowsgui -s -w" -o $(WIN_BIN) $(CLI_MAIN)
 
 build-spawn-dll: ## Build macromog_spawn.dll (32-bit, hidden process spawn + file mtime)
 	@mkdir -p $(SPAWN_BUILD) $(DIST_DIR)/bin
@@ -231,7 +233,7 @@ build-plugin: build-release-bins build-spawn-dll ## Stage the Windower addon tre
 	@mkdir -p $(PLUGIN_STAGE)/lib $(PLUGIN_STAGE)/data $(PLUGIN_STAGE)/bin
 	cp macromog.lua $(PLUGIN_STAGE)/
 	cp -r lib/. $(PLUGIN_STAGE)/lib/
-	cp $(DIST_DIR)/bin/macromog.exe $(PLUGIN_STAGE)/bin/
+	cp $(WIN_BIN) $(PLUGIN_STAGE)/bin/macromog.exe
 	cp $(SPAWN_DLL) $(PLUGIN_STAGE)/bin/
 
 package-plugin: build-plugin ## Create dist/macromog-<version>.zip from the staged addon
