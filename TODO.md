@@ -41,3 +41,4 @@ Ultimately, we should have 3 things available in this release:
 - CLI config: backup directory preference
 - CLI config healing: on validation failure, try removing the offending key and re-validating; if still invalid, remove its parent and retry; escalate until valid or empty; offer full reset only as last resort
 - CLI backup restore functionality (we create the backup files, why not make it easy to restore from them)
+- In memory macro edit (instant changes upon import)
