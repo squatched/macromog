@@ -13,7 +13,7 @@ Download the binary for your platform from the [Releases](https://github.com/squ
 | Windows (32-bit) | `macromog-windows-386.exe` |
 | Linux (64-bit) | `macromog-linux-amd64` |
 
-FFXI is a 32-bit client, so the Windower plugin bundles `macromog-windows-386.exe` as `macromog.exe`. Linux
+FFXI is a 32-bit client, so the Windower addon bundles `macromog-windows-386.exe` as `macromog.exe`. Linux
 releases target amd64 only. These examples assume that you have renamed the CLI to something simpler, like
 `macromog.exe` on Windows or `macromog` on Linux.
 
@@ -82,6 +82,8 @@ macromog keeps your CLI preferences in a YAML config file, kupo — installs, ch
 When the Linux home directory is visible inside a Wine prefix (including Lutris installs where `Z:\home\<user>\.config` exists), macromog prefers the host XDG path so a shell `macromog` and the in-game addon share one config file and POSIX install paths. If detection does not apply on your setup, set `MACROMOG_CONFIG` explicitly in both environments.
 
 ### Config schema
+
+For the field-by-field schema reference see [YAML.md — config.yml](YAML.md#configyml). The section below describes how the config is used at runtime.
 
 ```yaml
 version: 1
@@ -425,6 +427,7 @@ Reads a YAML file, validates it, and writes macros to `.dat` files. A timestampe
 **Flags:**
 - `--ffxi-path`, `--install`, `--char-dir`, `--char-name`, `--all` — see [Global Flags](#global-flags) and [Configuration](#configuration)
 - `--no-backup` — skip the automatic backup (use with care; see [FAQ](FAQ.md#backups-and-recovery))
+- `--backup-dir <path>` — directory for the pre-import backup (default: `<char-dir>/backups/`)
 - `--dry-run` — validate the YAML and show what would be written, without writing anything
 - `--scope <selector>` — override the scope embedded in the YAML (repeatable; see [Scope Selectors](#scope-selectors))
 
@@ -513,7 +516,7 @@ Validation checks include:
 macromog backup [flags] [<char-dir>]
 ```
 
-Copies all `mcr*.dat` and `*.ttl` files to a timestamped directory named `<char-id>_YYYYMMDD_HHMMSS`.
+Copies all `mcr*.dat` and `*.ttl` files to a timestamped directory. The directory is named `<char-name>_<char-id>_backup_YYYYMMDD_HHMMSS` when a character alias is known, or `<char-id>_backup_YYYYMMDD_HHMMSS` otherwise.
 
 **Arguments:**
 - `[<char-dir>]` — character folder inside USER (positional alternative to `--char-dir`)

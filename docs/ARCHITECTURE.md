@@ -22,10 +22,13 @@ YAML, imports/exports macro books, and manages character slots. Any of this can 
 done without FFXI running at all: `macromog list`, `macromog import`, `macromog
 export` all work from a terminal with no game open.
 
-The Windower addon is a thin wrapper. It translates in-game events into CLI calls
-and displays the results; it holds no business logic itself. A user who wants to
-reorganize their macro books before a gaming session, write a script to back them
-up, or add Macromog to a dotfiles setup can do so entirely through the CLI.
+The Windower addon handles what the CLI cannot: it binds Windower events (zone-in,
+login, slash commands), identifies which character is logged in by mapping their
+display name to the hex folder ID the game uses on disk, and dispatches CLI calls
+with the right arguments. All conversion, validation, and file I/O logic lives in
+the CLI. A user who wants to reorganize their macro books before a gaming session,
+write a script to back them up, or add Macromog to a dotfiles setup can do so
+entirely through the CLI.
 
 YAML support is a secondary benefit — Lua 5.1 has no production-quality YAML
 library, but that would only matter if the addon were trying to parse files itself.

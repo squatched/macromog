@@ -164,14 +164,8 @@ Yes. Both the EN and JP clients use the same binary DAT format with Shift-JIS te
 
 ### Does Macromog handle macros with auto-translate in them?
 
-Yes. Macromog does not interpret them for you, but if you have macros with something like `/ma <Cure III> <t>` in them, that will get exported using special syntax `≺[07021203]≻` in the macro. This will import just fine too.
+Yes, for round-trips. On export, binary auto-translate tokens are converted to printable placeholders like `≺[07021203]≻`. On import, those placeholders are converted back to the binary format the game expects. Macros with auto-translate export and import cleanly.
 
-### Does Macromog understand auto-translate tokens or help me to see what they are beyond their ID number?
+Macromog does not know what a token ID means — it cannot tell you that `07021203` is `<Cure III>`. There is no way to author a new auto-translate token from scratch in YAML without first exporting an existing macro that contains it.
 
-No. Macromog does not know that `≺[07021203]≻` is actually `<Cure III>` and there is currently no way to author an auto-translate token in YAML without first exporting it. If you happen to remember that `07021203` is the ID for the `Cure III` auto-translate token, then sure, feel free to type out `<[07021203]>` into your  macro to get `<Cure III>`, that will work! But Macromog can't help you make that association.
-
-**Hear This Well**: Should you decide to alter a line in a macro with an auto-translate token, macromog can _NOT_ ensure your macro fits within the line length limitations of macros. It's entirely up to you to ensure that the resulting macro line is less than the limit (60 characters, including each character in the token, so `<Dia>` counts for 3x chars and `<Good luck!>' counts for 10 but their token IDs are both 8 digits) and if you mess it up, we don't know for sure how the game client will react so _DO THIS AT YOUR OWN RISK._
-
-### Will Macromog appropriately handle length of macros with auto translate tokens in them?
-
-No. The FFXI game client knows that `07021203` is actually `<Cure III>` so it factors that into character limits for your macro lines. Since Macromog has no way of kknowing that, it can only assume that number is from the game client already so it will not validate their length.
+**Line-length caveat**: Macromog skips the 60-character line check for any line containing a `≺[...]≻` marker, because the game counts the *expanded* auto-translate text against that limit, not the placeholder. If you edit a line that contains auto-translate tokens, it is your responsibility to keep the expanded result within 60 characters — Macromog cannot verify this.

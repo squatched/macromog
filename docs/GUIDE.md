@@ -218,8 +218,8 @@ The addon's commands use file paths relative to `Windower4\addons\Macromog\data\
 ## Further Reading
 
 - [CLI Reference](CLI.md) — every command, flag, and output format in detail
+- [YAML Reference](YAML.md) — macro file and config.yml field-by-field schema
 - [FAQ](FAQ.md) — backups, recovery, and common mistakes
-- [SPEC.md](SPEC.md) — YAML schema and FFXI constraint reference
 - [WINE-PATHS.md](WINE-PATHS.md) — Linux and Wine path configuration
 
 Happy macro-wrangling, adventurer. Kupomog will be here if you need him, kupo!

@@ -164,7 +164,7 @@ Double-byte sequences use standard Shift-JIS lead/trail ranges. Trail byte `0x7F
 
 ### FFXI extension bytes
 
-The client embeds binary tokens inside macro text. On export, macromog converts them to printable placeholders (see [SPEC.md](SPEC.md#auto-translate-resource-markers) for YAML form).
+The client embeds binary tokens inside macro text. On export, macromog converts them to printable placeholders (see [CLI.md](CLI.md#auto-translate-markers) for YAML form).
 
 | Pattern | Meaning | Export placeholder |
 |---------|---------|-------------------|

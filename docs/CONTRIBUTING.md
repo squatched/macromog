@@ -230,8 +230,9 @@ Releases are fully automated — never push tags or edit `CHANGELOG.md` by hand.
 When releasable commits land on `main`, the Release Please bot opens (or updates) a
 **"Release vX.Y.Z" PR** that pre-writes the changelog entry and bumps `version.txt`
 (and `_addon.version` in `macromog.lua`). A maintainer merges it; that merge creates
-the tag and publishes the GitHub Release with `dist/macromog-<version>.zip` plus the
-`macromog`, `macromog.exe`, and the plugin zip attached automatically.
+the tag and publishes the GitHub Release with the plugin zip
+(`macromog-<version>.zip`) and the standalone CLI binaries
+(`macromog-linux-amd64`, `macromog-windows-386.exe`) attached automatically.
 
 **The semver bump comes from your commit type:**
 
