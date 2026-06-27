@@ -27,7 +27,7 @@ Feature complete! This was developed and tested on Linux though using the EN cli
 
 ### 1. Install
 
-1. Download the latest `Macromog.zip` from the [Releases](https://github.com/squatched/macromog/releases) page.
+1. Download the latest `Macromog-#.#.#.zip` from the [Releases](https://github.com/squatched/macromog/releases) page.
 2. Extract the `Macromog` folder into your Windower4 addons directory (e.g. `C:\Windower4\addons\Macromog\`).
 3. To auto-load Macromog every time you launch, add these two lines to `Windower4\scripts\init.txt`:
    ```
@@ -117,9 +117,9 @@ Your macros are updated, kupo! For CLI workflows, configuration details, and adv
 
 ## Documentation
 
-- [User Guide](docs/GUIDE.md) — CLI workflows, configuration system, advanced features
-- [CLI Reference](docs/CLI.md) — full command and flag reference
+- [User Guide](docs/GUIDE.md) — workflows, configuration system, advanced features
 - [FAQ](docs/FAQ.md) — backups, recovery, common mistakes
+- [CLI Reference](docs/CLI.md) — full command and flag reference
 - [Behavior specification](docs/SPEC.md) — YAML schema, CLI/plugin commands, constraints
 - [DAT file format](docs/DAT-FORMAT.md) — FFXI macro `.dat` and `.ttl` binary layout
 - [Contributing](docs/CONTRIBUTING.md) — setup, validation, PR workflow

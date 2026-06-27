@@ -3,7 +3,7 @@
 Welcome, adventurer! Kupomog here to walk you through everything Macromog can do for your macro library. Macromog is built around two components that share the same functionality and configuration:
 
 - **The Addon** — A Windower 4 addon for convenient in-game export, import, backup, and validation.
-- **The CLI** — A standalone (`macromog.exe` on Windows, `macromog` on Linux) for offline macro management, scripting, and multi-character workflows.
+- **The CLI** — A standalone (`macromog-windows-386.exe` on Windows, `macromog-linux-amd64` on Linux) for offline macro management, scripting, and multi-character workflows. It's recommended to rename them to something shorter, like `macromog.exe` for Windows or simply `macromog` for Linux to make things easier and clearer. The examples all assume you have done this.
 
 The addon bundles the CLI and delegates all heavy lifting to it. Both use the same config file, so characters registered in-game are immediately available to the CLI and vice versa. The advantage of this is that you can modify your macros without having to log into the game!
 

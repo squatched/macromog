@@ -10,11 +10,12 @@ Download the binary for your platform from the [Releases](https://github.com/squ
 
 | Platform | Binary |
 |----------|--------|
-| Windows (32-bit) | `macromog.exe` |
-| Linux (64-bit) | `macromog` |
+| Windows (32-bit) | `macromog-windows-386.exe` |
+| Linux (64-bit) | `macromog-linux-amd64` |
 
-FFXI is a 32-bit client, so the Windower plugin bundles `macromog.exe`. Linux
-releases target amd64 only.
+FFXI is a 32-bit client, so the Windower plugin bundles `macromog-windows-386.exe` as `macromog.exe`. Linux
+releases target amd64 only. These examples assume that you have renamed the CLI to something simpler, like
+`macromog.exe` on Windows or `macromog` on Linux.
 
 ---
 

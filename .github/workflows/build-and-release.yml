@@ -43,13 +43,16 @@ jobs:
       - name: Validate Plugin Package
         run: make validate-plugin-package
 
-      # List artifacts for verification
-      - name: List Generated Artifacts
+      # Prepare and list artifacts for verification
+      - name: Prepare and List Generated Artifacts
         run: |
-          echo "=== dist/bin ==="
-          ls -lh dist/bin/
-          echo "=== dist/*.zip ==="
-          ls -lh dist/*.zip
+          mkdir artifacts
+          cp dist/bin/macromog artifacts/macromog-linux-amd64
+          cp dist/bin/macromog.exe artifacts/macromog-windows-386.exe
+          cp dist/macromog-*.zip artifacts/
+
+          echo "=== artifacts ==="
+          ls -lh artifacts/
 
       # Create GitHub Release
       - name: Create GitHub Release
@@ -65,8 +68,8 @@ jobs:
       - name: Upload to Release
         run: |
           gh release upload "${{ steps.version.outputs.tag }}" \
-            "dist/macromog-${{ steps.version.outputs.tag }}.zip" \
-            dist/bin/macromog \
-            dist/bin/macromog.exe
+            "artifacts/macromog-${{ steps.version.outputs.tag }}.zip" \
+            artifacts/macromog-linux-amd64 \
+            artifacts/macromog-windows-386.exe
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
